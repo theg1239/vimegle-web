@@ -30,6 +30,7 @@ export default function TextChat({ messages, onSendMessage, connected }: TextCha
 
   return (
     <div className="h-full flex flex-col bg-black/30 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl">
+      {/* Chat messages area */}
       <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
         {messages.map((msg, index) => (
           <motion.div
@@ -50,6 +51,7 @@ export default function TextChat({ messages, onSendMessage, connected }: TextCha
         ))}
       </ScrollArea>
 
+      {/* Input area */}
       <div className="p-4 bg-black/50">
         <div className="flex">
           <Input
