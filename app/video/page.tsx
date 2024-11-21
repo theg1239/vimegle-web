@@ -1,3 +1,4 @@
+// video/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -33,21 +34,22 @@ export default function ChatPage() {
   useEffect(() => {
     const getMedia = async () => {
       try {
+        const connection = navigator.connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+        let videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
+
+        if (connection) {
+          if (connection.downlink < 1) { // less than 1 Mbps
+            videoConstraints = { width: { ideal: 640 }, height: { ideal: 480 } };
+          }
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
-          video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+          video: videoConstraints,
         });
         setLocalStream(stream);
       } catch (err) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: true, 
-          });
-          setLocalStream(stream);
-        } catch (error) {
-          toast.error('Failed to access microphone and camera.');
-        }
+        toast.error('Failed to access microphone and camera.');
       }
     };
 
@@ -72,6 +74,7 @@ export default function ChatPage() {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
+            // Add TURN servers here if needed
           ],
         },
         stream: localStream,
