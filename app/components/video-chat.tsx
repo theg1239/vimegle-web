@@ -1,5 +1,4 @@
-// app/components/video-chat.tsx
-
+// VideoChat.tsx
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -9,7 +8,7 @@ interface VideoChatProps {
   connected: boolean;
   remoteStream: MediaStream | null;
   isSearching: boolean;
-  searchCancelled: boolean; // New prop
+  searchCancelled: boolean; 
 }
 
 const overlayVariants = {
@@ -17,7 +16,7 @@ const overlayVariants = {
   visible: { opacity: 1 },
 };
 
-export default React.memo(function VideoChat({ remoteVideoRef, connected, remoteStream, isSearching, searchCancelled }: VideoChatProps) {
+const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remoteVideoRef, connected, remoteStream, isSearching, searchCancelled }) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       console.log('Assigning remote stream to video element.');
@@ -46,7 +45,7 @@ export default React.memo(function VideoChat({ remoteVideoRef, connected, remote
         ref={remoteVideoRef}
         autoPlay
         playsInline
-        className="w-full h-full object-cover transform scale-x-[-1]" // Mirror the remote video
+        className="w-full h-full object-cover transform scale-x-[-1]" 
         aria-label="Remote Video"
       />
 
@@ -57,7 +56,7 @@ export default React.memo(function VideoChat({ remoteVideoRef, connected, remote
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
               <p className="text-2xl font-bold">Searching for a match...</p>
             </div>
-          ) : searchCancelled ? ( // New condition
+          ) : searchCancelled ? ( 
             <p className="text-lg">Search cancelled. Click "Next Chat" to find a new match.</p>
           ) : (
             <p className="text-lg">Remote video unavailable</p>
@@ -66,7 +65,7 @@ export default React.memo(function VideoChat({ remoteVideoRef, connected, remote
       )}
 
       <AnimatePresence>
-        {!isSearching && !connected && !searchCancelled && ( // Exclude searchCancelled
+        {!isSearching && !connected && !searchCancelled && ( 
           <motion.div
             initial="hidden"
             animate="visible"
@@ -89,3 +88,5 @@ export default React.memo(function VideoChat({ remoteVideoRef, connected, remote
     </div>
   );
 });
+
+export default VideoChat;
