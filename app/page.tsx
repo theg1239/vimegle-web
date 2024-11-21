@@ -1,4 +1,4 @@
-// pages/chat.tsx
+// app/page.tsx
 
 'use client';
 
@@ -18,25 +18,24 @@ export default function ChatPage() {
   const [isSearching, setIsSearching] = useState(true);
   const [room, setRoom] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null); // Added state for local stream
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Function to start searching for a match
   const startSearch = useCallback(() => {
     setIsSearching(true);
     socket.emit('find');
   }, []);
 
-  // Get user media on component mount
   useEffect(() => {
     const getMedia = async () => {
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-        console.log('Local audio stream obtained');
-        // If you implement audio-only, proceed without setting a local video
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true }); // Request both audio and video
+        setLocalStream(stream); // Store the local stream
+        console.log('Local audio and video stream obtained');
       } catch (error) {
-        console.error('Error accessing microphone:', error);
-        toast.error('Failed to access microphone.');
+        console.error('Error accessing media devices:', error);
+        toast.error('Failed to access microphone or camera.');
       }
     };
 
@@ -44,34 +43,44 @@ export default function ChatPage() {
     startSearch();
   }, [startSearch]);
 
-  // Handle socket events for matchmaking
   useEffect(() => {
     const handleMatch = ({ initiator, room }: { initiator: boolean; room: string }) => {
       setIsSearching(false);
       setRoom(room);
       toast.success('Match found!');
 
+      if (!localStream) {
+        console.error('Local stream is not available');
+        toast.error('Failed to get local media stream.');
+        return;
+      }
+
       const newPeer = new Peer({
         initiator,
-        trickle: true, // Enable trickle ICE for faster connections
+        trickle: true, 
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            // Add TURN servers here
             { 
-              urls: 'turn:your-turn-server.com',
-              username: 'your-username',
-              credential: 'your-credential',
+              urls: 'turn:your-turn-server.com', // Replace with your TURN server
+              username: 'your-username', // Replace with your TURN username
+              credential: 'your-credential', // Replace with your TURN credential
             },
           ],
         },
+        stream: localStream, // Pass the local stream
       });
 
       newPeer.on('signal', (data) => {
+        console.log('Sending signaling data:', data);
         socket.emit('signal', { room, data });
       });
 
       newPeer.on('stream', (stream) => {
+        console.log('Received remote stream:', stream);
+        stream.getTracks().forEach((track) => {
+          console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
+        });
         setRemoteStream(stream);
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = stream;
@@ -80,6 +89,7 @@ export default function ChatPage() {
 
       newPeer.on('connect', () => {
         setConnected(true);
+        console.log('Peer connected');
       });
 
       newPeer.on('error', (err) => {
@@ -100,6 +110,7 @@ export default function ChatPage() {
       });
 
       const handleSignal = (data: any) => {
+        console.log('Received signaling data:', data);
         newPeer.signal(data);
       };
 
@@ -123,8 +134,14 @@ export default function ChatPage() {
         socket.off('leave', handleLeave);
       };
 
-      newPeer.on('close', cleanup);
-      newPeer.on('destroy', cleanup);
+      newPeer.on('close', () => {
+        console.log('Peer connection closed');
+        cleanup();
+      });
+      newPeer.on('destroy', () => {
+        console.log('Peer connection destroyed');
+        cleanup();
+      });
 
       setPeer(newPeer);
     };
@@ -144,9 +161,8 @@ export default function ChatPage() {
         peer.destroy();
       }
     };
-  }, [peer, startSearch]);
+  }, [peer, startSearch, localStream]);
 
-  // Handle 'leave' event to ensure only active clients are connected
   useEffect(() => {
     socket.on('leave', () => {
       if (peer) {
@@ -166,7 +182,6 @@ export default function ChatPage() {
     };
   }, [peer, startSearch]);
 
-  // Function to find the next match with debounce
   const handleNext = useCallback(() => {
     if (isDebouncing) return;
 
@@ -185,14 +200,12 @@ export default function ChatPage() {
       startSearch();
     }
 
-    // Start debounce
     setIsDebouncing(true);
     setTimeout(() => {
       setIsDebouncing(false);
-    }, 2000); // 2-second debounce
+    }, 2000); 
   }, [peer, room, startSearch, isDebouncing]);
 
-  // Function to send a chat message
   const handleSendMessage = useCallback(
     (message: string) => {
       if (peer && connected && room) {

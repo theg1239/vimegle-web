@@ -19,7 +19,7 @@ const Hero: React.FC = () => {
           Vomegle
         </h1>
         <Link 
-          href="/chat" 
+          href="/" 
           className="inline-block px-10 py-4 text-xl font-medium text-white bg-white/10 rounded-full hover:bg-white/20 transition-all duration-300 backdrop-blur-sm hover:shadow-lg hover:scale-105"
         >
           Start
