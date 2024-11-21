@@ -30,17 +30,25 @@ export default function ChatPage() {
   useEffect(() => {
     const getMedia = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true }); // Request both audio and video
-        setLocalStream(stream); // Store the local stream
+        // Attempt to get both audio and video
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+        setLocalStream(stream);
         console.log('Local audio and video stream obtained');
-      } catch (error) {
-        console.error('Error accessing media devices:', error);
-        toast.error('Failed to access microphone or camera.');
+      } catch (err) {
+        console.warn('Video not available, requesting audio only', err);
+        try {
+          // Fallback to audio-only if video is not available
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          setLocalStream(stream);
+          console.log('Local audio only stream obtained');
+        } catch (error) {
+          console.error('Error accessing media devices:', error);
+          toast.error('Failed to access microphone.');
+        }
       }
     };
 
-    getMedia();
-    startSearch();
+    getMedia().then(startSearch);
   }, [startSearch]);
 
   useEffect(() => {
@@ -60,12 +68,7 @@ export default function ChatPage() {
         trickle: true, 
         config: {
           iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { 
-              urls: 'turn:your-turn-server.com', // Replace with your TURN server
-              username: 'your-username', // Replace with your TURN username
-              credential: 'your-credential', // Replace with your TURN credential
-            },
+            { urls: 'stun:stun.l.google.com:19302' }
           ],
         },
         stream: localStream, // Pass the local stream

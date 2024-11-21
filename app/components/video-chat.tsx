@@ -1,3 +1,5 @@
+// app/components/video-chat.tsx
+
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -17,7 +19,13 @@ const overlayVariants = {
 export default React.memo(function VideoChat({ remoteVideoRef, connected, remoteStream, isSearching }: VideoChatProps) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
+      console.log('Assigning remote stream to video element');
       remoteVideoRef.current.srcObject = remoteStream;
+
+      // Log remote stream tracks
+      remoteStream.getTracks().forEach((track) => {
+        console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
+      });
 
       remoteVideoRef.current.onloadedmetadata = () => {
         remoteVideoRef.current?.play().catch((e) => console.error('Error playing remote video:', e));
@@ -36,6 +44,7 @@ export default React.memo(function VideoChat({ remoteVideoRef, connected, remote
           ref={remoteVideoRef}
           autoPlay
           playsInline
+          muted // Optional: mute to prevent echo and comply with autoplay policies
           className="w-full h-full object-cover"
         />
       ) : (
