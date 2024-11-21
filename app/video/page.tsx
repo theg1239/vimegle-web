@@ -28,41 +28,25 @@ export default function ChatPage() {
     setIsSearching(true);
     setSearchCancelled(false);
     socket.emit('find');
-    console.log('Emitted "find" event to server.');
   }, []);
 
   useEffect(() => {
     const getMedia = async () => {
       try {
-        console.log('Attempting to get high-resolution audio and video streams...');
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
-          video: { width: { ideal: 1920 }, height: { ideal: 1080 } }, 
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
         });
         setLocalStream(stream);
-        console.log('Local high-resolution audio and video stream obtained.');
       } catch (err) {
-        console.warn('High-resolution stream acquisition failed. Attempting to get 720p...', err);
         try {
           const stream = await navigator.mediaDevices.getUserMedia({
             audio: true,
-            video: { width: { ideal: 1280 }, height: { ideal: 720 } }, 
+            video: true, 
           });
           setLocalStream(stream);
-          console.log('Local 720p audio and video stream obtained.');
         } catch (error) {
-          console.warn('720p stream acquisition failed. Attempting to get default video stream...', error);
-          try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-              audio: true,
-              video: true, 
-            });
-            setLocalStream(stream);
-            console.log('Local default audio and video stream obtained.');
-          } catch (finalError) {
-            console.error('Audio and video stream acquisition failed:', finalError);
-            toast.error('Failed to access microphone and camera.');
-          }
+          toast.error('Failed to access microphone and camera.');
         }
       }
     };
@@ -72,14 +56,12 @@ export default function ChatPage() {
 
   useEffect(() => {
     const handleMatch = ({ initiator, room }: { initiator: boolean; room: string }) => {
-      console.log(`Received 'match' event. Initiator: ${initiator}, Room: ${room}`);
       setIsSearching(false);
       setRoom(room);
       setSearchCancelled(false);
       toast.success('Match found!');
 
       if (!localStream) {
-        console.error('Local stream is not available.');
         toast.error('Failed to get local media stream.');
         return;
       }
@@ -96,23 +78,19 @@ export default function ChatPage() {
       });
 
       newPeer.on('signal', (data) => {
-        console.log('Sending signaling data:', data);
         socket.emit('signal', { room, data });
       });
 
       newPeer.on('stream', (stream) => {
-        console.log("Remote stream received:", stream);
         setRemoteStream(stream);
       });
 
       newPeer.on('connect', () => {
         setConnected(true);
         setIsDisconnected(false);
-        console.log('Peer connection established.');
       });
 
-      newPeer.on('error', (err) => {
-        console.error('Peer connection error:', err);
+      newPeer.on('error', () => {
         toast.error('Connection lost. Trying to find a new match...');
         handleNext();
       });
@@ -122,21 +100,17 @@ export default function ChatPage() {
           const parsedData = JSON.parse(data as string);
           if (parsedData.type === 'chat') {
             setMessages((prev) => [...prev, { text: parsedData.message, isSelf: false }]);
-            console.log('Received chat message:', parsedData.message);
           }
-        } catch (e) {
-          console.error('Error parsing received data:', e);
+        } catch {
+          // Handle parsing error silently
         }
       });
 
       const handleSignal = (data: any) => {
-        console.log('Received signaling data from server:', data);
         newPeer.signal(data);
       };
 
       const handleLeave = () => {
-        console.log('Peer has left the chat.');
-        toast.error('Your match has left the chat.');
         newPeer.destroy();
         setPeer(null);
         setConnected(false);
@@ -157,12 +131,10 @@ export default function ChatPage() {
       };
 
       newPeer.on('close', () => {
-        console.log('Peer connection closed.');
         cleanup();
         setIsDisconnected(true); 
       });
       newPeer.on('destroy', () => {
-        console.log('Peer connection destroyed.');
         cleanup();
         setIsDisconnected(true); 
       });
@@ -171,14 +143,12 @@ export default function ChatPage() {
     };
 
     const handleNoMatch = ({ message }: { message: string }) => {
-      console.log('No match found:', message);
       setIsSearching(false);
       setSearchCancelled(false);
       toast.error(message);
     };
 
     const handleSearchCancelled = ({ message }: { message: string }) => {
-      console.log('Search cancelled:', message);
       setIsSearching(false);
       setSearchCancelled(true);
       infoToast(message); 
@@ -195,7 +165,6 @@ export default function ChatPage() {
       socket.off('no_match', handleNoMatch);
       socket.off('search_cancelled', handleSearchCancelled);
       if (peer) {
-        console.log('Destroying peer connection during cleanup.');
         peer.destroy();
       }
     };
@@ -203,7 +172,6 @@ export default function ChatPage() {
 
   useEffect(() => {
     const handleLeave = () => {
-      console.log('Received "leave" event from server.');
       if (peer) {
         peer.destroy();
       }
@@ -227,7 +195,6 @@ export default function ChatPage() {
   const handleNext = useCallback(() => {
     if (isDebouncing) return;
 
-    console.log('Finding next match...');
     if (peer) {
       peer.destroy();
     }
@@ -239,7 +206,6 @@ export default function ChatPage() {
 
     if (room) {
       socket.emit('next', { room });
-      console.log(`Emitted "next" event to leave room ${room} and find a new match.`);
       setRoom(null);
     } else {
       startSearch();
@@ -254,7 +220,6 @@ export default function ChatPage() {
   const handleCancelSearch = useCallback(() => {
     if (isDebouncing) return;
 
-    console.log('Cancelling search...');
     socket.emit('cancel_search');
     setIsSearching(false);
     setSearchCancelled(true);
@@ -271,7 +236,6 @@ export default function ChatPage() {
       if (peer && connected && room) {
         peer.send(JSON.stringify({ type: 'chat', message }));
         setMessages((prev) => [...prev, { text: message, isSelf: true }]);
-        console.log('Sent chat message:', message);
       }
     },
     [peer, connected, room]
