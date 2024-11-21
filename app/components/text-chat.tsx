@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Button } from "@/app/components/ui/button";
-import { Input } from "./ui/input";
-import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send } from 'lucide-react';
+// app/components/text-chat.tsx
+
+import React, { useState, FormEvent } from 'react';
 
 interface TextChatProps {
   messages: { text: string; isSelf: boolean }[];
@@ -11,76 +8,51 @@ interface TextChatProps {
   connected: boolean;
 }
 
-const messageVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0 },
-};
-
 export default function TextChat({ messages, onSendMessage, connected }: TextChatProps) {
-  const [message, setMessage] = useState('');
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [input, setInput] = useState('');
 
-  const handleSend = () => {
-    if (message.trim()) {
-      onSendMessage(message.trim());
-      setMessage('');
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (input.trim() !== '') {
+      onSendMessage(input.trim());
+      setInput('');
     }
   };
 
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   return (
-    <div className="h-full flex flex-col bg-black/30 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl">
-      <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
-        <AnimatePresence>
-          {messages.map((msg, index) => (
-            <motion.div
-              key={index}
-              initial="hidden"
-              animate="visible"
-              exit="hidden"
-              variants={messageVariants}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-              className={`mb-2 ${
-                msg.isSelf ? 'text-right' : 'text-left'
-              }`}
-            >
-              <span
-                className={`inline-block p-2 rounded-lg ${
-                  msg.isSelf ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
-                }`}
-              >
-                {msg.text}
-              </span>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </ScrollArea>
-      <div className="p-4 bg-black/50">
-        <div className="flex">
-          <Input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
-            disabled={!connected}
-            className="flex-grow mr-2 bg-white/10 border-white/20 text-white placeholder-white/50"
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!connected}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
-            aria-label="Send Message"
+    <div className="flex flex-col h-full bg-black/30 backdrop-blur-sm rounded-xl p-4 shadow-2xl overflow-hidden">
+      <div className="flex-grow overflow-y-auto mb-4">
+        {messages.map((msg, index) => (
+          <div
+            key={index}
+            className={`mb-2 p-2 rounded ${
+              msg.isSelf ? 'bg-blue-500 text-white self-end' : 'bg-gray-700 text-white self-start'
+            }`}
           >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
+            {msg.text}
+          </div>
+        ))}
       </div>
+      {connected && (
+        <form onSubmit={handleSubmit} className="flex">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="flex-grow p-2 rounded-l bg-gray-800 text-white focus:outline-none"
+            placeholder="Type your message..."
+          />
+          <button
+            type="submit"
+            className="p-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 focus:outline-none"
+          >
+            Send
+          </button>
+        </form>
+      )}
+      {!connected && (
+        <p className="text-center text-gray-400">Connecting to start chatting...</p>
+      )}
     </div>
   );
 }

@@ -19,36 +19,39 @@ const overlayVariants = {
 export default React.memo(function VideoChat({ remoteVideoRef, connected, remoteStream, isSearching }: VideoChatProps) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      console.log('Assigning remote stream to video element');
+      console.log('Assigning remote stream to video element.');
       remoteVideoRef.current.srcObject = remoteStream;
 
-      // Log remote stream tracks
+      // Debugging: Log available tracks
       remoteStream.getTracks().forEach((track) => {
         console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
       });
 
       remoteVideoRef.current.onloadedmetadata = () => {
+        console.log('Remote video metadata loaded.');
         remoteVideoRef.current?.play().catch((e) => console.error('Error playing remote video:', e));
       };
 
       remoteVideoRef.current.onerror = (e) => {
         console.error('Remote video error:', e);
       };
+    } else {
+      console.warn('remoteVideoRef is not initialized or remoteStream is null.');
     }
   }, [remoteStream, remoteVideoRef]);
 
   return (
     <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30 backdrop-blur-sm">
-      {connected && remoteStream ? (
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          muted // Optional: mute to prevent echo and comply with autoplay policies
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="flex items-center justify-center h-full text-white">
+      {/* The video element always exists, even if disconnected */}
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        className="w-full h-full object-cover"
+      />
+
+      {(!connected || !remoteStream) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
           {isSearching ? (
             <div className="flex flex-col items-center">
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
