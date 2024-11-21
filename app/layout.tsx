@@ -1,5 +1,6 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
+import MaintenanceOverlay from '@/app/components/maintenance-overlay';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -9,10 +10,13 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const isMaintenance = process.env.MAINTENANCE_MODE === 'true';
+
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-black text-white`}>
-          {children}
+      <body className={`${inter.className} bg-black text-white relative`}>
+        {children}
+        {isMaintenance && <MaintenanceOverlay />}
       </body>
     </html>
   );
