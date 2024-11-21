@@ -1,6 +1,9 @@
-// app/components/text-chat.tsx
-
-import React, { useState, FormEvent } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { ScrollArea } from "@/app/components/ui/scroll-area";
+import { motion } from 'framer-motion';
+import { Send } from 'lucide-react';
 
 interface TextChatProps {
   messages: { text: string; isSelf: boolean }[];
@@ -9,50 +12,64 @@ interface TextChatProps {
 }
 
 export default function TextChat({ messages, onSendMessage, connected }: TextChatProps) {
-  const [input, setInput] = useState('');
+  const [message, setMessage] = useState('');
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (input.trim() !== '') {
-      onSendMessage(input.trim());
-      setInput('');
+  const handleSend = () => {
+    if (message.trim()) {
+      onSendMessage(message.trim());
+      setMessage('');
     }
   };
 
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   return (
-    <div className="flex flex-col h-full bg-black/30 backdrop-blur-sm rounded-xl p-4 shadow-2xl overflow-hidden">
-      <div className="flex-grow overflow-y-auto mb-4">
+    <div className="h-full flex flex-col bg-black/30 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl">
+      <ScrollArea className="flex-grow p-4" ref={scrollAreaRef}>
         {messages.map((msg, index) => (
-          <div
+          <motion.div
             key={index}
-            className={`mb-2 p-2 rounded ${
-              msg.isSelf ? 'bg-blue-500 text-white self-end' : 'bg-gray-700 text-white self-start'
-            }`}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ duration: 0.2 }} // Faster animation time
+            className={`mb-2 ${msg.isSelf ? 'text-right' : 'text-left'}`}
           >
-            {msg.text}
-          </div>
+            <span
+              className={`inline-block p-2 rounded-lg ${
+                msg.isSelf ? 'bg-blue-600 text-white' : 'bg-gray-700 text-white'
+              }`}
+            >
+              {msg.text}
+            </span>
+          </motion.div>
         ))}
-      </div>
-      {connected && (
-        <form onSubmit={handleSubmit} className="flex">
-          <input
+      </ScrollArea>
+
+      <div className="p-4 bg-black/50">
+        <div className="flex">
+          <Input
             type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="flex-grow p-2 rounded-l bg-gray-800 text-white focus:outline-none"
-            placeholder="Type your message..."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder="Type a message..."
+            disabled={!connected}
+            className="flex-grow mr-2 bg-white/10 border-white/20 text-white placeholder-white/50"
           />
-          <button
-            type="submit"
-            className="p-2 bg-blue-600 text-white rounded-r hover:bg-blue-700 focus:outline-none"
+          <Button
+            onClick={handleSend}
+            disabled={!connected}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            Send
-          </button>
-        </form>
-      )}
-      {!connected && (
-        <p className="text-center text-gray-400">Connecting to start chatting...</p>
-      )}
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

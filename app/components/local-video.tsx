@@ -24,14 +24,14 @@ const LocalVideo: React.FC<LocalVideoProps> = ({ localStream }) => {
       {hasVideo ? (
         <video
           ref={videoRef}
-          className="w-full h-auto bg-black"
+          className="w-full h-full object-cover transform scale-x-[-1]" 
           autoPlay
           playsInline
           muted
           aria-label="Local Video"
         />
       ) : (
-        <div className="w-full h-auto bg-gray-800 flex items-center justify-center">
+        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
           <p className="text-white">No Video Available</p>
         </div>
       )}

@@ -1,26 +1,10 @@
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
-const SOCKET_URL = 'https://socket-vomegle-3829a22c3f54.herokuapp.com/';
+const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3001';
 
-const socket: Socket = io(SOCKET_URL, {
-  transports: ['websocket'],
-  upgrade: false,
-  reconnection: true,
-  reconnectionAttempts: 5,
-  reconnectionDelay: 1000,
-  reconnectionDelayMax: 5000,
-});
-
-socket.on('ping', () => {
-  socket.emit('pong');
-});
-
-socket.on('reconnect_attempt', () => {
-  console.log('Attempting to reconnect to the server...');
-});
-
-socket.on('reconnect_failed', () => {
-  console.error('Reconnection attempts failed.');
+const socket = io(`${SERVER_URL}/text`, {
+  autoConnect: false, 
+  withCredentials: true,
 });
 
 export default socket;

@@ -5,7 +5,7 @@ import { ThemeProvider } from 'next-themes';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Vomegle - Random Video Chat',
+  title: 'Vimegle - Random Video Chat',
   description: 'Connect with strangers through video and text chat',
 };
 
