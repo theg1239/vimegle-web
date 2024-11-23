@@ -15,12 +15,12 @@ export default function ChatPage() {
   const [connected, setConnected] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>([]);
-  const [isSearching, setIsSearching] = useState(false); 
+  const [isSearching, setIsSearching] = useState(false);
   const [room, setRoom] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [searchCancelled, setSearchCancelled] = useState(false);
-  const [noUsersOnline, setNoUsersOnline] = useState(false); 
+  const [noUsersOnline, setNoUsersOnline] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false); 
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null); 
@@ -30,7 +30,7 @@ export default function ChatPage() {
   const startSearch = useCallback(() => {
     setIsSearching(true);
     setSearchCancelled(false);
-    setNoUsersOnline(false);
+    setNoUsersOnline(false); 
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('find');
       console.log('Emitted "find" event');
@@ -50,11 +50,14 @@ export default function ChatPage() {
         let videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
 
         if (connection) {
+          console.log('Connection downlink speed:', connection.downlink);
           if (connection.downlink < 1) { // less than 1 Mbps
             videoConstraints = { width: { ideal: 640 }, height: { ideal: 480 } };
+            console.log('Adjusting video constraints to lower resolution due to low bandwidth.');
           }
         }
 
+        console.log('Requesting media stream with constraints:', videoConstraints);
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: videoConstraints,
@@ -98,13 +101,41 @@ export default function ChatPage() {
         return;
       }
 
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+      }
+
       const newPeer = new Peer({
         initiator,
-        trickle: false, 
+        trickle: true, 
         stream: localStream,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
+            {
+              urls: "stun:stun.relay.metered.ca:80",
+            },
+            {
+              urls: "turn:in.relay.metered.ca:80",
+              username: "873134b2f07cf74609503c68",
+              credential: "NC0vVLMMDkFYtVO6",
+            },
+            {
+              urls: "turn:in.relay.metered.ca:80?transport=tcp",
+              username: "873134b2f07cf74609503c68",
+              credential: "NC0vVLMMDkFYtVO6",
+            },
+            {
+              urls: "turn:in.relay.metered.ca:443",
+              username: "873134b2f07cf74609503c68",
+              credential: "NC0vVLMMDkFYtVO6",
+            },
+            {
+              urls: "turns:in.relay.metered.ca:443?transport=tcp",
+              username: "873134b2f07cf74609503c68",
+              credential: "NC0vVLMMDkFYtVO6",
+            },
           ],
         },
       });
