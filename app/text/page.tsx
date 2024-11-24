@@ -210,17 +210,17 @@ export default function TextChatPage() {
   const handleTypingDebounced = useRef(debounce(handleTyping, 500)).current;
 
   const handleNext = () => {
-    if (connected && currentRoom) {
-      setConnected(false);
-      setMessages([]);
-      setIsSearching(true);
-      setShowIntroMessage(true);
-      setNoUsersOnline(false);
-      setCurrentRoom('');
-      setIsDisconnected(false);
+    setConnected(false);
+    setMessages([]);
+    setIsSearching(true);
+    setShowIntroMessage(true);
+    setNoUsersOnline(false);
+    setCurrentRoom('');
+    setIsDisconnected(false); 
+    if (currentRoom) {
       textSocket.emit('nextTextChat', { room: currentRoom });
-      textSocket.emit('findTextMatch');
     }
+    textSocket.emit('findTextMatch');
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData, event: MouseEvent) => {
