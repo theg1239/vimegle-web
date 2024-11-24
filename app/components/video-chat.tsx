@@ -1,4 +1,3 @@
-// VideoChat.tsx
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
@@ -59,7 +58,7 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remo
           ) : searchCancelled ? ( 
             <p className="text-lg">Search cancelled. Click "Next Chat" to find a new match.</p>
           ) : (
-            <p className="text-lg">Remote video unavailable</p>
+            <p className="text-lg"></p>
           )}
         </div>
       )}

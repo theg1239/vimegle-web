@@ -6,7 +6,7 @@ import { Button } from "@/app/components/ui/button"
 import { Input } from "@/app/components/ui/input"
 import { ScrollArea } from "@/app/components/ui/scroll-area"
 import { Toaster, toast } from 'react-hot-toast'
-import { ArrowLeft, Send, Smile, Video, Heart, ThumbsUp, HelpCircle, Flag, AlertTriangle, Settings } from 'lucide-react'
+import { ArrowLeft, Send, Smile, Video, Heart, ThumbsUp, HelpCircle, Flag, AlertTriangle, Settings, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { textSocket } from '@/lib/socket' 
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
@@ -39,6 +39,7 @@ export default function TextChatPage() {
   const [currentRoom, setCurrentRoom] = useState<string>('')
   const [hasInteracted, setHasInteracted] = useState(false)
   const [isDisconnected, setIsDisconnected] = useState(false)
+  const [noUsersOnline, setNoUsersOnline] = useState(false)
   
   const soundEnabledRef = useRef(soundEnabled)
   const hasInteractedRef = useRef(hasInteracted)
@@ -75,6 +76,7 @@ export default function TextChatPage() {
     const handleTextMatch = ({ room, initiator }: { room: string, initiator: boolean }) => {
       setConnected(true);
       setIsSearching(false);
+      setNoUsersOnline(false);
       setCurrentRoom(room);
       setShowIntroMessage(true);
       toast.success('Connected to a stranger!');
@@ -96,6 +98,7 @@ export default function TextChatPage() {
 
     const handleNoTextMatch = ({ message }: { message: string }) => {
       setIsSearching(false);
+      setNoUsersOnline(true);
       toast.error(message);
     };
 
@@ -180,6 +183,7 @@ export default function TextChatPage() {
       setMessages([]);
       setIsSearching(true);
       setShowIntroMessage(true);
+      setNoUsersOnline(false); 
       setCurrentRoom('');
       setIsDisconnected(false); 
       textSocket.emit('nextTextChat', { room: currentRoom });
@@ -253,36 +257,85 @@ export default function TextChatPage() {
       <Toaster position="top-center" />
       
       <AnimatePresence>
-  {isDisconnected && (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 flex items-center justify-center z-50"
-    >
-      <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 0.5 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="absolute inset-0 bg-black"
-      />
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.8, opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg z-10 max-w-sm w-full`}
-      >
-        <h2 className="text-xl font-bold mb-4">Stranger Disconnected</h2>
-        <p className="mb-4">Your chat partner has left the conversation.</p>
-        <Button onClick={handleNext} className="w-full">
-          Start a New Chat
-        </Button>
-      </motion.div>
-    </motion.div>
-  )}
-</AnimatePresence>
+        {isSearching && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg"
+            >
+              <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
+              <p className="text-2xl font-bold text-gray-700 dark:text-gray-200">Searching for a match...</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal: No Users Online */}
+      <AnimatePresence>
+        {noUsersOnline && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg"
+            >
+              <p className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-4">No Users Online</p>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">There are currently no users available to chat. Please try again later.</p>
+              <Button 
+                onClick={() => {
+                  setNoUsersOnline(false)
+                  textSocket.emit('findTextMatch')
+                  setIsSearching(true)
+                }} 
+                className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded"
+              >
+                Retry Search
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Disconnected Modal */}
+      <AnimatePresence>
+        {isDisconnected && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg z-10 max-w-sm w-full`}
+            >
+              <h2 className="text-xl font-bold mb-4">Stranger Disconnected</h2>
+              <p className="mb-4">Your chat partner has left the conversation.</p>
+              <Button onClick={handleNext} className="w-full">
+                Start a New Chat
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <header className={`${darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'} border-b p-4 flex justify-between items-center`}>
         <div className="flex items-center space-x-4">
@@ -291,51 +344,50 @@ export default function TextChatPage() {
           </Link>
           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">Vimegle</h1>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button 
-            onClick={handleNext} 
-            variant={darkMode ? "outline" : "default"}
-            className={`${darkMode ? 'bg-white/10 hover:bg-white/20 text-white border-white/20' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
-            disabled={isSearching || !connected}
-          >
-            {isSearching ? 'Searching...' : 'Next Chat'}
-          </Button>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="ghost" className={`${darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'}`}>
-                <Settings className="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className={`w-80 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}>
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Settings</h4>
-                  <p className="text-sm text-muted-foreground">Customize your chat experience</p>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="dark-mode">Dark Mode</Label>
-                  <Switch
-                    id="dark-mode"
-                    checked={darkMode}
-                    onCheckedChange={setDarkMode}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="sound">Sound</Label>
-                  <Switch
-                    id="sound"
-                    checked={soundEnabled}
-                    onCheckedChange={setSoundEnabled}
-                  />
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+        <div className="flex space-x-2">
+          {isSearching ? (
+            <Button
+              onClick={() => {
+                textSocket.emit('cancel_search')
+                setIsSearching(false)
+                setNoUsersOnline(false)
+                toast('Search cancelled.')
+              }}
+              variant="outline"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              disabled={false} 
+              aria-label="Cancel Search"
+            >
+              Cancel Search
+            </Button>
+          ) : connected ? (
+            <Button
+              onClick={handleNext}
+              variant="outline"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              disabled={false} 
+              aria-label="Next Chat"
+            >
+              Next Chat
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                textSocket.emit('findTextMatch')
+                setIsSearching(true)
+              }}
+              variant="outline"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              disabled={false} 
+              aria-label="Find Match"
+            >
+              Find Match
+            </Button>
+          )}
         </div>
       </header>
       
-      <main className={`flex-grow flex flex-col p-4 overflow-hidden ${darkMode ? 'bg-gradient-to-b from-gray-800 to-gray-900' : 'bg-gradient-to-b from-gray-100 to-white'} ${isDisconnected ? 'blur-sm pointer-events-none' : ''}`}>
+      <main className={`flex-grow flex flex-col p-4 overflow-hidden ${darkMode ? 'bg-gradient-to-b from-gray-800 to-gray-900' : 'bg-gradient-to-b from-gray-100 to-white'}`}>
         <ScrollArea className="flex-grow mb-4 pr-4" ref={scrollAreaRef}>
           {showIntroMessage && connected && (
             <motion.div
@@ -414,6 +466,13 @@ export default function TextChatPage() {
                     </Button>
                   </div>
                 )}
+                {/* 
+                {!msg.isSelf && (
+                  <div className="tooltip" data-tip="React to this message">
+                    <Button ... />
+                  </div>
+                )}
+                */}
               </motion.div>
             ))}
           </AnimatePresence>
@@ -466,7 +525,7 @@ export default function TextChatPage() {
               <EmojiPicker 
                 onEmojiClick={handleEmojiClick} 
                 theme={darkMode ? Theme.DARK : Theme.LIGHT} 
-                />
+              />
             </div>
           )}
         </div>
@@ -483,22 +542,32 @@ export default function TextChatPage() {
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" className={`${darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'}`}>
-                <HelpCircle className="w-5 h-5" />
+                <Settings className="w-5 h-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className={`w-80 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}>
               <div className="grid gap-4">
                 <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Help & Guidelines</h4>
-                  <p className="text-sm">Stay safe and respectful while chatting:</p>
+                  <h4 className="font-medium leading-none">Settings</h4>
+                  <p className="text-sm text-muted-foreground">Customize your chat experience</p>
                 </div>
                 <Separator />
-                <ul className="list-disc list-inside text-sm space-y-1">
-                  <li>Be kind and respectful to others</li>
-                  <li>Don't share personal information</li>
-                  <li>Report any inappropriate behavior</li>
-                  <li>Have fun and make new friends!</li>
-                </ul>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="dark-mode">Dark Mode</Label>
+                  <Switch
+                    id="dark-mode"
+                    checked={darkMode}
+                    onCheckedChange={setDarkMode}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="sound">Sound</Label>
+                  <Switch
+                    id="sound"
+                    checked={soundEnabled}
+                    onCheckedChange={setSoundEnabled}
+                  />
+                </div>
               </div>
             </PopoverContent>
           </Popover>

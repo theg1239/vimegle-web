@@ -10,6 +10,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import { infoToast } from '@/lib/toastHelpers'; 
 import { defaultSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
+import { ArrowLeft } from 'lucide-react';
 
 export default function ChatPage() {
   const [connected, setConnected] = useState(false);
@@ -92,6 +93,7 @@ export default function ChatPage() {
     const handleMatch = ({ initiator, room }: { initiator: boolean; room: string }) => {
       console.log('Match found!', { initiator, room });
       setIsSearching(false);
+      setConnected(true); 
       setRoom(room);
       setSearchCancelled(false);
       toast.success('Match found!');
@@ -338,7 +340,18 @@ export default function ChatPage() {
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black">
       <Toaster position="top-center" />
       <header className="bg-black/50 backdrop-blur-sm p-4 flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">Vimegle</h1>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => window.location.href = '/'} 
+            className="text-white hover:text-gray-300 transition-colors"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
+            Vimegle
+          </h1>
+        </div>
         <div className="flex space-x-2">
           {isSearching ? (
             <Button
@@ -350,27 +363,26 @@ export default function ChatPage() {
             >
               {isDebouncing ? 'Cancelling...' : 'Cancel Search'}
             </Button>
+          ) : connected ? (
+            <Button
+              onClick={handleNext}
+              variant="outline"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              disabled={isDebouncing}
+              aria-label="Next Chat"
+            >
+              {isDebouncing ? 'Processing...' : 'Next Chat'}
+            </Button>
           ) : (
-            <>
-              <Button
-                onClick={handleNext}
-                variant="outline"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                disabled={isSearching || isDebouncing}
-                aria-label="Find Next Chat"
-              >
-                {isDebouncing ? 'Processing...' : 'Next Chat'}
-              </Button>
-              <Button
-                onClick={startSearch}
-                variant="outline"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-                disabled={isSearching || isDebouncing}
-                aria-label="Find Match"
-              >
-                {isDebouncing ? 'Searching...' : 'Find Match'}
-              </Button>
-            </>
+            <Button
+              onClick={startSearch}
+              variant="outline"
+              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              disabled={isDebouncing}
+              aria-label="Find Match"
+            >
+              {isDebouncing ? 'Searching...' : 'Find Match'}
+            </Button>
           )}
         </div>
       </header>
@@ -381,7 +393,7 @@ export default function ChatPage() {
             connected={connected}
             remoteStream={remoteStream}
             isSearching={isSearching}
-            searchCancelled={searchCancelled || noUsersOnline} 
+            searchCancelled={searchCancelled || noUsersOnline}
           />
           <div className="absolute top-4 right-4 w-48 h-36 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500">
             <LocalVideo localStream={localStream} />
@@ -396,7 +408,7 @@ export default function ChatPage() {
           />
         </div>
       </main>
-
+  
       {noUsersOnline && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white">
           <div className="text-center">
