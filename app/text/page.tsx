@@ -63,6 +63,23 @@ export default function TextChatPage() {
   }, [currentRoom])
 
   useEffect(() => {
+    const handlePeerDisconnected = ({ message }: { message: string }) => {
+      console.log('Peer disconnected:', message);
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setIsDisconnected(true);
+      toast.error(message || 'Your chat partner has disconnected.');
+    };
+  
+    textSocket.on('peerDisconnected', handlePeerDisconnected);
+  
+    return () => {
+      textSocket.off('peerDisconnected', handlePeerDisconnected);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!textSocket) {
       console.error('Text Socket not initialized');
       return;
@@ -403,6 +420,38 @@ export default function TextChatPage() {
             </motion.div>
           )}
           <AnimatePresence>
+  {isDisconnected && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
+    >
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg"
+      >
+        <h2 className="text-xl font-bold mb-4">Stranger Disconnected</h2>
+        <p className="mb-4">Your chat partner has left the conversation.</p>
+        <Button
+          onClick={() => {
+            setIsDisconnected(false);
+            textSocket.emit('findTextMatch');
+            setIsSearching(true);
+          }}
+          className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded"
+        >
+          Start a New Chat
+        </Button>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
+          <AnimatePresence>
             {messages.map((msg) => (
               <motion.div
                 key={msg.id}
@@ -430,7 +479,7 @@ export default function TextChatPage() {
                     </div>
                   )}
                 </div>
-                {!msg.isSelf && (
+                {/* {!msg.isSelf && (
                   <div className="mt-1 flex space-x-2">
                     <Button 
                       size="sm" 
@@ -465,7 +514,7 @@ export default function TextChatPage() {
                       <AlertTriangle className={`w-4 h-4 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`} />
                     </Button>
                   </div>
-                )}
+                )} */}
                 {/* 
                 {!msg.isSelf && (
                   <div className="tooltip" data-tip="React to this message">

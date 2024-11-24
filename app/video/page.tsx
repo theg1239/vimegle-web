@@ -43,7 +43,28 @@ export default function ChatPage() {
       });
     }
   }, []);
-
+  useEffect(() => {
+    const handlePeerDisconnected = ({ message }: { message: string }) => {
+      console.log('Peer disconnected:', message);
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+      }
+      setConnected(false);
+      setRemoteStream(null);
+      setMessages([]);
+      setRoom(null);
+      setIsDisconnected(true);
+      toast.error(message || 'Your chat partner has disconnected.');
+    };
+  
+    socketRef.current?.on('peerDisconnected', handlePeerDisconnected);
+  
+    return () => {
+      socketRef.current?.off('peerDisconnected', handlePeerDisconnected);
+    };
+  }, []);
+  
   useEffect(() => {
     const getMedia = async () => {
       try {
@@ -419,6 +440,20 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+      {isDisconnected && (
+  <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white">
+    <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg">
+      <h2 className="text-xl font-bold mb-2">Stranger Disconnected</h2>
+      <p className="mb-4">Your chat partner has left the chat.</p>
+      <Button
+        onClick={startSearch}
+        className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded"
+      >
+        Find New Match
+      </Button>
+    </div>
+  </div>
+)}
     </div>
   );
 }

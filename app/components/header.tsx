@@ -24,11 +24,11 @@ const Header: React.FC = () => {
             Text
           </button>
         </Link>
-        {/* <Link href="/about">
+        <Link href="/about">
           <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-blue-500/10 rounded-lg transition-colors">
             About
           </button>
-        </Link> */}
+        </Link>
       </nav>
 
       <div className="flex-1"></div>
