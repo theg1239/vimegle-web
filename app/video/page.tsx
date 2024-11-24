@@ -143,27 +143,7 @@ export default function ChatPage() {
             { urls: 'stun:stun.l.google.com:19302' },
             {
               urls: 'stun:stun.relay.metered.ca:80',
-            },
-            {
-              urls: "turn:in.relay.metered.ca:80",
-              username: "f3768dd685f082dad757e89f",
-              credential: "EmETlCXVuBzvIoYp",
-            },
-            {
-              urls: "turn:in.relay.metered.ca:80?transport=tcp",
-              username: "f3768dd685f082dad757e89f",
-              credential: "EmETlCXVuBzvIoYp",
-            },
-            {
-              urls: "turn:in.relay.metered.ca:443",
-              username: "f3768dd685f082dad757e89f",
-              credential: "EmETlCXVuBzvIoYp",
-            },
-            {
-              urls: "turns:in.relay.metered.ca:443?transport=tcp",
-              username: "f3768dd685f082dad757e89f",
-              credential: "EmETlCXVuBzvIoYp",
-            },
+            }
           ],
         },
       });
