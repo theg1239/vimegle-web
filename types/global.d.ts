@@ -1,9 +1,8 @@
-// global.d.ts
 import { Socket } from 'socket.io-client';
 
 declare global {
   interface Window {
-    socket: Socket; // Changed from Socket | null to Socket
+    socket: Socket; 
   }
 
   interface Navigator {

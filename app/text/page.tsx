@@ -9,7 +9,7 @@ import { Toaster, toast } from 'react-hot-toast'
 import { ArrowLeft, Send, Smile, Video, Heart, ThumbsUp, HelpCircle, Flag, AlertTriangle, Settings } from 'lucide-react'
 import Link from 'next/link'
 import { textSocket } from '@/lib/socket' 
-import EmojiPicker, { EmojiClickData } from 'emoji-picker-react'
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { Popover, PopoverContent, PopoverTrigger } from "@/app/components/ui/popover"
 import { Separator } from "@/app/components/ui/separator"
 import { Switch } from "@/app/components/ui/switch"
@@ -465,8 +465,8 @@ export default function TextChatPage() {
             <div className="absolute bottom-16 right-4 z-10">
               <EmojiPicker 
                 onEmojiClick={handleEmojiClick} 
-                theme={darkMode ? 'dark' : 'light'} 
-              />
+                theme={darkMode ? Theme.DARK : Theme.LIGHT} 
+                />
             </div>
           )}
         </div>
