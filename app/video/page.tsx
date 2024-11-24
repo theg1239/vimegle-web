@@ -1,4 +1,4 @@
-// video/page.tsx
+// app/video/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -59,13 +59,13 @@ export default function ChatPage() {
       localStorage.setItem('userId', storedUserId);
     }
     setUserId(storedUserId);
-    console.log(`User ID set to: ${storedUserId}`);
+    // console.log(`User ID set to: ${storedUserId}`); // Commented out for production
   }, []);
 
   useEffect(() => {
     if (socketRef.current && userId) {
       socketRef.current.emit('identify', { userId });
-      console.log('Emitted "identify" event with userId.');
+      // console.log('Emitted "identify" event with userId.'); // Commented out for production
     }
   }, [userId]);
 
@@ -97,20 +97,20 @@ export default function ChatPage() {
       if (response.ok) {
         const data = await response.json();
         setUserRanking(data.ranking);
-        console.log(`Fetched user ranking: ${data.ranking}`);
+        // console.log(`Fetched user ranking: ${data.ranking}`); // Commented out for production
 
-        if (data.ranking <= -5) {
+        if (data.ranking <= -10) { // Updated threshold to match server-side
           setIsBanned(true);
           toast.error('You have been banned from using this service due to violations.');
           // Optionally, you can disconnect or restrict further actions
         }
       } else {
         const errorData = await response.json();
-        console.error('Failed to fetch user ranking:', errorData.error);
+        // console.error('Failed to fetch user ranking:', errorData.error); // Commented out for production
         toast.error(`Failed to fetch user ranking: ${errorData.error}`);
       }
     } catch (error) {
-      console.error('Error fetching user ranking:', error);
+      // console.error('Error fetching user ranking:', error); // Commented out for production
       toast.error('Failed to fetch user ranking.');
     }
   }, [userId]);
@@ -127,7 +127,7 @@ export default function ChatPage() {
         track.enabled = !track.enabled;
       });
       setIsMuted(prev => !prev);
-      console.log(`Audio ${isMuted ? 'unmuted' : 'muted'}.`);
+      // console.log(`Audio ${isMuted ? 'unmuted' : 'muted'}.`); // Commented out for production
     }
   }, [localStream, isMuted]);
 
@@ -143,7 +143,7 @@ export default function ChatPage() {
         track.enabled = !track.enabled;
       });
       setIsVideoOff(prev => !prev);
-      console.log(`Video ${isVideoOff ? 'turned on' : 'turned off'}.`);
+      // console.log(`Video ${isVideoOff ? 'turned on' : 'turned off'}.`); // Commented out for production
     }
   }, [localStream, isVideoOff]);
 
@@ -159,18 +159,19 @@ export default function ChatPage() {
       return;
     }
 
-    console.log('Starting search for a match.');
+    // console.log('Starting search for a match.'); // Commented out for production
     setIsDisconnected(false);
     setIsSearching(true);
     setSearchCancelled(false);
     setNoUsersOnline(false);
+
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('find', { userId }); // Include userId
-      console.log('Emitted "find" event with userId.');
+      // console.log('Emitted "find" event with userId.'); // Commented out for production
     } else {
       socketRef.current?.once('connect', () => {
         socketRef.current?.emit('find', { userId });
-        console.log('Emitted "find" event after connection with userId.');
+        // console.log('Emitted "find" event after connection with userId.'); // Commented out for production
       });
     }
   }, [isBanned, userId]);
@@ -183,14 +184,14 @@ export default function ChatPage() {
    */
   const handleNext = useCallback(() => {
     if (isDebouncing) {
-      console.log('Debouncing is active, ignoring "next" action.');
+      // console.log('Debouncing is active, ignoring "next" action.'); // Commented out for production
       return;
     }
 
-    console.log('Handling "Next Chat" action.');
+    // console.log('Handling "Next Chat" action.'); // Commented out for production
 
     if (peerRef.current) {
-      console.log('Destroying existing peer connection.');
+      // console.log('Destroying existing peer connection.'); // Commented out for production
       isSelfInitiatedDisconnectRef.current = true;
       peerRef.current.destroy();
       peerRef.current = null;
@@ -205,7 +206,7 @@ export default function ChatPage() {
     setNoUsersOnline(false);
 
     if (room) {
-      console.log('Emitting "next" event with room:', room);
+      // console.log('Emitting "next" event with room:', room); // Commented out for production
       socketRef.current?.emit('next', { room, userId }); // Include userId
       setRoom(null);
     }
@@ -227,24 +228,24 @@ export default function ChatPage() {
   useEffect(() => {
     const getMedia = async () => {
       try {
-        console.log('Accessing media devices.');
+        // console.log('Accessing media devices.'); // Commented out for production
         const connection = navigator.connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
         let videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
 
         if (connection && connection.downlink < 1) {
-          console.log('Low bandwidth detected, reducing video quality.');
+          // console.log('Low bandwidth detected, reducing video quality.'); // Commented out for production
           videoConstraints = { width: { ideal: 640 }, height: { ideal: 480 } };
         }
 
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: videoConstraints });
         setLocalStream(stream);
-        console.log('Obtained local media stream.');
+        // console.log('Obtained local media stream.'); // Commented out for production
         startSearch();
 
         // Fetch user ranking after getting media and starting search
         fetchUserRanking();
       } catch (err) {
-        console.error('Error accessing media devices:', err);
+        // console.error('Error accessing media devices:', err); // Commented out for production
         toast.error('Failed to access microphone and camera.');
       }
     };
@@ -257,11 +258,11 @@ export default function ChatPage() {
       };
 
       socketRef.current?.on('connect', handleConnect);
-      console.log('Listening for "connect" event to access media devices.');
+      // console.log('Listening for "connect" event to access media devices.'); // Commented out for production
 
       return () => {
         socketRef.current?.off('connect', handleConnect);
-        console.log('Removed "connect" event listener.');
+        // console.log('Removed "connect" event listener.'); // Commented out for production
       };
     }
   }, [startSearch, fetchUserRanking, userId]);
@@ -274,7 +275,7 @@ export default function ChatPage() {
    */
   const handleMatch = useCallback(
     ({ initiator, room: matchedRoom, peerId }: { initiator: boolean; room: string; peerId: string }) => {
-      console.log('Match event received:', { initiator, room: matchedRoom, peerId });
+      // console.log('Match event received:', { initiator, room: matchedRoom, peerId }); // Commented out for production
       setIsSearching(false);
       setSearchCancelled(false);
       setIsDisconnected(false);
@@ -288,12 +289,12 @@ export default function ChatPage() {
       }
 
       if (peerRef.current) {
-        console.log('Destroying existing peer connection.');
+        // console.log('Destroying existing peer connection.'); // Commented out for production
         peerRef.current.destroy();
         peerRef.current = null;
       }
 
-      console.log('Creating new peer instance.');
+      // console.log('Creating new peer instance.'); // Commented out for production
       const newPeer = new Peer({
         initiator,
         trickle: true,
@@ -322,7 +323,7 @@ export default function ChatPage() {
        * Handle Peer Signaling Data
        */
       newPeer.on('signal', (data) => {
-        console.log('Peer signal data:', data);
+        // console.log('Peer signal data:', data); // Commented out for production
         socketRef.current?.emit('signal', { room: matchedRoom, data, userId }); // Include userId
       });
 
@@ -330,7 +331,7 @@ export default function ChatPage() {
        * Handle Incoming Remote Stream
        */
       newPeer.on('stream', (stream) => {
-        console.log('Received remote stream.');
+        // console.log('Received remote stream.'); // Commented out for production
         setRemoteStream(stream);
       });
 
@@ -338,7 +339,7 @@ export default function ChatPage() {
        * Handle Successful Connection
        */
       newPeer.on('connect', () => {
-        console.log('Peer connection established.');
+        // console.log('Peer connection established.'); // Commented out for production
         setConnected(true);
         setIsDisconnected(false);
       });
@@ -347,7 +348,7 @@ export default function ChatPage() {
        * Handle Peer Errors
        */
       newPeer.on('error', (err) => {
-        console.error('Peer error:', err);
+        // console.error('Peer error:', err); // Commented out for production
         toast.error('An error occurred with the peer connection.');
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
@@ -367,7 +368,7 @@ export default function ChatPage() {
             setMessages((prev) => [...prev, { text: parsedData.message, isSelf: false }]);
           }
         } catch (err) {
-          console.error('Error parsing data from peer:', err);
+          // console.error('Error parsing data from peer:', err); // Commented out for production
         }
       });
 
@@ -375,7 +376,7 @@ export default function ChatPage() {
        * Handle Peer Connection Closure
        */
       newPeer.on('close', () => {
-        console.log('Peer connection closed.');
+        // console.log('Peer connection closed.'); // Commented out for production
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
           toast.error('Connection closed.');
@@ -389,7 +390,7 @@ export default function ChatPage() {
        * Handle Peer Connection Destruction
        */
       newPeer.on('destroy', () => {
-        console.log('Peer connection destroyed.');
+        // console.log('Peer connection destroyed.'); // Commented out for production
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
           toast.error('Connection destroyed.');
@@ -406,7 +407,7 @@ export default function ChatPage() {
    * Handle No Match Found
    */
   const handleNoMatch = useCallback(({ message }: { message: string }) => {
-    console.log('No match event received:', message);
+    // console.log('No match event received:', message); // Commented out for production
     setIsSearching(false);
     setSearchCancelled(false);
     toast.error(message);
@@ -416,7 +417,7 @@ export default function ChatPage() {
    * Handle Search Cancellation
    */
   const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
-    console.log('Search cancelled event received:', message);
+    // console.log('Search cancelled event received:', message); // Commented out for production
     setIsSearching(false);
     setSearchCancelled(true);
     infoToast(message);
@@ -426,7 +427,7 @@ export default function ChatPage() {
    * Handle No Users Online
    */
   const handleNoUsersOnline = useCallback(({ message }: { message: string }) => {
-    console.log('No users online event received:', message);
+    // console.log('No users online event received:', message); // Commented out for production
     setIsSearching(false);
     setSearchCancelled(false);
     setNoUsersOnline(true);
@@ -437,7 +438,7 @@ export default function ChatPage() {
    * Handle Warning Messages from Server
    */
   const handleWarningMessage = useCallback(({ message }: { message: string }) => {
-    console.log('Warning message received:', message);
+    // console.log('Warning message received:', message); // Commented out for production
     setWarningMessage(message);
   }, []);
 
@@ -451,7 +452,7 @@ export default function ChatPage() {
     socketRef.current?.on('no_users_online', handleNoUsersOnline);
     socketRef.current?.on('warning', handleWarningMessage);
 
-    console.log('Attached match and related event listeners.');
+    // console.log('Attached match and related event listeners.'); // Commented out for production
 
     // Cleanup Event Listeners on Unmount
     return () => {
@@ -471,16 +472,16 @@ export default function ChatPage() {
    */
   useEffect(() => {
     const handleSignal = (data: any) => {
-      console.log('Received signal data:', data);
+      // console.log('Received signal data:', data); // Commented out for production
       if (peerRef.current) {
         try {
           peerRef.current.signal(data);
-          console.log('Signaling data passed to peer.');
+          // console.log('Signaling data passed to peer.'); // Commented out for production
         } catch (err) {
-          console.error('Error signaling peer:', err);
+          // console.error('Error signaling peer:', err); // Commented out for production
         }
       } else {
-        console.error('No peer instance to signal.');
+        // console.error('No peer instance to signal.'); // Commented out for production
       }
     };
 
@@ -488,9 +489,9 @@ export default function ChatPage() {
      * Handle Leave Event from Peer
      */
     const handleLeave = () => {
-      console.log('Received leave event.');
+      // console.log('Received leave event.'); // Commented out for production
       if (peerRef.current) {
-        console.log('Destroying peer connection due to leave event.');
+        // console.log('Destroying peer connection due to leave event.'); // Commented out for production
         peerRef.current.destroy();
         peerRef.current = null;
       }
@@ -514,7 +515,7 @@ export default function ChatPage() {
     socketRef.current?.on('signal', handleSignal);
     socketRef.current?.on('leave', handleLeave);
 
-    console.log('Attached signal and leave event listeners.');
+    // console.log('Attached signal and leave event listeners.'); // Commented out for production
 
     // Cleanup Event Listeners on Unmount
     return () => {
@@ -531,11 +532,11 @@ export default function ChatPage() {
    */
   const handleCancelSearch = useCallback(() => {
     if (isDebouncing) {
-      console.log('Debouncing is active, ignoring "cancel_search" action.');
+      // console.log('Debouncing is active, ignoring "cancel_search" action.'); // Commented out for production
       return;
     }
 
-    console.log('Handling "Cancel Search" action.');
+    // console.log('Handling "Cancel Search" action.'); // Commented out for production
 
     socketRef.current?.emit('cancel_search', { userId }); // Include userId
     setIsSearching(false);
@@ -558,11 +559,11 @@ export default function ChatPage() {
   const handleSendMessage = useCallback(
     (message: string) => {
       if (peerRef.current && connected && room) {
-        console.log('Sending chat message:', message);
+        // console.log('Sending chat message:', message); // Commented out for production
         peerRef.current.send(JSON.stringify({ type: 'chat', message }));
         setMessages((prev) => [...prev, { text: message, isSelf: true }]);
       } else {
-        console.warn('Cannot send message: Not connected or room is null.');
+        // console.warn('Cannot send message: Not connected or room is null.'); // Commented out for production
       }
     },
     [connected, room]
@@ -586,69 +587,69 @@ export default function ChatPage() {
    */
   const submitReport = async (reason: string) => {
     const streamToUse = remoteStream || previousRemoteStream;
-  
+
     if (!streamToUse || !reportedId) {
       toast.error('Cannot report without an active connection.');
       return;
     }
-  
+
     try {
-      console.log('Capturing screenshot for report.');
+      // console.log('Capturing screenshot for report.'); // Commented out for production
       // Capture a screenshot from the remote stream
       const videoElement = document.createElement('video');
       videoElement.srcObject = streamToUse;
       videoElement.muted = true;
       videoElement.play();
-  
+
       await new Promise((resolve) => {
         videoElement.onloadedmetadata = () => {
           resolve(true);
         };
       });
-  
+
       const canvas = document.createElement('canvas');
       canvas.width = videoElement.videoWidth;
       canvas.height = videoElement.videoHeight;
-  
+
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-  
+
         const base64Image = canvas.toDataURL('image/png').split(',')[1];
-  
+
         const reportData = {
           reporterId: userId, // Use persistent userId
           reportedId: reportedId,
           reason,
           screenshotData: base64Image,
         };
-  
-        console.log('Submitting report:', reportData);
-  
+
+        // console.log('Submitting report:', reportData); // Commented out for production
+
         // Send the report to the backend via the Next.js API route
         const response = await fetch(`/api/report`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(reportData),
         });
-  
+
         if (!response.ok) {
           const errorData = await response.json();
-          console.error('Report submission failed:', errorData.error);
+          // console.error('Report submission failed:', errorData.error); // Commented out for production
           toast.error(`Report failed: ${errorData.error}`);
         } else {
-          console.log('Report submitted successfully.');
+          // console.log('Report submitted successfully.'); // Commented out for production
           toast.success('Report submitted successfully.');
         }
       } else {
-        console.error('Unable to get 2D context from canvas.');
+        // console.error('Unable to get 2D context from canvas.'); // Commented out for production
         toast.error('Unable to capture screenshot.');
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error('Error capturing screenshot:', error.message);
+        // console.error('Error capturing screenshot:', error.message); // Commented out for production
       } else {
-        console.error('Unknown error capturing screenshot:', error);
+        // console.error('Unknown error capturing screenshot:', error); // Commented out for production
       }
       toast.error('Failed to submit report.');
     } finally {
@@ -656,12 +657,11 @@ export default function ChatPage() {
       setShowReportModal(false);
       setPreviousRemoteStream(null);
       setReportedId(null);
-  
+
       // Initiate search for a new match
       handleNext();
     }
   };
-  
 
   // -----------------------------
   // Display Warning Messages
@@ -671,8 +671,8 @@ export default function ChatPage() {
    */
   useEffect(() => {
     let warningInterval: NodeJS.Timeout;
-    if (userRanking <= -5) { // Updated condition
-      console.log('User ranking is very low, setting up warning messages.');
+    if (userRanking <= -10) { // Updated condition to match server-side
+      // console.log('User ranking is very low, setting up warning messages.'); // Commented out for production
       warningInterval = setInterval(() => {
         toast.error(
           'Your account is at risk of being banned due to reported content. Please adhere to community guidelines.'
