@@ -468,45 +468,53 @@ export default function TextChatPage() {
               </p>
             </motion.div>
           )}
-          <AnimatePresence>
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
-              >
-                <div
-                  className={`inline-block max-w-[70%] ${
-                    msg.isSelf
-                      ? darkMode
-                        ? 'bg-blue-600'
-                        : 'bg-blue-500'
-                      : darkMode
-                      ? 'bg-gray-700'
-                      : 'bg-gray-300'
-                  } rounded-2xl p-3 relative`}
-                >
-                  <p
-                    className={`${
-                      msg.isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
-                    }`}
-                  >
-                    <Twemoji text={msg.text} />
-                  </p>
-                  <span
-                    className={`text-xs ${
-                      darkMode ? 'text-gray-400' : 'text-gray-600'
-                    } mt-1 block`}
-                  >
-                    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+<AnimatePresence>
+  {messages.map((msg) => (
+    <motion.div
+      key={msg.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
+    >
+<div
+  className={`inline-block max-w-[70%] ${
+    msg.isSelf
+      ? darkMode
+        ? 'bg-blue-600'
+        : 'bg-blue-500'
+      : darkMode
+      ? 'bg-gray-700'
+      : 'bg-gray-300'
+  } rounded-2xl p-3 relative`}
+>
+  <span
+    className={`${
+      msg.isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
+    } break-words`}
+    style={{ display: 'inline' }} 
+  >
+    <Twemoji
+      text={msg.text}
+      options={{
+        className: 'inline-block align-middle', 
+      }}
+    />
+  </span>
+  <span
+    className={`text-xs ${
+      darkMode ? 'text-gray-400' : 'text-gray-600'
+    } mt-1 block`}
+  >
+    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+  </span>
+</div>
+
+    </motion.div>
+  ))}
+</AnimatePresence>
+
           {isTyping && (
             <motion.div
               initial={{ opacity: 0 }}
