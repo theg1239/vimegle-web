@@ -7,7 +7,7 @@ interface VideoChatProps {
   connected: boolean;
   remoteStream: MediaStream | null;
   isSearching: boolean;
-  searchCancelled: boolean; 
+  searchCancelled: boolean;
 }
 
 const overlayVariants = {
@@ -15,7 +15,13 @@ const overlayVariants = {
   visible: { opacity: 1 },
 };
 
-const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remoteVideoRef, connected, remoteStream, isSearching, searchCancelled }) {
+const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
+  remoteVideoRef,
+  connected,
+  remoteStream,
+  isSearching,
+  searchCancelled,
+}) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       console.log('Assigning remote stream to video element.');
@@ -27,14 +33,18 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remo
 
       remoteVideoRef.current.onloadedmetadata = () => {
         console.log('Remote video metadata loaded.');
-        remoteVideoRef.current?.play().catch((e) => console.error('Error playing remote video:', e));
+        remoteVideoRef.current
+          ?.play()
+          .catch((e) => console.error('Error playing remote video:', e));
       };
 
       remoteVideoRef.current.onerror = (e) => {
         console.error('Remote video error:', e);
       };
     } else {
-      console.warn('remoteVideoRef is not initialized or remoteStream is null.');
+      console.warn(
+        'remoteVideoRef is not initialized or remoteStream is null.'
+      );
     }
   }, [remoteStream, remoteVideoRef]);
 
@@ -44,7 +54,7 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remo
         ref={remoteVideoRef}
         autoPlay
         playsInline
-        className="w-full h-full object-cover transform scale-x-[-1]" 
+        className="w-full h-full object-cover transform scale-x-[-1]"
         aria-label="Remote Video"
       />
 
@@ -55,8 +65,10 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remo
               <Loader2 className="w-8 h-8 animate-spin mb-4" />
               <p className="text-2xl font-bold">Searching for a match...</p>
             </div>
-          ) : searchCancelled ? ( 
-            <p className="text-lg">Search cancelled. Click "Next Chat" to find a new match.</p>
+          ) : searchCancelled ? (
+            <p className="text-lg">
+              Search cancelled. Click "Next Chat" to find a new match.
+            </p>
           ) : (
             <p className="text-lg"></p>
           )}
@@ -64,7 +76,7 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remo
       )}
 
       <AnimatePresence>
-        {!isSearching && !connected && !searchCancelled && ( 
+        {!isSearching && !connected && !searchCancelled && (
           <motion.div
             initial="hidden"
             animate="visible"
@@ -74,7 +86,9 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({ remo
             className="absolute inset-0 flex items-center justify-center bg-black/75 text-white"
           >
             <div className="text-center">
-              <p className="text-2xl font-bold mb-4">Waiting for connection...</p>
+              <p className="text-2xl font-bold mb-4">
+                Waiting for connection...
+              </p>
               <div className="inline-flex space-x-2">
                 <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
                 <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-200"></div>

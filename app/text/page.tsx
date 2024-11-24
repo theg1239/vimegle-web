@@ -21,7 +21,11 @@ import { textSocket } from '@/lib/socket';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Twemoji } from 'react-emoji-render';
-import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/app/components/ui/popover';
 import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
@@ -88,7 +92,13 @@ export default function TextChatPage() {
       setIsSearching(true);
     };
 
-    const handleTextMatch = ({ room, initiator }: { room: string; initiator: boolean }) => {
+    const handleTextMatch = ({
+      room,
+      initiator,
+    }: {
+      room: string;
+      initiator: boolean;
+    }) => {
       setConnected(true);
       setIsSearching(false);
       setNoUsersOnline(false);
@@ -96,13 +106,21 @@ export default function TextChatPage() {
       setShowIntroMessage(true);
       setIsDisconnected(false);
       toast.success('Connected to a stranger!');
-      if (soundEnabledRef.current && hasInteractedRef.current) playNotificationSound();
+      if (soundEnabledRef.current && hasInteractedRef.current)
+        playNotificationSound();
     };
 
-    const handleTextMessage = ({ message, sender }: { message: string; sender: string }) => {
+    const handleTextMessage = ({
+      message,
+      sender,
+    }: {
+      message: string;
+      sender: string;
+    }) => {
       const isSelf = sender === textSocket.id;
       addMessage(message, isSelf);
-      if (!isSelf && soundEnabledRef.current && hasInteractedRef.current) playMessageSound();
+      if (!isSelf && soundEnabledRef.current && hasInteractedRef.current)
+        playMessageSound();
     };
 
     const handlePeerDisconnected = ({ message }: { message: string }) => {
@@ -112,7 +130,8 @@ export default function TextChatPage() {
       setCurrentRoom('');
       setIsDisconnected(true);
       toast.error(message || 'Your chat partner has disconnected.');
-      if (soundEnabledRef.current && hasInteractedRef.current) playDisconnectSound();
+      if (soundEnabledRef.current && hasInteractedRef.current)
+        playDisconnectSound();
     };
 
     const handleNoTextMatch = ({ message }: { message: string }) => {
@@ -191,7 +210,10 @@ export default function TextChatPage() {
 
   const handleSendMessage = () => {
     if (inputMessage.trim() && connected && currentRoom) {
-      textSocket.emit('textMessage', { room: currentRoom, message: inputMessage });
+      textSocket.emit('textMessage', {
+        room: currentRoom,
+        message: inputMessage,
+      });
       setInputMessage('');
       setShowIntroMessage(false);
     }
@@ -223,21 +245,21 @@ export default function TextChatPage() {
     setNoUsersOnline(false);
     setCurrentRoom('');
     setIsDisconnected(false);
-  
+
     if (currentRoom) {
       textSocket.emit('nextTextChat', { room: currentRoom });
     }
-  
+
     textSocket.emit('findTextMatch');
   };
-  
+
   const handleEmojiClick = (emojiData: EmojiClickData, event: MouseEvent) => {
     setInputMessage((prev) => prev + emojiData.emoji);
     setShowEmojiPicker(false);
   };
 
   const playNotificationSound = () => {
-    if (!soundEnabled) return; 
+    if (!soundEnabled) return;
     try {
       const audio = new Audio('/sounds/discord-notification.mp3');
       audio.play();
@@ -245,7 +267,7 @@ export default function TextChatPage() {
       console.error('Error playing notification sound:', err);
     }
   };
-  
+
   const playMessageSound = () => {
     if (!soundEnabled) return;
     try {
@@ -255,9 +277,9 @@ export default function TextChatPage() {
       console.error('Error playing message sound:', err);
     }
   };
-  
+
   const playDisconnectSound = () => {
-    if (!soundEnabled) return; 
+    if (!soundEnabled) return;
     try {
       const audio = new Audio('/sounds/discord-disconnect.mp3');
       audio.play();
@@ -330,7 +352,8 @@ export default function TextChatPage() {
                 No Users Online
               </p>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                There are currently no users available to chat. Please try again later.
+                There are currently no users available to chat. Please try again
+                later.
               </p>
               <Button
                 onClick={() => {
@@ -364,7 +387,9 @@ export default function TextChatPage() {
               className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg z-10 max-w-sm w-full`}
             >
               <h2 className="text-xl font-bold mb-4">Stranger Disconnected</h2>
-              <p className="mb-4">Your chat partner has left the conversation.</p>
+              <p className="mb-4">
+                Your chat partner has left the conversation.
+              </p>
               <Button onClick={handleNext} className="w-full">
                 Start a New Chat
               </Button>
@@ -382,7 +407,9 @@ export default function TextChatPage() {
           <Link
             href="/"
             className={`${
-              darkMode ? 'text-white hover:text-gray-300' : 'text-black hover:text-gray-600'
+              darkMode
+                ? 'text-white hover:text-gray-300'
+                : 'text-black hover:text-gray-600'
             } transition-colors`}
           >
             <ArrowLeft className="w-6 h-6" />
@@ -464,58 +491,67 @@ export default function TextChatPage() {
               }`}
             >
               <h3 className="font-bold mb-2">Welcome to Vimegle Text Chat!</h3>
-              <p>You're now connected with a random stranger. Say hello and start chatting!</p>
+              <p>
+                You're now connected with a random stranger. Say hello and start
+                chatting!
+              </p>
               <p className="mt-2 text-sm">
                 Remember to be respectful and follow our community guidelines.
               </p>
             </motion.div>
           )}
-<AnimatePresence>
-  {messages.map((msg) => (
-    <motion.div
-      key={msg.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
-    >
-<div
-  className={`inline-block max-w-[70%] ${
-    msg.isSelf
-      ? darkMode
-        ? 'bg-blue-600'
-        : 'bg-blue-500'
-      : darkMode
-      ? 'bg-gray-700'
-      : 'bg-gray-300'
-  } rounded-2xl p-3 relative`}
->
-  <span
-    className={`${
-      msg.isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
-    } break-words`}
-    style={{ display: 'inline' }} 
-  >
-    <Twemoji
-      text={msg.text}
-      options={{
-        className: 'inline-block align-middle', 
-      }}
-    />
-  </span>
-  <span
-    className={`text-xs ${
-      darkMode ? 'text-gray-400' : 'text-gray-600'
-    } mt-1 block`}
-  >
-    {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-  </span>
-</div>
-
-    </motion.div>
-  ))}
-</AnimatePresence>
+          <AnimatePresence>
+            {messages.map((msg) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
+              >
+                <div
+                  className={`inline-block max-w-[70%] ${
+                    msg.isSelf
+                      ? darkMode
+                        ? 'bg-blue-600'
+                        : 'bg-blue-500'
+                      : darkMode
+                        ? 'bg-gray-700'
+                        : 'bg-gray-300'
+                  } rounded-2xl p-3 relative`}
+                >
+                  <span
+                    className={`${
+                      msg.isSelf
+                        ? 'text-white'
+                        : darkMode
+                          ? 'text-white'
+                          : 'text-black'
+                    } break-words`}
+                    style={{ display: 'inline' }}
+                  >
+                    <Twemoji
+                      text={msg.text}
+                      options={{
+                        className: 'inline-block align-middle',
+                      }}
+                    />
+                  </span>
+                  <span
+                    className={`text-xs ${
+                      darkMode ? 'text-gray-400' : 'text-gray-600'
+                    } mt-1 block`}
+                  >
+                    {msg.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
           {isTyping && (
             <motion.div
@@ -566,7 +602,9 @@ export default function TextChatPage() {
               disabled={!connected || !inputMessage.trim()}
               size="icon"
               className={`${
-                darkMode ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-500 hover:bg-blue-600'
+                darkMode
+                  ? 'bg-blue-600 hover:bg-blue-700'
+                  : 'bg-blue-500 hover:bg-blue-600'
               } text-white rounded-full`}
             >
               <Send className="w-5 h-5" />
@@ -593,7 +631,9 @@ export default function TextChatPage() {
             <Button
               variant="ghost"
               className={`${
-                darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'
+                darkMode
+                  ? 'text-white hover:bg-gray-800'
+                  : 'text-black hover:bg-gray-200'
               }`}
             >
               <Video className="w-5 h-5 mr-2" />
@@ -601,74 +641,80 @@ export default function TextChatPage() {
             </Button>
           </Link>
           <Popover>
-  <PopoverTrigger asChild>
-    <Button
-      variant="ghost"
-      className={`${
-        darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'
-      }`}
-    >
-      <Settings className="w-5 h-5" />
-    </Button>
-  </PopoverTrigger>
-  <PopoverContent
-    className={`w-80 p-4 rounded-lg shadow-lg ${
-      darkMode ? 'bg-gray-700 text-gray-100' : 'bg-gray-50 text-gray-800'
-    }`}
-  >
-    <div className="grid gap-4">
-      <div className="space-y-2">
-        <h4 className="font-medium leading-none">Settings</h4>
-        <p className="text-sm text-gray-400">
-          Customize your chat experience
-        </p>
-      </div>
-      <Separator />
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="dark-mode"
-          className={darkMode ? 'text-gray-200' : 'text-gray-700'}
-        >
-          Dark Mode
-        </Label>
-        <Switch
-          id="dark-mode"
-          checked={darkMode}
-          onCheckedChange={setDarkMode}
-          className={`${
-            darkMode
-              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-          }`}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="sound"
-          className={darkMode ? 'text-gray-200' : 'text-gray-700'}
-        >
-          Sound
-        </Label>
-        <Switch
-          id="sound"
-          checked={soundEnabled}
-          onCheckedChange={setSoundEnabled}
-          className={`${
-            darkMode
-              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-          }`}
-        />
-      </div>
-    </div>
-  </PopoverContent>
-</Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                className={`${
+                  darkMode
+                    ? 'text-white hover:bg-gray-800'
+                    : 'text-black hover:bg-gray-200'
+                }`}
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className={`w-80 p-4 rounded-lg shadow-lg ${
+                darkMode
+                  ? 'bg-gray-700 text-gray-100'
+                  : 'bg-gray-50 text-gray-800'
+              }`}
+            >
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Settings</h4>
+                  <p className="text-sm text-gray-400">
+                    Customize your chat experience
+                  </p>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="dark-mode"
+                    className={darkMode ? 'text-gray-200' : 'text-gray-700'}
+                  >
+                    Dark Mode
+                  </Label>
+                  <Switch
+                    id="dark-mode"
+                    checked={darkMode}
+                    onCheckedChange={setDarkMode}
+                    className={`${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="sound"
+                    className={darkMode ? 'text-gray-200' : 'text-gray-700'}
+                  >
+                    Sound
+                  </Label>
+                  <Switch
+                    id="sound"
+                    checked={soundEnabled}
+                    onCheckedChange={setSoundEnabled}
+                    className={`${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="flex space-x-2">
           <Button
             variant="ghost"
             className={`${
-              darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'
+              darkMode
+                ? 'text-white hover:bg-gray-800'
+                : 'text-black hover:bg-gray-200'
             }`}
             onClick={() => toast('Feature not implemented yet')}
           >
@@ -677,7 +723,9 @@ export default function TextChatPage() {
           <Button
             variant="ghost"
             className={`${
-              darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'
+              darkMode
+                ? 'text-white hover:bg-gray-800'
+                : 'text-black hover:bg-gray-200'
             }`}
             onClick={() => toast('Feature not implemented yet')}
           >

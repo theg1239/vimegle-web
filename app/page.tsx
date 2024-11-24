@@ -12,9 +12,7 @@ function App() {
   const router = useRouter();
 
   return (
-    <div
-      className="min-h-screen bg-black text-white"
-    >
+    <div className="min-h-screen bg-black text-white">
       <Header />
       <HeroSection />
       <OldHero />

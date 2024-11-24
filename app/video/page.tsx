@@ -15,7 +15,9 @@ import { ArrowLeft } from 'lucide-react';
 export default function ChatPage() {
   const [connected, setConnected] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>([]);
+  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>(
+    []
+  );
   const [isSearching, setIsSearching] = useState(false);
   const [room, setRoom] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
@@ -71,19 +73,32 @@ export default function ChatPage() {
     const getMedia = async () => {
       try {
         const connection =
-          navigator.connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
-        let videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
+          navigator.connection ||
+          (navigator as any).mozConnection ||
+          (navigator as any).webkitConnection;
+        let videoConstraints = {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        };
 
         if (connection) {
           console.log('Connection downlink speed:', connection.downlink);
           if (connection.downlink < 1) {
             // less than 1 Mbps
-            videoConstraints = { width: { ideal: 640 }, height: { ideal: 480 } };
-            console.log('Adjusting video constraints to lower resolution due to low bandwidth.');
+            videoConstraints = {
+              width: { ideal: 640 },
+              height: { ideal: 480 },
+            };
+            console.log(
+              'Adjusting video constraints to lower resolution due to low bandwidth.'
+            );
           }
         }
 
-        console.log('Requesting media stream with constraints:', videoConstraints);
+        console.log(
+          'Requesting media stream with constraints:',
+          videoConstraints
+        );
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: videoConstraints,
@@ -115,7 +130,13 @@ export default function ChatPage() {
   }, [startSearch]);
 
   useEffect(() => {
-    const handleMatch = ({ initiator, room }: { initiator: boolean; room: string }) => {
+    const handleMatch = ({
+      initiator,
+      room,
+    }: {
+      initiator: boolean;
+      room: string;
+    }) => {
       console.log('Match found!', { initiator, room });
       setIsSearching(false);
       setConnected(true);
@@ -143,7 +164,7 @@ export default function ChatPage() {
             { urls: 'stun:stun.l.google.com:19302' },
             {
               urls: 'stun:stun.relay.metered.ca:80',
-            }
+            },
           ],
         },
       });
@@ -176,7 +197,10 @@ export default function ChatPage() {
         try {
           const parsedData = JSON.parse(data as string);
           if (parsedData.type === 'chat') {
-            setMessages((prev) => [...prev, { text: parsedData.message, isSelf: false }]);
+            setMessages((prev) => [
+              ...prev,
+              { text: parsedData.message, isSelf: false },
+            ]);
           }
         } catch (err) {
           console.error('Error parsing data from peer:', err);
@@ -400,7 +424,11 @@ export default function ChatPage() {
           </div>
         </div>
         <div className="md:w-1/3 h-1/2 md:h-auto">
-          <TextChat messages={messages} onSendMessage={handleSendMessage} connected={connected} />
+          <TextChat
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            connected={connected}
+          />
         </div>
       </main>
 

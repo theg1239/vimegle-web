@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 import { FeedbackForm } from '@/app/components/feedback';
 import Header from '@/app/components/header';
@@ -11,7 +11,8 @@ export default function FeedbackPage() {
       <div
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.1), transparent 25%)',
+          background:
+            'radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.1), transparent 25%)',
           animation: 'mesh 15s ease infinite',
         }}
       />

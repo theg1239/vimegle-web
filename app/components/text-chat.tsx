@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
-import { ScrollArea } from "@/app/components/ui/scroll-area";
+import { Button } from '@/app/components/ui/button';
+import { Input } from '@/app/components/ui/input';
+import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { motion } from 'framer-motion';
 import { Send } from 'lucide-react';
 
@@ -11,7 +11,11 @@ interface TextChatProps {
   connected: boolean;
 }
 
-export default function TextChat({ messages, onSendMessage, connected }: TextChatProps) {
+export default function TextChat({
+  messages,
+  onSendMessage,
+  connected,
+}: TextChatProps) {
   const [message, setMessage] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 

@@ -53,8 +53,8 @@
 //   };
 
 //   const handleReaction = (messageId: string, emoji: string) => {
-//     setMessages(messages.map(msg => 
-//       msg.id === messageId 
+//     setMessages(messages.map(msg =>
+//       msg.id === messageId
 //         ? { ...msg, reactions: { ...msg.reactions, [emoji]: (msg.reactions[emoji] || 0) + 1 } }
 //         : msg
 //     ));

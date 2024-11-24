@@ -2,7 +2,7 @@ import './globals.css';
 import { Inter } from 'next/font/google';
 import MaintenanceOverlay from '@/app/components/maintenance-overlay';
 import { Toaster } from '@/app/components/ui/toaster';
-import { Analytics } from "@vercel/analytics/react"
+import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -11,7 +11,11 @@ export const metadata = {
   description: 'Connect with strangers through video and text chat',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const isMaintenance = process.env.MAINTENANCE_MODE === 'true';
 
   return (
@@ -20,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {children}
         {isMaintenance && <MaintenanceOverlay />}
         <Analytics />
-        <Toaster /> 
+        <Toaster />
       </body>
     </html>
   );

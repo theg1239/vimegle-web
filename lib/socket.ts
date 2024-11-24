@@ -4,7 +4,8 @@ import { toast } from 'react-hot-toast';
 const TEXT_NAMESPACE = '/text';
 const DEFAULT_NAMESPACE = '/';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL =
+  process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
 declare global {
   interface Window {
@@ -44,7 +45,9 @@ if (typeof window !== 'undefined') {
 
     window.textSocket.on('connect_error', (error) => {
       console.error('Connection Error (Text Chat):', error);
-      toast.error('Connection Error (Text Chat). Please check your internet and try again.');
+      toast.error(
+        'Connection Error (Text Chat). Please check your internet and try again.'
+      );
     });
 
     window.textSocket.on('disconnect', (reason: string) => {
@@ -59,7 +62,9 @@ if (typeof window !== 'undefined') {
     });
 
     window.textSocket.on('reconnect_failed', () => {
-      toast.error('Unable to reconnect to the Text Chat server. Please refresh the page.');
+      toast.error(
+        'Unable to reconnect to the Text Chat server. Please refresh the page.'
+      );
     });
   }
 
@@ -82,7 +87,9 @@ if (typeof window !== 'undefined') {
 
     window.defaultSocket.on('connect_error', (error) => {
       console.error('Connection Error (Default):', error);
-      toast.error('Connection Error (Default). Please check your internet and try again.');
+      toast.error(
+        'Connection Error (Default). Please check your internet and try again.'
+      );
     });
 
     window.defaultSocket.on('disconnect', (reason: string) => {
@@ -97,12 +104,16 @@ if (typeof window !== 'undefined') {
     });
 
     window.defaultSocket.on('reconnect_failed', () => {
-      toast.error('Unable to reconnect to the Default server. Please refresh the page.');
+      toast.error(
+        'Unable to reconnect to the Default server. Please refresh the page.'
+      );
     });
   }
 }
 
-const textSocket: Socket = typeof window !== 'undefined' ? window.textSocket : ({} as Socket);
-const defaultSocket: Socket = typeof window !== 'undefined' ? window.defaultSocket : ({} as Socket);
+const textSocket: Socket =
+  typeof window !== 'undefined' ? window.textSocket : ({} as Socket);
+const defaultSocket: Socket =
+  typeof window !== 'undefined' ? window.defaultSocket : ({} as Socket);
 
 export { textSocket, defaultSocket };

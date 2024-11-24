@@ -17,14 +17,16 @@ const LocalVideo: React.FC<LocalVideoProps> = ({ localStream }) => {
     }
   }, [localStream]);
 
-  const hasVideo = localStream ? localStream.getVideoTracks().length > 0 : false;
+  const hasVideo = localStream
+    ? localStream.getVideoTracks().length > 0
+    : false;
 
   return (
     <>
       {hasVideo ? (
         <video
           ref={videoRef}
-          className="w-full h-full object-cover transform scale-x-[-1]" 
+          className="w-full h-full object-cover transform scale-x-[-1]"
           autoPlay
           playsInline
           muted

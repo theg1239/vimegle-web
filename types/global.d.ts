@@ -2,7 +2,7 @@ import { Socket } from 'socket.io-client';
 
 declare global {
   interface Window {
-    socket: Socket; 
+    socket: Socket;
   }
 
   interface Navigator {

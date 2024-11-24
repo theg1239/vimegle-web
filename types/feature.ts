@@ -1,4 +1,4 @@
-import { TypeIcon as type, LucideIcon } from 'lucide-react'
+import { TypeIcon as type, LucideIcon } from 'lucide-react';
 
 export interface Feature {
   icon: LucideIcon;
@@ -7,4 +7,3 @@ export interface Feature {
   gradientClass: string;
   hoverMessage: string;
 }
-
