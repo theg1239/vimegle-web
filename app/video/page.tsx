@@ -8,7 +8,7 @@ import VideoChat from '../components/video-chat';
 import LocalVideo from '../components/local-video'; 
 import { toast, Toaster } from 'react-hot-toast';
 import { infoToast } from '@/lib/toastHelpers'; 
-import socket from '@/lib/socket';
+import { defaultSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
 
 export default function ChatPage() {
@@ -25,7 +25,7 @@ export default function ChatPage() {
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null); 
   const peerRef = useRef<PeerInstance | null>(null);
-  const socketRef = useRef<Socket | null>(socket);
+  const socketRef = useRef<Socket | null>(defaultSocket);
 
   const startSearch = useCallback(() => {
     setIsSearching(true);

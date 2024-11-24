@@ -1,7 +1,7 @@
 import React from 'react';
 import { Video, Users } from 'lucide-react';
 
-export function HeroSection() {
+export function OldHero() {
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 overflow-hidden">
       {/* Gradient Background */}

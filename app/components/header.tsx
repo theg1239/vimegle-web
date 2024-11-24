@@ -13,22 +13,25 @@ const Header: React.FC = () => {
         </Link>
       </div>
 
-      <nav className="flex-1 flex justify-center">
+      <nav className="flex-1 flex justify-center space-x-4">
         <Link href="/video">
           <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-pink-500/10 rounded-lg transition-colors">
             Video
           </button>
         </Link>
-      </nav>
-
-      <div className="flex-1 flex justify-end">
-        {/* Uncomment or add other navigation buttons as needed */}
-        {/* <Link href="/text">
+        <Link href="/text">
           <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-purple-500/10 rounded-lg transition-colors">
-            Chat
+            Text
+          </button>
+        </Link>
+        {/* <Link href="/about">
+          <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-blue-500/10 rounded-lg transition-colors">
+            About
           </button>
         </Link> */}
-      </div>
+      </nav>
+
+      <div className="flex-1"></div>
     </header>
   );
 };
