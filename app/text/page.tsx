@@ -237,6 +237,7 @@ export default function TextChatPage() {
   };
 
   const playNotificationSound = () => {
+    if (!soundEnabled) return; 
     try {
       const audio = new Audio('/sounds/discord-notification.mp3');
       audio.play();
@@ -244,8 +245,9 @@ export default function TextChatPage() {
       console.error('Error playing notification sound:', err);
     }
   };
-
+  
   const playMessageSound = () => {
+    if (!soundEnabled) return;
     try {
       const audio = new Audio('/sounds/discord-message.mp3');
       audio.play();
@@ -253,8 +255,9 @@ export default function TextChatPage() {
       console.error('Error playing message sound:', err);
     }
   };
-
+  
   const playDisconnectSound = () => {
+    if (!soundEnabled) return; 
     try {
       const audio = new Audio('/sounds/discord-disconnect.mp3');
       audio.play();
@@ -262,7 +265,6 @@ export default function TextChatPage() {
       console.error('Error playing disconnect sound:', err);
     }
   };
-
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
       setHasInteracted(true);
@@ -599,38 +601,68 @@ export default function TextChatPage() {
             </Button>
           </Link>
           <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                className={`${
-                  darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'
-                }`}
-              >
-                <Settings className="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className={`w-80 ${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-black'}`}
-            >
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Settings</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Customize your chat experience
-                  </p>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="dark-mode">Dark Mode</Label>
-                  <Switch id="dark-mode" checked={darkMode} onCheckedChange={setDarkMode} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="sound">Sound</Label>
-                  <Switch id="sound" checked={soundEnabled} onCheckedChange={setSoundEnabled} />
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+  <PopoverTrigger asChild>
+    <Button
+      variant="ghost"
+      className={`${
+        darkMode ? 'text-white hover:bg-gray-800' : 'text-black hover:bg-gray-200'
+      }`}
+    >
+      <Settings className="w-5 h-5" />
+    </Button>
+  </PopoverTrigger>
+  <PopoverContent
+    className={`w-80 p-4 rounded-lg shadow-lg ${
+      darkMode ? 'bg-gray-700 text-gray-100' : 'bg-gray-50 text-gray-800'
+    }`}
+  >
+    <div className="grid gap-4">
+      <div className="space-y-2">
+        <h4 className="font-medium leading-none">Settings</h4>
+        <p className="text-sm text-gray-400">
+          Customize your chat experience
+        </p>
+      </div>
+      <Separator />
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="dark-mode"
+          className={darkMode ? 'text-gray-200' : 'text-gray-700'}
+        >
+          Dark Mode
+        </Label>
+        <Switch
+          id="dark-mode"
+          checked={darkMode}
+          onCheckedChange={setDarkMode}
+          className={`${
+            darkMode
+              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+          }`}
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="sound"
+          className={darkMode ? 'text-gray-200' : 'text-gray-700'}
+        >
+          Sound
+        </Label>
+        <Switch
+          id="sound"
+          checked={soundEnabled}
+          onCheckedChange={setSoundEnabled}
+          className={`${
+            darkMode
+              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+          }`}
+        />
+      </div>
+    </div>
+  </PopoverContent>
+</Popover>
         </div>
         <div className="flex space-x-2">
           <Button
