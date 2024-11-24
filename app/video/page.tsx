@@ -5,9 +5,9 @@ import Peer, { Instance as PeerInstance } from 'simple-peer';
 import { Button } from '@/app/components/ui/button';
 import TextChat from '../components/text-chat';
 import VideoChat from '../components/video-chat';
-import LocalVideo from '../components/local-video'; 
+import LocalVideo from '../components/local-video';
 import { toast, Toaster } from 'react-hot-toast';
-import { infoToast } from '@/lib/toastHelpers'; 
+import { infoToast } from '@/lib/toastHelpers';
 import { defaultSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
 import { ArrowLeft } from 'lucide-react';
@@ -22,16 +22,17 @@ export default function ChatPage() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [searchCancelled, setSearchCancelled] = useState(false);
   const [noUsersOnline, setNoUsersOnline] = useState(false);
-  const [isDisconnected, setIsDisconnected] = useState(false); 
+  const [isDisconnected, setIsDisconnected] = useState(false);
 
-  const remoteVideoRef = useRef<HTMLVideoElement>(null); 
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<PeerInstance | null>(null);
   const socketRef = useRef<Socket | null>(defaultSocket);
+  const isSelfInitiatedDisconnectRef = useRef(false);
 
   const startSearch = useCallback(() => {
     setIsSearching(true);
     setSearchCancelled(false);
-    setNoUsersOnline(false); 
+    setNoUsersOnline(false);
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('find');
       console.log('Emitted "find" event');
@@ -43,6 +44,7 @@ export default function ChatPage() {
       });
     }
   }, []);
+
   useEffect(() => {
     const handlePeerDisconnected = ({ message }: { message: string }) => {
       console.log('Peer disconnected:', message);
@@ -57,23 +59,25 @@ export default function ChatPage() {
       setIsDisconnected(true);
       toast.error(message || 'Your chat partner has disconnected.');
     };
-  
+
     socketRef.current?.on('peerDisconnected', handlePeerDisconnected);
-  
+
     return () => {
       socketRef.current?.off('peerDisconnected', handlePeerDisconnected);
     };
   }, []);
-  
+
   useEffect(() => {
     const getMedia = async () => {
       try {
-        const connection = navigator.connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+        const connection =
+          navigator.connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
         let videoConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
 
         if (connection) {
           console.log('Connection downlink speed:', connection.downlink);
-          if (connection.downlink < 1) { // less than 1 Mbps
+          if (connection.downlink < 1) {
+            // less than 1 Mbps
             videoConstraints = { width: { ideal: 640 }, height: { ideal: 480 } };
             console.log('Adjusting video constraints to lower resolution due to low bandwidth.');
           }
@@ -86,7 +90,7 @@ export default function ChatPage() {
         });
         setLocalStream(stream);
         console.log('Obtained local media stream');
-        startSearch(); 
+        startSearch();
       } catch (err) {
         console.error('Error accessing media devices:', err);
         toast.error('Failed to access microphone and camera.');
@@ -114,9 +118,10 @@ export default function ChatPage() {
     const handleMatch = ({ initiator, room }: { initiator: boolean; room: string }) => {
       console.log('Match found!', { initiator, room });
       setIsSearching(false);
-      setConnected(true); 
+      setConnected(true);
       setRoom(room);
       setSearchCancelled(false);
+      setIsDisconnected(false); // Reset disconnection state
       toast.success('Match found!');
 
       if (!localStream) {
@@ -131,33 +136,33 @@ export default function ChatPage() {
 
       const newPeer = new Peer({
         initiator,
-        trickle: true, 
+        trickle: true,
         stream: localStream,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
             {
-              urls: "stun:stun.relay.metered.ca:80",
+              urls: 'stun:stun.relay.metered.ca:80',
             },
             {
-              urls: "turn:in.relay.metered.ca:80",
-              username: "873134b2f07cf74609503c68",
-              credential: "NC0vVLMMDkFYtVO6",
+              urls: 'turn:in.relay.metered.ca:80',
+              username: '873134b2f07cf74609503c68',
+              credential: 'NC0vVLMMDkFYtVO6',
             },
             {
-              urls: "turn:in.relay.metered.ca:80?transport=tcp",
-              username: "873134b2f07cf74609503c68",
-              credential: "NC0vVLMMDkFYtVO6",
+              urls: 'turn:in.relay.metered.ca:80?transport=tcp',
+              username: '873134b2f07cf74609503c68',
+              credential: 'NC0vVLMMDkFYtVO6',
             },
             {
-              urls: "turn:in.relay.metered.ca:443",
-              username: "873134b2f07cf74609503c68",
-              credential: "NC0vVLMMDkFYtVO6",
+              urls: 'turn:in.relay.metered.ca:443',
+              username: '873134b2f07cf74609503c68',
+              credential: 'NC0vVLMMDkFYtVO6',
             },
             {
-              urls: "turns:in.relay.metered.ca:443?transport=tcp",
-              username: "873134b2f07cf74609503c68",
-              credential: "NC0vVLMMDkFYtVO6",
+              urls: 'turns:in.relay.metered.ca:443?transport=tcp',
+              username: '873134b2f07cf74609503c68',
+              credential: 'NC0vVLMMDkFYtVO6',
             },
           ],
         },
@@ -219,7 +224,11 @@ export default function ChatPage() {
         setRoom(null);
         setIsSearching(false);
         setSearchCancelled(false);
-        startSearch();
+        if (!isSelfInitiatedDisconnectRef.current) {
+          setIsDisconnected(true);
+          toast.error('Your chat partner has disconnected.');
+        }
+        isSelfInitiatedDisconnectRef.current = false;
       };
 
       socketRef.current?.on('signal', handleSignal);
@@ -233,13 +242,21 @@ export default function ChatPage() {
       newPeer.on('close', () => {
         console.log('Peer connection closed');
         cleanup();
-        setIsDisconnected(true); 
+        if (!isSelfInitiatedDisconnectRef.current) {
+          setIsDisconnected(true);
+          toast.error('Connection closed.');
+        }
+        isSelfInitiatedDisconnectRef.current = false;
       });
 
       newPeer.on('destroy', () => {
         console.log('Peer connection destroyed');
         cleanup();
-        setIsDisconnected(true); 
+        if (!isSelfInitiatedDisconnectRef.current) {
+          setIsDisconnected(true);
+          toast.error('Connection destroyed.');
+        }
+        isSelfInitiatedDisconnectRef.current = false;
       });
     };
 
@@ -254,7 +271,7 @@ export default function ChatPage() {
       console.log('Search cancelled:', message);
       setIsSearching(false);
       setSearchCancelled(true);
-      infoToast(message); 
+      infoToast(message);
     };
 
     const handleNoUsersOnline = ({ message }: { message: string }) => {
@@ -282,33 +299,11 @@ export default function ChatPage() {
     };
   }, [localStream, startSearch]);
 
-  useEffect(() => {
-    const handleLeave = () => {
-      console.log('Handling leave event');
-      if (peerRef.current) {
-        peerRef.current.destroy();
-        peerRef.current = null;
-      }
-      setConnected(false);
-      setRemoteStream(null);
-      setMessages([]);
-      setRoom(null);
-      setIsSearching(false);
-      setSearchCancelled(false);
-      startSearch();
-    };
-
-    socketRef.current?.on('leave', handleLeave);
-
-    return () => {
-      socketRef.current?.off('leave', handleLeave);
-    };
-  }, [startSearch]);
-
   const handleNext = useCallback(() => {
     if (isDebouncing) return;
 
     if (peerRef.current) {
+      isSelfInitiatedDisconnectRef.current = true;
       peerRef.current.destroy();
       peerRef.current = null;
     }
@@ -317,19 +312,20 @@ export default function ChatPage() {
     setMessages([]);
     setIsSearching(true);
     setSearchCancelled(false);
-    setNoUsersOnline(false); 
+    setNoUsersOnline(false);
 
     if (room) {
       socketRef.current?.emit('next', { room });
       setRoom(null);
-    } else {
-      startSearch();
     }
+
+    // Start searching for a new match
+    startSearch();
 
     setIsDebouncing(true);
     setTimeout(() => {
       setIsDebouncing(false);
-    }, 2000); 
+    }, 2000);
   }, [room, startSearch, isDebouncing]);
 
   const handleCancelSearch = useCallback(() => {
@@ -339,12 +335,12 @@ export default function ChatPage() {
     setIsSearching(false);
     setSearchCancelled(true);
     setNoUsersOnline(false); // Reset
-    infoToast('Search cancelled.'); 
+    infoToast('Search cancelled.');
 
     setIsDebouncing(true);
     setTimeout(() => {
       setIsDebouncing(false);
-    }, 2000); 
+    }, 2000);
   }, [isDebouncing]);
 
   const handleSendMessage = useCallback(
@@ -363,7 +359,7 @@ export default function ChatPage() {
       <header className="bg-black/50 backdrop-blur-sm p-4 flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => window.location.href = '/'} 
+            onClick={() => (window.location.href = '/')}
             className="text-white hover:text-gray-300 transition-colors"
             aria-label="Go back"
           >
@@ -418,42 +414,43 @@ export default function ChatPage() {
           />
           <div className="absolute top-4 right-4 w-48 h-36 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500">
             <LocalVideo localStream={localStream} />
-            <span className="absolute bottom-2 left-2 bg-pink-500 text-white text-sm px-2 py-0.5 rounded">You</span>
+            <span className="absolute bottom-2 left-2 bg-pink-500 text-white text-sm px-2 py-0.5 rounded">
+              You
+            </span>
           </div>
         </div>
         <div className="md:w-1/3 h-1/2 md:h-auto">
-          <TextChat
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            connected={connected}
-          />
+          <TextChat messages={messages} onSendMessage={handleSendMessage} connected={connected} />
         </div>
       </main>
-  
+
       {noUsersOnline && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white">
           <div className="text-center">
             <p className="text-2xl font-bold mb-4">No other users online.</p>
-            <Button onClick={startSearch} className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded">
+            <Button
+              onClick={startSearch}
+              className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded"
+            >
               Retry Search
             </Button>
           </div>
         </div>
       )}
       {isDisconnected && (
-  <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white">
-    <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg">
-      <h2 className="text-xl font-bold mb-2">Stranger Disconnected</h2>
-      <p className="mb-4">Your chat partner has left the chat.</p>
-      <Button
-        onClick={startSearch}
-        className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded"
-      >
-        Find New Match
-      </Button>
-    </div>
-  </div>
-)}
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white">
+          <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg">
+            <h2 className="text-xl font-bold mb-2">Stranger Disconnected</h2>
+            <p className="mb-4">Your chat partner has left the chat.</p>
+            <Button
+              onClick={startSearch}
+              className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded"
+            >
+              Find New Match
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
