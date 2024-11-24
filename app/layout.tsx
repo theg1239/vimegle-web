@@ -29,3 +29,5 @@ export default function RootLayout({
     </html>
   );
 }
+
+//       const response = await fetch(`${process.env.NEXT_PUBLIC_SOCKET_URL}/api/getUserRanking`, {

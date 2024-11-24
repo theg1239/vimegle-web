@@ -1,48 +1,33 @@
-import React from 'react';
+// local-video.tsx
+import React, { useEffect } from 'react';
 
 interface LocalVideoProps {
   localStream: MediaStream | null;
 }
 
-const LocalVideo: React.FC<LocalVideoProps> = ({ localStream }) => {
+const LocalVideo: React.FC<LocalVideoProps> = React.memo(function LocalVideo({ localStream }) {
   const videoRef = React.useRef<HTMLVideoElement>(null);
 
-  React.useEffect(() => {
-    if (localStream && videoRef.current) {
+  useEffect(() => {
+    if (videoRef.current && localStream) {
       videoRef.current.srcObject = localStream;
-      videoRef.current.muted = true;
-      videoRef.current.play().catch((error) => {
-        console.error('Error playing local video:', error);
-      });
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play().catch(() => {});
+      };
+      videoRef.current.onerror = () => {};
     }
   }, [localStream]);
 
-  const hasVideo = localStream
-    ? localStream.getVideoTracks().length > 0
-    : false;
-
   return (
-    <>
-      {hasVideo ? (
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover transform scale-x-[-1]"
-          autoPlay
-          playsInline
-          muted
-          aria-label="Local Video"
-        />
-      ) : (
-        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-          <p className="text-white">No Video Available</p>
-        </div>
-      )}
-    </>
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      muted
+      className="w-full h-full object-cover"
+      aria-label="Your Video"
+    />
   );
-};
-
-LocalVideo.defaultProps = {
-  localStream: null,
-};
+});
 
 export default LocalVideo;

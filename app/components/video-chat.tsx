@@ -1,6 +1,8 @@
+// video-chat.tsx
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Volume2, VolumeX, Video, VideoOff } from 'lucide-react';
+import { Button } from '@/app/components/ui/button';
 
 interface VideoChatProps {
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
@@ -8,6 +10,10 @@ interface VideoChatProps {
   remoteStream: MediaStream | null;
   isSearching: boolean;
   searchCancelled: boolean;
+  isMuted: boolean;
+  toggleMute: () => void;
+  isVideoOff: boolean;
+  toggleVideoOff: () => void;
 }
 
 const overlayVariants = {
@@ -21,30 +27,18 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
   remoteStream,
   isSearching,
   searchCancelled,
+  isMuted,
+  toggleMute,
+  isVideoOff,
+  toggleVideoOff,
 }) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      console.log('Assigning remote stream to video element.');
       remoteVideoRef.current.srcObject = remoteStream;
-
-      remoteStream.getTracks().forEach((track) => {
-        console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
-      });
-
       remoteVideoRef.current.onloadedmetadata = () => {
-        console.log('Remote video metadata loaded.');
-        remoteVideoRef.current
-          ?.play()
-          .catch((e) => console.error('Error playing remote video:', e));
+        remoteVideoRef.current?.play().catch(() => {});
       };
-
-      remoteVideoRef.current.onerror = (e) => {
-        console.error('Remote video error:', e);
-      };
-    } else {
-      console.warn(
-        'remoteVideoRef is not initialized or remoteStream is null.'
-      );
+      remoteVideoRef.current.onerror = () => {};
     }
   }, [remoteStream, remoteVideoRef]);
 
@@ -57,7 +51,24 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
         className="w-full h-full object-cover transform scale-x-[-1]"
         aria-label="Remote Video"
       />
-
+      <div className="absolute bottom-4 left-4 flex space-x-2">
+        <Button
+          variant="ghost"
+          onClick={toggleMute}
+          className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+          aria-label={isMuted ? 'Unmute' : 'Mute'}
+        >
+          {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={toggleVideoOff}
+          className="bg-black/50 hover:bg-black/70 text-white p-2 rounded-full"
+          aria-label={isVideoOff ? 'Turn Video On' : 'Turn Video Off'}
+        >
+          {isVideoOff ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+        </Button>
+      </div>
       {(!connected || !remoteStream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
           {isSearching ? (
@@ -74,7 +85,6 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
           )}
         </div>
       )}
-
       <AnimatePresence>
         {!isSearching && !connected && !searchCancelled && (
           <motion.div
