@@ -1,12 +1,11 @@
-// socket.ts
+
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
 
-// Define namespaces
-const TEXT_NAMESPACE = '/text'; // Namespace for text chat
-const DEFAULT_NAMESPACE = '/';  // Default namespace for other features like video
+const TEXT_NAMESPACE = '/text'; 
+const DEFAULT_NAMESPACE = '/'; 
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001/';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
 declare global {
   interface Window {
@@ -16,11 +15,10 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
-  // Initialize Text Namespace Socket
   if (!window.textSocket) {
     console.log('Initializing new Socket.io client for /text namespace');
     window.textSocket = io(`${SOCKET_URL}${TEXT_NAMESPACE}`, {
-      transports: ['websocket'], // Use WebSockets exclusively
+      transports: ['websocket'], 
       upgrade: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
@@ -53,11 +51,10 @@ if (typeof window !== 'undefined') {
     });
   }
 
-  // Initialize Default Namespace Socket (for Video or other features)
   if (!window.defaultSocket) {
     console.log('Initializing new Socket.io client for default namespace');
     window.defaultSocket = io(`${SOCKET_URL}${DEFAULT_NAMESPACE}`, {
-      transports: ['websocket'], // Use WebSockets exclusively
+      transports: ['websocket'], 
       upgrade: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
