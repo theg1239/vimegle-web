@@ -223,13 +223,14 @@ export default function TextChatPage() {
     setNoUsersOnline(false);
     setCurrentRoom('');
     setIsDisconnected(false);
+  
     if (currentRoom) {
       textSocket.emit('nextTextChat', { room: currentRoom });
-    } else {
-      textSocket.emit('findTextMatch');
     }
+  
+    textSocket.emit('findTextMatch');
   };
-
+  
   const handleEmojiClick = (emojiData: EmojiClickData, event: MouseEvent) => {
     setInputMessage((prev) => prev + emojiData.emoji);
     setShowEmojiPicker(false);
@@ -442,7 +443,7 @@ export default function TextChatPage() {
           {/* Watermark */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <h1
-              className={`text-8xl font-bold text-gray-300 opacity-10 ${
+              className={`text-6xl font-bold text-gray-300 opacity-10 ${
                 darkMode ? 'text-white' : 'text-gray-800'
               }`}
             >
