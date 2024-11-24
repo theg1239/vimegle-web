@@ -1,9 +1,8 @@
-
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'react-hot-toast';
 
-const TEXT_NAMESPACE = '/text'; 
-const DEFAULT_NAMESPACE = '/'; 
+const TEXT_NAMESPACE = '/text';
+const DEFAULT_NAMESPACE = '/';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
 
@@ -17,21 +16,34 @@ declare global {
 if (typeof window !== 'undefined') {
   if (!window.textSocket) {
     console.log('Initializing new Socket.io client for /text namespace');
+
+    const savedSessionId = localStorage.getItem('sessionId');
+
     window.textSocket = io(`${SOCKET_URL}${TEXT_NAMESPACE}`, {
-      transports: ['websocket'], 
+      transports: ['websocket'],
       upgrade: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 3000,
-      timeout: 5000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      auth: {
+        sessionId: savedSessionId || '',
+      },
     });
 
     window.textSocket.on('connect', () => {
       console.log('Text Socket connected:', window.textSocket.id);
     });
 
-    window.textSocket.on('connect_error', () => {
+    window.textSocket.on('session', ({ sessionId }) => {
+      console.log('Received sessionId from server:', sessionId);
+      localStorage.setItem('sessionId', sessionId);
+      window.textSocket.auth = { sessionId };
+    });
+
+    window.textSocket.on('connect_error', (error) => {
+      console.error('Connection Error (Text Chat):', error);
       toast.error('Connection Error (Text Chat). Please check your internet and try again.');
     });
 
@@ -53,21 +65,23 @@ if (typeof window !== 'undefined') {
 
   if (!window.defaultSocket) {
     console.log('Initializing new Socket.io client for default namespace');
+
     window.defaultSocket = io(`${SOCKET_URL}${DEFAULT_NAMESPACE}`, {
-      transports: ['websocket'], 
+      transports: ['websocket'],
       upgrade: false,
       reconnection: true,
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 3000,
-      timeout: 5000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
     });
 
     window.defaultSocket.on('connect', () => {
       console.log('Default Socket connected:', window.defaultSocket.id);
     });
 
-    window.defaultSocket.on('connect_error', () => {
+    window.defaultSocket.on('connect_error', (error) => {
+      console.error('Connection Error (Default):', error);
       toast.error('Connection Error (Default). Please check your internet and try again.');
     });
 

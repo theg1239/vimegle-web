@@ -11,8 +11,6 @@ import {
   Send,
   Smile,
   Video,
-  Heart,
-  ThumbsUp,
   Flag,
   AlertTriangle,
   Settings,
@@ -21,12 +19,12 @@ import {
 import Link from 'next/link';
 import { textSocket } from '@/lib/socket';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
+import { v4 as uuidv4 } from 'uuid';
+import { Twemoji } from 'react-emoji-render';
 import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
 import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
-import { Twemoji } from 'react-emoji-render';
-import { v4 as uuidv4 } from 'uuid';
 
 type Message = {
   id: string;
@@ -75,27 +73,15 @@ export default function TextChatPage() {
   }, [currentRoom]);
 
   useEffect(() => {
-    const handlePeerDisconnected = ({ message }: { message: string }) => {
-      console.log('Peer disconnected:', message);
-      setConnected(false);
-      setMessages([]);
-      setCurrentRoom('');
-      setIsDisconnected(true);
-      toast.error(message || 'Your chat partner has disconnected.');
-    };
-
-    textSocket.on('peerDisconnected', handlePeerDisconnected);
-
-    return () => {
-      textSocket.off('peerDisconnected', handlePeerDisconnected);
-    };
-  }, []);
-
-  useEffect(() => {
     if (!textSocket) {
       console.error('Text Socket not initialized');
       return;
     }
+
+    const handleSession = ({ sessionId }: { sessionId: string }) => {
+      console.log('Received sessionId from server:', sessionId);
+      // Session ID is already handled in lib/socket.ts
+    };
 
     const handleConnect = () => {
       textSocket.emit('findTextMatch');
@@ -108,6 +94,7 @@ export default function TextChatPage() {
       setNoUsersOnline(false);
       setCurrentRoom(room);
       setShowIntroMessage(true);
+      setIsDisconnected(false);
       toast.success('Connected to a stranger!');
       if (soundEnabledRef.current && hasInteractedRef.current) playNotificationSound();
     };
@@ -119,9 +106,12 @@ export default function TextChatPage() {
     };
 
     const handlePeerDisconnected = ({ message }: { message: string }) => {
+      console.log('Peer disconnected:', message);
       setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
       setIsDisconnected(true);
-      toast.error(message);
+      toast.error(message || 'Your chat partner has disconnected.');
       if (soundEnabledRef.current && hasInteractedRef.current) playDisconnectSound();
     };
 
@@ -136,12 +126,25 @@ export default function TextChatPage() {
       setTimeout(() => setIsTyping(false), 3000);
     };
 
-    const handleDisconnect = () => {
+    const handleDisconnect = (reason: string) => {
+      console.log('Disconnected from server:', reason);
       setConnected(false);
-      toast.error('Disconnected from chat');
-      if (soundEnabledRef.current && hasInteractedRef.current) playDisconnectSound();
+      if (reason === 'io server disconnect') {
+        // The disconnection was initiated by the server, need to reconnect manually
+        textSocket.connect();
+      }
     };
 
+    const handleReconnect = (attemptNumber: number) => {
+      console.log(`Reconnected after ${attemptNumber} attempts`);
+      if (currentRoomRef.current) {
+        // Attempt to rejoin or find a new match
+        textSocket.emit('findTextMatch');
+        setIsSearching(true);
+      }
+    };
+
+    textSocket.on('session', handleSession);
     textSocket.on('connect', handleConnect);
     textSocket.on('textMatch', handleTextMatch);
     textSocket.on('textMessage', handleTextMessage);
@@ -149,8 +152,10 @@ export default function TextChatPage() {
     textSocket.on('noTextMatch', handleNoTextMatch);
     textSocket.on('typing', handleTypingFromPeer);
     textSocket.on('disconnect', handleDisconnect);
+    textSocket.on('reconnect', handleReconnect);
 
     return () => {
+      textSocket.off('session', handleSession);
       textSocket.off('connect', handleConnect);
       textSocket.off('textMatch', handleTextMatch);
       textSocket.off('textMessage', handleTextMessage);
@@ -158,6 +163,7 @@ export default function TextChatPage() {
       textSocket.off('noTextMatch', handleNoTextMatch);
       textSocket.off('typing', handleTypingFromPeer);
       textSocket.off('disconnect', handleDisconnect);
+      textSocket.off('reconnect', handleReconnect);
     };
   }, []);
 
@@ -216,32 +222,17 @@ export default function TextChatPage() {
     setShowIntroMessage(true);
     setNoUsersOnline(false);
     setCurrentRoom('');
-    setIsDisconnected(false); 
+    setIsDisconnected(false);
     if (currentRoom) {
       textSocket.emit('nextTextChat', { room: currentRoom });
+    } else {
+      textSocket.emit('findTextMatch');
     }
-    textSocket.emit('findTextMatch');
   };
 
   const handleEmojiClick = (emojiData: EmojiClickData, event: MouseEvent) => {
     setInputMessage((prev) => prev + emojiData.emoji);
     setShowEmojiPicker(false);
-  };
-
-  const handleReaction = (messageId: string, reaction: string) => {
-    setMessages((prev) =>
-      prev.map((msg) =>
-        msg.id === messageId
-          ? {
-              ...msg,
-              reactions: {
-                ...msg.reactions,
-                [reaction]: msg.reactions[reaction] ? msg.reactions[reaction] + 1 : 1,
-              },
-            }
-          : msg
-      )
-    );
   };
 
   const playNotificationSound = () => {
@@ -442,10 +433,23 @@ export default function TextChatPage() {
 
       <main
         className={`flex-grow flex flex-col p-4 overflow-hidden ${
-          darkMode ? 'bg-gradient-to-b from-gray-800 to-gray-900' : 'bg-gradient-to-b from-gray-100 to-white'
+          darkMode
+            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+            : 'bg-gradient-to-b from-gray-100 to-white'
         }`}
       >
-        <ScrollArea ref={scrollAreaRef} className="flex-grow">
+        <ScrollArea ref={scrollAreaRef} className="flex-grow relative">
+          {/* Watermark */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <h1
+              className={`text-8xl font-bold text-gray-300 opacity-10 ${
+                darkMode ? 'text-white' : 'text-gray-800'
+              }`}
+            >
+              Vimegle
+            </h1>
+          </div>
+
           {showIntroMessage && connected && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -458,7 +462,9 @@ export default function TextChatPage() {
             >
               <h3 className="font-bold mb-2">Welcome to Vimegle Text Chat!</h3>
               <p>You're now connected with a random stranger. Say hello and start chatting!</p>
-              <p className="mt-2 text-sm">Remember to be respectful and follow our community guidelines.</p>
+              <p className="mt-2 text-sm">
+                Remember to be respectful and follow our community guidelines.
+              </p>
             </motion.div>
           )}
           <AnimatePresence>
@@ -496,19 +502,6 @@ export default function TextChatPage() {
                   >
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
-                  {Object.keys(msg.reactions).length > 0 && (
-                    <div className="absolute -bottom-4 left-0 flex space-x-1">
-                      {Object.entries(msg.reactions).map(([emoji, count]) => (
-                        <div
-                          key={emoji}
-                          className="flex items-center space-x-1 bg-gray-200 dark:bg-gray-600 px-2 py-1 rounded-full"
-                        >
-                          <Twemoji text={emoji} />
-                          <span className="text-xs">{count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </motion.div>
             ))}
@@ -570,7 +563,10 @@ export default function TextChatPage() {
           </div>
           {showEmojiPicker && (
             <div className="absolute bottom-16 right-4 z-10">
-              <EmojiPicker onEmojiClick={handleEmojiClick} theme={darkMode ? Theme.DARK : Theme.LIGHT} />
+              <EmojiPicker
+                onEmojiClick={handleEmojiClick}
+                theme={darkMode ? Theme.DARK : Theme.LIGHT}
+              />
             </div>
           )}
         </div>

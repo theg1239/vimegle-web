@@ -1,6 +1,7 @@
 import './globals.css';
 import { Inter } from 'next/font/google';
 import MaintenanceOverlay from '@/app/components/maintenance-overlay';
+import { Toaster } from '@/app/components/ui/toaster';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.className} bg-black text-white relative`}>
         {children}
         {isMaintenance && <MaintenanceOverlay />}
+        <Toaster /> 
       </body>
     </html>
   );

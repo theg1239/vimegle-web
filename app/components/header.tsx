@@ -15,18 +15,23 @@ const Header: React.FC = () => {
 
       <nav className="flex-1 flex justify-center space-x-4">
         <Link href="/video">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-pink-500/10 rounded-lg transition-colors">
+          <button className="px-2 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-pink-500/10 rounded-lg transition-colors">
             Video
           </button>
         </Link>
         <Link href="/text">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-purple-500/10 rounded-lg transition-colors">
+          <button className="px-2 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-purple-500/10 rounded-lg transition-colors">
             Text
           </button>
         </Link>
-        <Link href="/about">
-          <button className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-blue-500/10 rounded-lg transition-colors">
+        {/* <Link href="/about">
+          <button className="px-1 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-blue-500/10 rounded-lg transition-colors">
             About
+          </button>
+        </Link> */}
+        <Link href="/feedback">
+          <button className="px-2 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-transparent hover:bg-blue-500/10 rounded-lg transition-colors">
+            Feedback
           </button>
         </Link>
       </nav>
