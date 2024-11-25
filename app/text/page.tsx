@@ -701,11 +701,30 @@ export default function TextChatPage() {
 <ScrollArea
   className="relative"
   style={{
-    maxHeight: 'calc(100vh - 8rem)', // Calculate the available height between the header and footer
-    minHeight: '12rem', // Minimum height for the scroll area
-    overflowY: 'auto', // Enable scrolling when content exceeds maxHeight
+    maxHeight: 'calc(100vh - 8rem)', 
+    minHeight: '12rem', 
+    overflowY: 'auto',
   }}
 >
+  {showIntroMessage && connected && (
+    <motion.div
+      key="intro-message"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className={`mb-4 p-4 rounded-lg ${
+        darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+      }`}
+    >
+      <h3 className="font-bold mb-2">Welcome to Vimegle Text Chat!</h3>
+      <p>You're now connected with a random stranger. Say hello and start chatting!</p>
+      <p className="mt-2 text-sm">
+        Remember to be respectful and follow our community guidelines.
+      </p>
+    </motion.div>
+  )}
+
   {messages.length > 0 ? (
     messages.map((msg) => (
       <motion.div

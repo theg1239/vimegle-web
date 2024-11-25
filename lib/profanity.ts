@@ -4,7 +4,10 @@ const profaneWords = [
   'send nudes',
   'm or f',
   'f or m',
-  'bobs or vagana'
+  'bobs or vagana',
+  'M/f',
+  'f/m',
+  'Morf'
 ];
 
 const profaneRegex = new RegExp(
