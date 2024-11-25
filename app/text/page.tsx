@@ -92,6 +92,7 @@ export default function TextChatPage() {
   const [lastTapTime, setLastTapTime] = useState<{ [key: string]: number }>({});
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const [showLikeMessage, setShowLikeMessage] = useState<boolean>(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
@@ -99,6 +100,16 @@ export default function TextChatPage() {
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
 
+  const scrollToBottom = useCallback(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+  
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -692,158 +703,194 @@ export default function TextChatPage() {
 
       {/* Main Content */}
       <main
-        className={`flex-grow flex flex-col p-4 overflow-hidden mt-16 mb-20 ${
+        className={`flex-grow flex flex-col overflow-hidden ${
           darkMode
             ? 'bg-gradient-to-b from-gray-800 to-gray-900'
             : 'bg-gradient-to-b from-gray-100 to-white'
         }`}
       >
-<ScrollArea
-  className="relative"
-  style={{
-    maxHeight: 'calc(100vh - 8rem)', 
-    minHeight: '12rem', 
-    overflowY: 'auto',
-  }}
->
-  {showIntroMessage && connected && (
-    <motion.div
-      key="intro-message"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className={`mb-4 p-4 rounded-lg ${
-        darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-      }`}
-    >
-      <h3 className="font-bold mb-2">Welcome to Vimegle Text Chat!</h3>
-      <p>You're now connected with a random stranger. Say hello and start chatting!</p>
-      <p className="mt-2 text-sm">
-        Remember to be respectful and follow our community guidelines.
-      </p>
-    </motion.div>
-  )}
-
-  {messages.length > 0 ? (
-    messages.map((msg) => (
-      <motion.div
-        key={msg.id}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.3 }}
-        className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
-      >
         <div
-          className={`inline-block max-w-[70%] ${
-            msg.isSelf
-              ? darkMode
-                ? 'bg-blue-600'
-                : 'bg-blue-500'
-              : darkMode
-              ? 'bg-gray-700'
-              : 'bg-gray-300'
-          } rounded-2xl p-4 relative cursor-pointer`}
+          ref={scrollAreaRef}
+          className="flex-grow overflow-y-auto scrollbar-hide"
+          style={{
+            height: 'calc(100vh - 8rem)',
+            paddingTop: '4rem',
+            paddingBottom: '5rem',
+          }}
         >
-          <span
-            className={`${
-              msg.isSelf
-                ? 'text-white'
-                : darkMode
-                ? 'text-white'
-                : 'text-black'
-            } break-words`}
-          >
-            <Twemoji
-              text={msg.text}
-              options={{
-                className: 'inline-block align-middle',
-              }}
-            />
-          </span>
-          <span
-            className={`text-xs ${
-              darkMode ? 'text-gray-400' : 'text-gray-600'
-            } mt-1 block`}
-          >
-            {msg.timestamp.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </span>
+          <div className="px-4">
+            {showIntroMessage && connected && (
+              <motion.div
+                key="intro-message"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className={`mb-4 p-4 rounded-lg ${
+                  darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                }`}
+              >
+                <h3 className="font-bold mb-2">Welcome to Vimegle Text Chat!</h3>
+                <p>
+                  You're now connected with a random stranger. Say hello and start
+                  chatting!
+                </p>
+                <p className="mt-2 text-sm">
+                  Remember to be respectful and follow our community guidelines.
+                </p>
+              </motion.div>
+            )}
+
+            <AnimatePresence initial={false}>
+              {messages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
+                >
+                  <div
+                    className={`inline-block max-w-[70%] ${
+                      msg.isSelf
+                        ? darkMode
+                          ? 'bg-blue-600'
+                          : 'bg-blue-500'
+                        : darkMode
+                        ? 'bg-gray-700'
+                        : 'bg-gray-300'
+                    } rounded-2xl p-4 relative cursor-pointer`}
+                    onClick={() => handleDoubleTap(msg.id, msg.isSelf)}
+                  >
+                    <span
+                      className={`${
+                        msg.isSelf
+                          ? 'text-white'
+                          : darkMode
+                          ? 'text-white'
+                          : 'text-black'
+                      } break-words`}
+                    >
+                      <Twemoji
+                        text={msg.text}
+                        options={{
+                          className: 'inline-block align-middle',
+                        }}
+                      />
+                    </span>
+                    <span
+                      className={`text-xs ${
+                        darkMode ? 'text-gray-400' : 'text-gray-600'
+                      } mt-1 block`}
+                    >
+                      {msg.timestamp.toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    {msg.liked && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.5 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5 }}
+                        transition={{ duration: 0.2 }}
+                        className={`absolute ${
+                          msg.isSelf ? 'left-0' : 'right-0'
+                        } bottom-0 transform ${
+                          msg.isSelf ? '-translate-x-1/2' : 'translate-x-1/2'
+                        } translate-y-1/2`}
+                      >
+                        <Heart className="w-6 h-6 text-red-500 fill-current" />
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {isTyping && (
+              <motion.div
+                key="typing-indicator"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className={`${
+                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                } italic mb-4`}
+              >
+                Stranger is typing...
+              </motion.div>
+            )}
+          </div>
         </div>
-      </motion.div>
-    ))
-  ) : (
-    <div className="text-center text-gray-500 dark:text-gray-400 mt-4">
-      No messages yet. Start chatting!
-    </div>
-  )}
-</ScrollArea>
 
         <div
-  className="fixed inset-x-0 bottom-[4rem] p-4 bg-gray-100 dark:bg-gray-900 z-10" // Adjust bottom to sit above the footer
-  style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }} // Ensure compatibility with mobile safe areas
->
-  <div className="relative">
-    <Input
-      type="text"
-      value={inputMessage}
-      onChange={(e) => {
-        setInputMessage(e.target.value);
-        handleTypingDebounced();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') handleSendMessage();
-      }}
-      placeholder="Type a message..."
-      disabled={!connected}
-      className={`w-full ${
-        darkMode
-          ? 'bg-gray-800 text-white placeholder-gray-400'
-          : 'bg-white text-black placeholder-gray-500'
-      } pr-24 rounded-full`}
-      aria-label="Message Input"
-    />
-    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-      <Button
-        size="icon"
-        variant="ghost"
-        onClick={toggleEmojiPicker}
-        className={`${
-          darkMode
-            ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-            : 'text-gray-600 hover:text-black hover:bg-gray-200'
-        } rounded-full`}
-        aria-label="Toggle Emoji Picker"
-      >
-        <Smile className="w-5 h-5" />
-      </Button>
-      <Button
-        onClick={handleSendMessage}
-        disabled={!connected || !inputMessage.trim()}
-        size="icon"
-        className={`${
-          darkMode
-            ? 'bg-blue-600 hover:bg-blue-700'
-            : 'bg-blue-500 hover:bg-blue-600'
-        } text-white rounded-full`}
-        aria-label="Send Message"
-      >
-        <Send className="w-5 h-5" />
-      </Button>
-    </div>
-    {showEmojiPicker && (
-      <div className="absolute bottom-16 right-4 z-10">
-        <EmojiPicker
-          onEmojiClick={handleEmojiClick}
-          theme={darkMode ? Theme.DARK : Theme.LIGHT}
-        />
-      </div>
-    )}
-  </div>
-</div>
+          className={`fixed bottom-0 left-0 right-0 p-4 ${
+            darkMode ? 'bg-gray-900' : 'bg-gray-100'
+          }`}
+          style={{
+            paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+          }}
+        >
+          <div className="relative">
+            <Input
+              type="text"
+              value={inputMessage}
+              onChange={(e) => {
+                setInputMessage(e.target.value);
+                handleTypingDebounced();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSendMessage();
+              }}
+              placeholder="Type a message..."
+              disabled={!connected}
+              className={`w-full ${
+                darkMode
+                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
+                  : 'bg-white border-gray-300 text-black placeholder-gray-500'
+              } pr-24 rounded-full`}
+              aria-label="Message Input"
+            />
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={toggleEmojiPicker}
+                className={`${
+                  darkMode
+                    ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                    : 'text-gray-600 hover:text-black hover:bg-gray-200'
+                } rounded-full`}
+                aria-label="Toggle Emoji Picker"
+              >
+                <Smile className="w-5 h-5" />
+              </Button>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!connected || !inputMessage.trim()}
+                size="icon"
+                className={`${
+                  darkMode
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white rounded-full`}
+                aria-label="Send Message"
+              >
+                <Send className="w-5 h-5" />
+              </Button>
+            </div>
+            {showEmojiPicker && (
+              <div className="absolute bottom-16 right-4 z-10">
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  theme={darkMode ? Theme.DARK : Theme.LIGHT}
+                />
+              </div>
+            )}
+          </div>
+        </div>
       </main>
 
       {/* Footer */}
