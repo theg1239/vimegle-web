@@ -825,63 +825,66 @@ export default function TextChatPage() {
           )}
           <div ref={messagesEndRef} />
         </ScrollArea>
-        <div className="relative mt-4">
-          <Input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => {
-              setInputMessage(e.target.value);
-              handleTypingDebounced();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSendMessage();
-            }}
-            placeholder="Type a message..."
-            disabled={!connected}
-            className={`w-full ${
-              darkMode
-                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-                : 'bg-white border-gray-300 text-black placeholder-gray-500'
-            } pr-24 rounded-full`}
-            aria-label="Message Input"
-          />
-          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={toggleEmojiPicker}
-              className={`${
-                darkMode
-                  ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                  : 'text-gray-600 hover:text-black hover:bg-gray-200'
-              } rounded-full`}
-              aria-label="Toggle Emoji Picker"
-            >
-              <Smile className="w-5 h-5" />
-            </Button>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!connected || !inputMessage.trim()}
-              size="icon"
-              className={`${
-                darkMode
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-blue-500 hover:bg-blue-600'
-              } text-white rounded-full`}
-              aria-label="Send Message"
-            >
-              <Send className="w-5 h-5" />
-            </Button>
-          </div>
-          {showEmojiPicker && (
-            <div className="absolute bottom-16 right-4 z-10">
-              <EmojiPicker
-                onEmojiClick={handleEmojiClick}
-                theme={darkMode ? Theme.DARK : Theme.LIGHT}
-              />
-            </div>
-          )}
-        </div>
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-100 dark:bg-gray-900 z-10">
+  <div className="relative">
+    <Input
+      type="text"
+      value={inputMessage}
+      onChange={(e) => {
+        setInputMessage(e.target.value);
+        handleTypingDebounced();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') handleSendMessage();
+      }}
+      placeholder="Type a message..."
+      disabled={!connected}
+      className={`w-full ${
+        darkMode
+          ? 'bg-gray-800 text-white placeholder-gray-400'
+          : 'bg-white text-black placeholder-gray-500'
+      } pr-24 rounded-full`}
+      aria-label="Message Input"
+    />
+    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+      <Button
+        size="icon"
+        variant="ghost"
+        onClick={toggleEmojiPicker}
+        className={`${
+          darkMode
+            ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+            : 'text-gray-600 hover:text-black hover:bg-gray-200'
+        } rounded-full`}
+        aria-label="Toggle Emoji Picker"
+      >
+        <Smile className="w-5 h-5" />
+      </Button>
+      <Button
+        onClick={handleSendMessage}
+        disabled={!connected || !inputMessage.trim()}
+        size="icon"
+        className={`${
+          darkMode
+            ? 'bg-blue-600 hover:bg-blue-700'
+            : 'bg-blue-500 hover:bg-blue-600'
+        } text-white rounded-full`}
+        aria-label="Send Message"
+      >
+        <Send className="w-5 h-5" />
+      </Button>
+    </div>
+    {showEmojiPicker && (
+      <div className="absolute bottom-16 right-4 z-10">
+        <EmojiPicker
+          onEmojiClick={handleEmojiClick}
+          theme={darkMode ? Theme.DARK : Theme.LIGHT}
+        />
+      </div>
+    )}
+  </div>
+</div>
+
       </main>
 
       {/* Footer */}
