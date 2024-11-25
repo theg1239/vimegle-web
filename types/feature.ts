@@ -7,3 +7,4 @@ export interface Feature {
   gradientClass: string;
   hoverMessage: string;
 }
+

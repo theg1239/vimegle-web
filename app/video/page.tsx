@@ -11,7 +11,7 @@ import { infoToast } from '@/lib/toastHelpers';
 import { defaultSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Loader2, Video, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Loader2, Video, MessageSquare, X, VideoOff } from 'lucide-react'; 
 import {
   Tooltip,
   TooltipContent,
@@ -19,13 +19,19 @@ import {
   TooltipTrigger,
 } from "@/app/components/ui/tooltip";
 
+interface ExtendedRTCConfiguration extends RTCConfiguration {
+  sdpSemantics?: string;
+}
 
+function isRTCOutboundRtpStreamStats(
+  report: RTCStats
+): report is ExtendedRTCOutboundRtpStreamStats {
+  return (report as ExtendedRTCOutboundRtpStreamStats).kind !== undefined;
+}
 export default function ChatPage() {
   const [connected, setConnected] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>(
-    []
-  );
+  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [room, setRoom] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
@@ -34,6 +40,11 @@ export default function ChatPage() {
   const [noUsersOnline, setNoUsersOnline] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [showTextChat, setShowTextChat] = useState(false);
+
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+
+  const [connectionQuality, setConnectionQuality] = useState<'good' | 'fair' | 'poor'>('good');
+  const [audioOnly, setAudioOnly] = useState(false); // Audio-only mode
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<PeerInstance | null>(null);
@@ -85,26 +96,27 @@ export default function ChatPage() {
           navigator.connection ||
           (navigator as any).mozConnection ||
           (navigator as any).webkitConnection;
-        let videoConstraints = {
+        let videoConstraints: MediaTrackConstraints = {
           width: { ideal: 1280 },
           height: { ideal: 720 },
+          frameRate: { ideal: 30 }, 
         };
 
         if (connection) {
           //console.log('Connection downlink speed:', connection.downlink);
           if (connection.downlink < 1) {
-            // less than 1 Mbps
             videoConstraints = {
               width: { ideal: 640 },
               height: { ideal: 480 },
+              frameRate: { ideal: 15 }, 
             };
             //console.log('Adjusting video constraints to lower resolution due to low bandwidth.');
           }
         }
 
-        //console.log('Requesting media stream with constraints:',videoConstraints);
+        //console.log('Requesting media stream with constraints:', videoConstraints);
         const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
+          audio: { echoCancellation: true, noiseSuppression: true }, 
           video: videoConstraints,
         });
         setLocalStream(stream);
@@ -159,28 +171,34 @@ export default function ChatPage() {
         peerRef.current = null;
       }
 
+      const config: ExtendedRTCConfiguration = { // **Using ExtendedRTCConfiguration**
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          {
+            urls: 'stun:stun.relay.metered.ca:80',
+          },
+        ],
+        iceTransportPolicy: 'all', 
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+        sdpSemantics: 'unified-plan',
+      };
+
       const newPeer = new Peer({
         initiator,
         trickle: true,
         stream: localStream,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            {
-              urls: 'stun:stun.relay.metered.ca:80',
-            },
-          ],
-        },
+        config,
       });
 
       peerRef.current = newPeer;
 
-      newPeer.on('signal', (data) => {
+      newPeer.on('signal', (data: any) => { // **Typed data parameter as any**
         //console.log('Peer signal data:', data);
         socketRef.current?.emit('signal', { room, data });
       });
 
-      newPeer.on('stream', (stream) => {
+      newPeer.on('stream', (stream: MediaStream) => {
         //console.log('Received remote stream');
         setRemoteStream(stream);
       });
@@ -191,15 +209,15 @@ export default function ChatPage() {
         setIsDisconnected(false);
       });
 
-      newPeer.on('error', (err) => {
+      newPeer.on('error', (err: Error) => { 
         //console.error('Peer error:', err);
         toast.error('Connection lost. Trying to find a new match...');
         handleNext();
       });
 
-      newPeer.on('data', (data) => {
+      newPeer.on('data', (data: Buffer) => { 
         try {
-          const parsedData = JSON.parse(data as string);
+          const parsedData = JSON.parse(data.toString());
           if (parsedData.type === 'chat') {
             setMessages((prev) => [
               ...prev,
@@ -211,7 +229,7 @@ export default function ChatPage() {
         }
       });
 
-      const handleSignal = (data: any) => {
+      const handleSignal = (data: any) => { 
         //console.log('Received signal data from server:', data);
         if (peerRef.current) {
           peerRef.current.signal(data);
@@ -279,7 +297,7 @@ export default function ChatPage() {
       //console.log('Search cancelled:', message);
       setIsSearching(false);
       setSearchCancelled(true);
-      infoToast(message);
+      infoToast(message); // **Ensure infoToast is correctly defined**
     };
 
     const handleNoUsersOnline = ({ message }: { message: string }) => {
@@ -327,7 +345,6 @@ export default function ChatPage() {
       setRoom(null);
     }
 
-    // Start searching for a new match
     startSearch();
 
     setIsDebouncing(true);
@@ -362,8 +379,170 @@ export default function ChatPage() {
   );
 
   const toggleTextChat = useCallback(() => {
-    setShowTextChat(prev => !prev);
+    setShowTextChat((prev) => {
+      const newState = !prev;
+      if (newState) {
+        setHasNewMessages(false); 
+      }
+      return newState;
+    });
   }, []);
+
+  useEffect(() => {
+    if (!showTextChat && messages.length > 0) {
+      setHasNewMessages(true);
+    }
+  }, [messages, showTextChat]);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const socket = socketRef.current;
+
+    const handleReconnect = () => {
+      console.log('Reconnected to server');
+      if (!connected) {
+        startSearch();
+      }
+    };
+
+    const handleReconnectError = (err: any) => { 
+      console.error('Reconnect error:', err);
+    };
+
+    socket.on('reconnect', handleReconnect);
+    socket.on('reconnect_error', handleReconnectError);
+
+    return () => {
+      socket.off('reconnect', handleReconnect);
+      socket.off('reconnect_error', handleReconnectError);
+    };
+  }, [startSearch, connected]);
+
+  useEffect(() => {
+    let statsInterval: NodeJS.Timeout;
+    let previousBytesSent = 0;
+    let previousTimestamp = Date.now();
+
+    const monitorNetworkQuality = () => {
+      if (peerRef.current) {
+        peerRef.current.peer.getStats().then((stats: RTCStatsReport) => { 
+          let bytesSent = 0;
+          let packetLoss = 0;
+
+          stats.forEach((report: RTCStats) => { 
+            if (
+              report.type === 'outbound-rtp' &&
+              isRTCOutboundRtpStreamStats(report) &&
+              report.kind === 'video'
+            ) {
+              bytesSent += report.bytesSent || 0;
+              packetLoss += report.packetsLost || 0;
+            }
+          });
+
+          const currentTimestamp = Date.now();
+          const deltaTime = (currentTimestamp - previousTimestamp) / 1000; // in seconds
+          const deltaBytes = bytesSent - previousBytesSent;
+          const bitrate = (deltaBytes * 8) / deltaTime; // in bits per second
+
+          previousBytesSent = bytesSent;
+          previousTimestamp = currentTimestamp;
+
+          if (packetLoss > 5 || bitrate < 300000) { 
+            if (connectionQuality !== 'poor') {
+              setConnectionQuality('poor');
+              const videoTrack = localStream?.getVideoTracks()[0];
+              if (videoTrack && !audioOnly) { 
+                videoTrack.applyConstraints({
+                  width: { ideal: 640 },
+                  height: { ideal: 480 },
+                  frameRate: { ideal: 15 },
+                }).catch(err => { 
+                  console.error('Error applying constraints:', err);
+                });
+                infoToast('Network quality decreased. Video quality lowered.');
+              }
+            }
+          } else if (packetLoss > 2 || bitrate < 500000) { 
+            if (connectionQuality !== 'fair') {
+              setConnectionQuality('fair');
+              infoToast('Network quality is fair.');
+            }
+          } else {
+            if (connectionQuality !== 'good') {
+              setConnectionQuality('good');
+              const videoTrack = localStream?.getVideoTracks()[0];
+              if (videoTrack && !audioOnly) { 
+                videoTrack.applyConstraints({
+                  width: { ideal: 1280 },
+                  height: { ideal: 720 },
+                  frameRate: { ideal: 30 },
+                }).catch(err => { 
+                  console.error('Error applying constraints:', err);
+                });
+                toast.success('Network quality improved. Video quality restored.');
+              }
+            }
+          }
+        }).catch((err: any) => { 
+          console.error('Error getting stats:', err);
+        });
+      }
+    };
+
+    statsInterval = setInterval(monitorNetworkQuality, 5000); 
+
+    return () => {
+      clearInterval(statsInterval);
+    };
+  }, [peerRef.current, localStream, connectionQuality, audioOnly]);
+
+  useEffect(() => {
+    const prioritizeMedia = async () => {
+      if (peerRef.current && localStream) {
+        const sender = peerRef.current.peer.getSenders().find(s => s.track?.kind === 'video'); 
+        if (sender) {
+          const parameters = sender.getParameters();
+          if (!parameters.encodings) {
+            parameters.encodings = [{}];
+          }
+          parameters.encodings.forEach((encoding: RTCRtpEncodingParameters) => {
+            encoding.networkPriority = 'high';
+            encoding.priority = 'high';
+          });
+          await sender.setParameters(parameters).catch((err: any) => { 
+            console.error('Error setting sender parameters:', err);
+          });
+          console.log('Set high priority for video stream.');
+        }
+      }
+    };
+
+    prioritizeMedia();
+  }, [peerRef.current, localStream]);
+
+  const toggleAudioOnly = () => {
+    if (localStream) {
+      const videoTracks = localStream.getVideoTracks();
+      if (videoTracks.length > 0) {
+        videoTracks.forEach(track => {
+          track.enabled = audioOnly; 
+        });
+        setAudioOnly(!audioOnly);
+        infoToast(audioOnly ? 'Video enabled' : 'Audio-only mode enabled'); 
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (peerRef.current && localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !audioOnly;
+      }
+    }
+  }, [audioOnly, peerRef.current, localStream]);
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black text-white">
@@ -390,44 +569,74 @@ export default function ChatPage() {
             Vimegle
           </h1>
         </div>
-        <div className="flex space-x-2">
-          {isSearching ? (
-            <Button
-              onClick={handleCancelSearch}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={isDebouncing}
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <span
+              className={`px-2 py-1 rounded text-sm ${
+                connectionQuality === 'good'
+                  ? 'bg-green-500'
+                  : connectionQuality === 'fair'
+                  ? 'bg-yellow-500'
+                  : connectionQuality === 'poor'
+                  ? 'bg-red-500'
+                  : ''}`}
             >
-              {isDebouncing ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
-              {isDebouncing ? 'Cancelling...' : 'Cancel Search'}
-            </Button>
-          ) : connected ? (
-            <Button
-              onClick={handleNext}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={isDebouncing}
-            >
-              {isDebouncing ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
-              {isDebouncing ? 'Processing...' : 'Next Chat'}
-            </Button>
-          ) : (
-            <Button
-              onClick={startSearch}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={isDebouncing}
-            >
-              {isDebouncing ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : null}
-              {isDebouncing ? 'Searching...' : 'Find Match'}
-            </Button>
-          )}
+              {connectionQuality.toUpperCase()}
+            </span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  {/* <span className="text-sm">
+                    {connectionQuality === 'good' && 'Good'}
+                    {connectionQuality === 'fair' && 'Fair'}
+                    {connectionQuality === 'poor' && 'Poor'}
+                  </span> */}
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Connection Quality</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex space-x-2">
+            {isSearching ? (
+              <Button
+                onClick={handleCancelSearch}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                disabled={isDebouncing}
+              >
+                {isDebouncing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {isDebouncing ? 'Cancelling...' : 'Cancel Search'}
+              </Button>
+            ) : connected ? (
+              <Button
+                onClick={handleNext}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                disabled={isDebouncing}
+              >
+                {isDebouncing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {isDebouncing ? 'Processing...' : 'Next Chat'}
+              </Button>
+            ) : (
+              <Button
+                onClick={startSearch}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                disabled={isDebouncing}
+              >
+                {isDebouncing ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : null}
+                {isDebouncing ? 'Searching...' : 'Find Match'}
+              </Button>
+            )}
+          </div>
         </div>
       </header>
       <main className="flex-grow flex flex-col md:flex-row p-4 gap-4 overflow-hidden relative">
@@ -438,6 +647,7 @@ export default function ChatPage() {
             remoteStream={remoteStream}
             isSearching={isSearching}
             searchCancelled={searchCancelled || noUsersOnline}
+            audioOnly={audioOnly}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
@@ -470,20 +680,43 @@ export default function ChatPage() {
         </AnimatePresence>
       </main>
 
-      <footer className="bg-black/50 backdrop-blur-sm p-4 flex justify-center">
+      <footer className="bg-black/50 backdrop-blur-sm p-4 flex justify-center relative">
         <TooltipProvider>
+          {/* **Button to Toggle Text Chat** */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 onClick={toggleTextChat}
                 variant="outline"
-                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20 relative"
+                aria-label="Toggle Text Chat"
               >
                 {showTextChat ? <Video className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+                {hasNewMessages && (
+                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full ring-2 ring-white bg-red-500"></span>
+                )}
               </Button>
             </TooltipTrigger>
             <TooltipContent>
               <p>{showTextChat ? "Show full video" : "Open text chat"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={toggleAudioOnly}
+                variant="outline"
+                className="ml-4 bg-white/10 hover:bg-white/20 text-white border-white/20"
+                aria-label="Toggle Audio Only"
+              >
+                {audioOnly ? <VideoOff className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{audioOnly ? "Enable Video" : "Audio Only"}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -544,4 +777,3 @@ export default function ChatPage() {
     </div>
   );
 }
-

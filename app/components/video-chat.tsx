@@ -8,6 +8,7 @@ interface VideoChatProps {
   remoteStream: MediaStream | null;
   isSearching: boolean;
   searchCancelled: boolean;
+  audioOnly: boolean; 
 }
 
 const overlayVariants = {
@@ -21,10 +22,10 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
   remoteStream,
   isSearching,
   searchCancelled,
+  audioOnly, 
 }) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      //console.log('Assigning remote stream to video element.');
       remoteVideoRef.current.srcObject = remoteStream;
 
       remoteStream.getTracks().forEach((track) => {
@@ -32,14 +33,13 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
       });
 
       remoteVideoRef.current.onloadedmetadata = () => {
-        //console.log('Remote video metadata loaded.');
         remoteVideoRef.current
           ?.play()
           .catch((e) => console.error('Error playing remote video:', e));
       };
 
       remoteVideoRef.current.onerror = (e) => {
-        //console.error('Remote video error:', e);
+        console.error('Remote video error:', e);
       };
     } else {
       // console.warn(
@@ -50,13 +50,21 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
 
   return (
     <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30 backdrop-blur-sm">
-      <video
-        ref={remoteVideoRef}
-        autoPlay
-        playsInline
-        className="w-full h-full object-cover transform scale-x-[-1]"
-        aria-label="Remote Video"
-      />
+      {!audioOnly && (
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className="w-full h-full object-cover transform scale-x-[-1]"
+          aria-label="Remote Video"
+        />
+      )}
+
+      {audioOnly && (
+        <div className="w-full h-full flex items-center justify-center bg-black/50">
+          <p className="text-lg font-semibold">You are in Audio-Only Mode</p>
+        </div>
+      )}
 
       {(!connected || !remoteStream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">

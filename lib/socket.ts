@@ -78,7 +78,16 @@ if (typeof window !== 'undefined') {
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
+      autoConnect: true,
       timeout: 20000,
+    });
+
+    window.defaultSocket.on('ping', () => {
+      console.log('Ping sent to server');
+    });
+    
+    window.defaultSocket.on('pong', (latency) => {
+      console.log(`Pong received from server. Latency: ${latency}ms`);
     });
 
     window.defaultSocket.on('connect', () => {
@@ -99,8 +108,8 @@ if (typeof window !== 'undefined') {
       }
     });
 
-    window.defaultSocket.on('reconnect_attempt', () => {
-      //console.log('Default Socket reconnecting...');
+    window.defaultSocket.on('reconnect_attempt', (attempt) => {
+      console.log(`Reconnect attempt #${attempt}`);
     });
 
     window.defaultSocket.on('reconnect_failed', () => {
