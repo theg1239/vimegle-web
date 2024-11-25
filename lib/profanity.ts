@@ -1,7 +1,9 @@
 const profaneWords = [
     'nigger',
     'send boobs',
-    'send nudes'
+    'send nudes',
+    'm or f',
+    'f or m'
   ];
   
   export function isProfane(text: string): boolean {
