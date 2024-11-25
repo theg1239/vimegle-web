@@ -103,6 +103,7 @@ export default function TextChatPage() {
   const [noUsersOnline, setNoUsersOnline] = useState<boolean>(false);
   const [lastTapTime, setLastTapTime] = useState<{ [key: string]: number }>({});
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
+  const [showLikeMessage, setShowLikeMessage] = useState<boolean>(false);
 
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
@@ -441,6 +442,20 @@ export default function TextChatPage() {
   );
 
   useEffect(() => {
+    const hasSeenMessage = localStorage.getItem('seenLikeMessage');
+    if (!hasSeenMessage) {
+      setShowLikeMessage(true); 
+      localStorage.setItem('seenLikeMessage', 'true'); 
+
+      const timer = setTimeout(() => {
+        setShowLikeMessage(false);
+      }, 5000);
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -471,6 +486,15 @@ export default function TextChatPage() {
     textSocket.on('disconnect', handleDisconnect);
     textSocket.on('reconnect', handleReconnect);
 
+    const handleBeforeUnload = () => {
+      if (connected && currentRoom) {
+        textSocket.emit('nextTextChat', { room: currentRoom });
+        console.log('Emitted nextTextChat due to tab closure');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
     return () => {
       textSocket.off('connect', handleConnect);
       textSocket.off('session', handleSession);
@@ -482,6 +506,7 @@ export default function TextChatPage() {
       textSocket.off('reactionUpdate', handleReactionUpdate);
       textSocket.off('disconnect', handleDisconnect);
       textSocket.off('reconnect', handleReconnect);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [
     handleConnect,
@@ -494,6 +519,8 @@ export default function TextChatPage() {
     handleReactionUpdate,
     handleDisconnect,
     handleReconnect,
+    connected,
+    currentRoom,
   ]);
 
   return (
@@ -671,8 +698,8 @@ export default function TextChatPage() {
         }`}
       >
         <ScrollArea className="flex-grow relative">
-          {/* Watermark */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+         {/* Watermark */}
+         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <h1
               className={`text-6xl font-bold text-gray-300 opacity-10 ${
                 darkMode ? 'text-white' : 'text-gray-800'
@@ -680,6 +707,18 @@ export default function TextChatPage() {
             >
               Vimegle
             </h1>
+            {showLikeMessage && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className={`mt-4 text-sm font-medium opacity-10 ${
+                  darkMode ? 'text-gray-200' : 'text-gray-800'
+                }`}
+              >
+                Double-tap a message to like!
+              </motion.div>
+            )}
           </div>
 
           {showIntroMessage && connected && (
@@ -753,17 +792,17 @@ export default function TextChatPage() {
           })}
         </span>
         {msg.liked && (
-  <motion.div
-    initial={{ opacity: 0, translateY: 10 }}
-    animate={{ opacity: 1, translateY: 0 }}
-    exit={{ opacity: 0, translateY: 10 }}
-    transition={{ duration: 0.3 }}
-    className={`absolute ${
-      msg.isSelf ? 'bottom-[-10px] left-0' : 'bottom-[-10px] right-0'
-    } z-10`}
-  >
-    <Heart className="w-6 h-6 text-red-500 fill-current" />
-  </motion.div>
+<motion.div
+  initial={{ opacity: 0, translateY: 10 }}
+  animate={{ opacity: 1, translateY: 0 }}
+  exit={{ opacity: 0, translateY: 10 }}
+  transition={{ duration: 0.3 }}
+  className={`absolute ${
+    msg.isSelf ? 'bottom-[-10px] left-0' : 'bottom-[-10px] right-0'
+  } z-10`}
+>
+  <Heart className="w-6 h-6 text-red-500 fill-current" />
+</motion.div>
 )}
       </div>
     </motion.div>
