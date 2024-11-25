@@ -300,6 +300,15 @@ export default function TextChatPage() {
 
   const handleTypingDebounced = useDebounce(handleTyping, 500);
 
+  const handleEmojiClick = useCallback(
+    (emojiData: EmojiClickData, event: MouseEvent) => {
+      setInputMessage((prev) => prev + emojiData.emoji);
+      setShowEmojiPicker(false);
+      console.log(`Emoji selected: ${emojiData.emoji}`);
+    },
+    []
+  );
+
   useEffect(() => {
     if (isSearching && !tooltipShownRef.current) {
       tooltipShownRef.current = true;
@@ -364,7 +373,7 @@ export default function TextChatPage() {
         setLastTapTime((prev) => ({ ...prev, [messageId]: now }));
     },
     [lastTapTime, messages, currentRoom]
-);
+  );
 
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim() && connected && currentRoom) {
@@ -435,7 +444,7 @@ export default function TextChatPage() {
 
       const timer = setTimeout(() => {
         setShowLikeMessage(false);
-      }, 10000);
+      }, 10000); // 10 seconds
 
       return () => clearTimeout(timer);
     }
@@ -684,8 +693,7 @@ export default function TextChatPage() {
         }`}
       >
         <ScrollArea className="flex-grow relative">
-         {/* Watermark */}
-         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
             <h1
               className={`text-6xl font-bold text-gray-300 opacity-10 ${
                 darkMode ? 'text-white' : 'text-gray-800'
@@ -698,7 +706,7 @@ export default function TextChatPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className={`mt-4 text-sm font-medium opacity-10 ${
+                className={`mt-4 text-sm font-medium ${
                   darkMode ? 'text-gray-200' : 'text-gray-800'
                 }`}
               >
@@ -729,73 +737,73 @@ export default function TextChatPage() {
             </motion.div>
           )}
 
-<AnimatePresence initial={false}>
-  {messages.map((msg) => (
-    <motion.div
-      key={msg.id}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
-    >
-      <div
-        className={`inline-block max-w-[70%] ${
-          msg.isSelf
-            ? darkMode
-              ? 'bg-blue-600'
-              : 'bg-blue-500'
-            : darkMode
-            ? 'bg-gray-700'
-            : 'bg-gray-300'
-        } rounded-2xl p-4 relative cursor-pointer`}
-        onClick={() => handleDoubleTap(msg.id, msg.isSelf)}
-      >
-        <span
-          className={`${
-            msg.isSelf
-              ? 'text-white'
-              : darkMode
-              ? 'text-white'
-              : 'text-black'
-          } break-words`}
-        >
-          <Twemoji
-            text={msg.text}
-            options={{
-              className: 'inline-block align-middle',
-            }}
-          />
-        </span>
-        <span
-          className={`text-xs ${
-            darkMode ? 'text-gray-400' : 'text-gray-600'
-          } mt-1 block`}
-        >
-          {msg.timestamp.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
-        {msg.liked && (
-<motion.div
-  initial={{ opacity: 0, translateY: 10 }}
-  animate={{ opacity: 1, translateY: 0 }}
-  exit={{ opacity: 0, translateY: 10 }}
-  transition={{ duration: 0.3 }}
-  className={`absolute ${
-    msg.isSelf ? 'bottom-[-10px] left-0' : 'bottom-[-10px] right-0'
-  } z-10`}
->
-  <Heart className="w-6 h-6 text-red-500 fill-current" />
-</motion.div>
-)}
-      </div>
-    </motion.div>
-  ))}
-</AnimatePresence>
+          <AnimatePresence initial={false}>
+            {messages.map((msg) => (
+              <motion.div
+                key={msg.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+                className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
+              >
+                <div
+                  className={`inline-block max-w-[70%] ${
+                    msg.isSelf
+                      ? darkMode
+                        ? 'bg-blue-600'
+                        : 'bg-blue-500'
+                      : darkMode
+                      ? 'bg-gray-700'
+                      : 'bg-gray-300'
+                  } rounded-2xl p-4 relative cursor-pointer`}
+                  onClick={() => handleDoubleTap(msg.id, msg.isSelf)}
+                >
+                  <span
+                    className={`${
+                      msg.isSelf
+                        ? 'text-white'
+                        : darkMode
+                        ? 'text-white'
+                        : 'text-black'
+                    } break-words`}
+                  >
+                    <Twemoji
+                      text={msg.text}
+                      options={{
+                        className: 'inline-block align-middle',
+                      }}
+                    />
+                  </span>
+                  <span
+                    className={`text-xs ${
+                      darkMode ? 'text-gray-400' : 'text-gray-600'
+                    } mt-1 block`}
+                  >
+                    {msg.timestamp.toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                  {msg.liked && (
+                    <motion.div
+                      initial={{ opacity: 0, translateY: 10 }}
+                      animate={{ opacity: 1, translateY: 0 }}
+                      exit={{ opacity: 0, translateY: 10 }}
+                      transition={{ duration: 0.3 }}
+                      className={`absolute ${
+                        msg.isSelf ? 'bottom-[-10px] left-0' : 'bottom-[-10px] right-0'
+                      } z-10`}
+                    >
+                      <Heart className="w-6 h-6 text-red-500 fill-current" />
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
 
-
+          {/* Typing Indicator */}
           {isTyping && (
             <motion.div
               key="typing-indicator"
@@ -862,14 +870,7 @@ export default function TextChatPage() {
           {showEmojiPicker && (
             <div className="absolute bottom-16 right-4 z-10">
               <EmojiPicker
-                onEmojiClick={useCallback(
-                  (emojiData: EmojiClickData, event: MouseEvent) => {
-                    setInputMessage((prev) => prev + emojiData.emoji);
-                    setShowEmojiPicker(false);
-                    console.log(`Emoji selected: ${emojiData.emoji}`);
-                  },
-                  []
-                )}
+                onEmojiClick={handleEmojiClick}
                 theme={darkMode ? Theme.DARK : Theme.LIGHT}
               />
             </div>
