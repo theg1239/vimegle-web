@@ -109,7 +109,7 @@ export default function TextChatPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
-  
+
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -898,6 +898,9 @@ export default function TextChatPage() {
         className={`${
           darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
         } border-t p-4 flex justify-between items-center fixed bottom-0 left-0 right-0 z-10`}
+        style={{
+          paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))',
+        }}
       >
         <div className="flex space-x-2">
           <Link href="/video">
