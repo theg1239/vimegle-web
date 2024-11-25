@@ -15,7 +15,7 @@ export const features: Feature[] = [
     icon: Eye,
     title: 'Secure Connections',
     description:
-      'All chats are encrypted end-to-end, ensuring your conversations remain private.',
+      'All chats are encrypted in transit, ensuring your conversations remain private.',
     gradientClass: 'from-[#7928CA] to-[#FF0080]',
     hoverMessage:
       'Your conversations are secure and protected from unauthorized access.',
