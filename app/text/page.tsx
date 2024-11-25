@@ -825,7 +825,7 @@ export default function TextChatPage() {
           )}
           <div ref={messagesEndRef} />
         </ScrollArea>
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-100 dark:bg-gray-900 z-10">
+        <div className="fixed bottom-16 left-0 right-0 p-4 bg-gray-100 dark:bg-gray-900 z-10">
   <div className="relative">
     <Input
       type="text"
@@ -884,6 +884,7 @@ export default function TextChatPage() {
     )}
   </div>
 </div>
+
 
       </main>
 
