@@ -33,18 +33,25 @@ const profaneWords = [
   'M/F?',
   'male or fe',
   'male or female',
-  'female or male'
+  'female or male',
 ];
 
 const profaneRegex = new RegExp(
-  `\\b(${profaneWords.map(word => word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`,
-  'i' 
+  `\\b(${profaneWords
+    .map(word => 
+      word
+        .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') 
+        .replace(/\bm\s*\/\s*f\b|\bf\s*\/\s*m\b|\bm\s*or\s*f\b|\bf\s*or\s*m\b/gi, 'm[\\s\\/-]?f|f[\\s\\/-]?m') 
+    )
+    .join('|')})\\b`,
+  'i'
 );
 
 export function isProfane(text: string): boolean {
   const normalizedText = text
     .toLowerCase()
     .replace(/[^a-z0-9\s]/gi, '') 
-    .trim(); 
+    .trim();
+    
   return profaneRegex.test(normalizedText);
 }
