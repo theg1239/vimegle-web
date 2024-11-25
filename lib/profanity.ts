@@ -3,7 +3,8 @@ const profaneWords = [
   'send boobs',
   'send nudes',
   'm or f',
-  'f or m'
+  'f or m',
+  'bobs or vagana'
 ];
 
 const profaneRegex = new RegExp(
