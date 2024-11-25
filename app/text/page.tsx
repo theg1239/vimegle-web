@@ -78,12 +78,12 @@ export default function TextChatPage() {
 
   useEffect(() => {
     if (!textSocket) {
-      console.error('Text Socket not initialized');
+      //console.error('Text Socket not initialized');
       return;
     }
 
     const handleSession = ({ sessionId }: { sessionId: string }) => {
-      console.log('Received sessionId from server:', sessionId);
+      //console.log('Received sessionId from server:', sessionId);
       // Session ID is already handled in lib/socket.ts
     };
 
@@ -124,7 +124,7 @@ export default function TextChatPage() {
     };
 
     const handlePeerDisconnected = ({ message }: { message: string }) => {
-      console.log('Peer disconnected:', message);
+      //console.log('Peer disconnected:', message);
       setConnected(false);
       setMessages([]);
       setCurrentRoom('');
@@ -146,7 +146,7 @@ export default function TextChatPage() {
     };
 
     const handleDisconnect = (reason: string) => {
-      console.log('Disconnected from server:', reason);
+      //console.log('Disconnected from server:', reason);
       setConnected(false);
       if (reason === 'io server disconnect') {
         // The disconnection was initiated by the server, need to reconnect manually
@@ -155,7 +155,7 @@ export default function TextChatPage() {
     };
 
     const handleReconnect = (attemptNumber: number) => {
-      console.log(`Reconnected after ${attemptNumber} attempts`);
+      //console.log(`Reconnected after ${attemptNumber} attempts`);
       if (currentRoomRef.current) {
         // Attempt to rejoin or find a new match
         textSocket.emit('findTextMatch');
@@ -264,7 +264,7 @@ export default function TextChatPage() {
       const audio = new Audio('/sounds/discord-notification.mp3');
       audio.play();
     } catch (err) {
-      console.error('Error playing notification sound:', err);
+      //console.error('Error playing notification sound:', err);
     }
   };
 
@@ -274,7 +274,7 @@ export default function TextChatPage() {
       const audio = new Audio('/sounds/discord-message.mp3');
       audio.play();
     } catch (err) {
-      console.error('Error playing message sound:', err);
+      //console.error('Error playing message sound:', err);
     }
   };
 
@@ -284,7 +284,7 @@ export default function TextChatPage() {
       const audio = new Audio('/sounds/discord-disconnect.mp3');
       audio.play();
     } catch (err) {
-      console.error('Error playing disconnect sound:', err);
+      //console.error('Error playing disconnect sound:', err);
     }
   };
   const handleUserInteraction = useCallback(() => {

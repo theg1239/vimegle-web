@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Feedback successfully submitted' });
   } catch (error) {
-    console.error('Error in POST /api/feedback:', error);
+    //console.error('Error in POST /api/feedback:', error);
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

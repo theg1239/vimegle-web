@@ -31,7 +31,7 @@ export function FeedbackForm({ onSubmit }: FeedbackFormProps) {
     try {
       return localStorage.getItem(key);
     } catch (error) {
-      console.error('Error accessing local storage', error);
+      //console.error('Error accessing local storage', error);
       return null;
     }
   };
@@ -40,7 +40,7 @@ export function FeedbackForm({ onSubmit }: FeedbackFormProps) {
     try {
       localStorage.setItem(key, value);
     } catch (error) {
-      console.error('Error accessing local storage', error);
+      //console.error('Error accessing local storage', error);
     }
   };
 
@@ -71,7 +71,7 @@ export function FeedbackForm({ onSubmit }: FeedbackFormProps) {
       setCharacterCount(0);
       setExperience('neutral');
     } catch (error) {
-      console.error('Feedback submission error:', error);
+      //console.error('Feedback submission error:', error);
       toast({
         title: 'Submission Failed',
         description:

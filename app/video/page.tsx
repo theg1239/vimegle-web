@@ -37,19 +37,19 @@ export default function ChatPage() {
     setNoUsersOnline(false);
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('find');
-      console.log('Emitted "find" event');
+      //console.log('Emitted "find" event');
     } else {
-      console.error('Socket not connected. Cannot emit "find"');
+      //console.error('Socket not connected. Cannot emit "find"');
       socketRef.current?.once('connect', () => {
         socketRef.current?.emit('find');
-        console.log('Emitted "find" event after reconnection');
+        //console.log('Emitted "find" event after reconnection');
       });
     }
   }, []);
 
   useEffect(() => {
     const handlePeerDisconnected = ({ message }: { message: string }) => {
-      console.log('Peer disconnected:', message);
+      //console.log('Peer disconnected:', message);
       if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
@@ -82,42 +82,37 @@ export default function ChatPage() {
         };
 
         if (connection) {
-          console.log('Connection downlink speed:', connection.downlink);
+          //console.log('Connection downlink speed:', connection.downlink);
           if (connection.downlink < 1) {
             // less than 1 Mbps
             videoConstraints = {
               width: { ideal: 640 },
               height: { ideal: 480 },
             };
-            console.log(
-              'Adjusting video constraints to lower resolution due to low bandwidth.'
-            );
+            //console.log('Adjusting video constraints to lower resolution due to low bandwidth.');
           }
         }
 
-        console.log(
-          'Requesting media stream with constraints:',
-          videoConstraints
-        );
+        //console.log('Requesting media stream with constraints:',videoConstraints);
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: videoConstraints,
         });
         setLocalStream(stream);
-        console.log('Obtained local media stream');
+        //console.log('Obtained local media stream');
         startSearch();
       } catch (err) {
-        console.error('Error accessing media devices:', err);
+        //console.error('Error accessing media devices:', err);
         toast.error('Failed to access microphone and camera.');
       }
     };
 
     if (socketRef.current && socketRef.current.connected) {
-      console.log('Socket already connected. Starting media acquisition.');
+      //console.log('Socket already connected. Starting media acquisition.');
       getMedia();
     } else {
       const handleConnect = () => {
-        console.log('Socket connected. Starting media acquisition.');
+        //console.log('Socket connected. Starting media acquisition.');
         getMedia();
       };
 
@@ -137,7 +132,7 @@ export default function ChatPage() {
       initiator: boolean;
       room: string;
     }) => {
-      console.log('Match found!', { initiator, room });
+      //console.log('Match found!', { initiator, room });
       setIsSearching(false);
       setConnected(true);
       setRoom(room);
@@ -172,23 +167,23 @@ export default function ChatPage() {
       peerRef.current = newPeer;
 
       newPeer.on('signal', (data) => {
-        console.log('Peer signal data:', data);
+        //console.log('Peer signal data:', data);
         socketRef.current?.emit('signal', { room, data });
       });
 
       newPeer.on('stream', (stream) => {
-        console.log('Received remote stream');
+        //console.log('Received remote stream');
         setRemoteStream(stream);
       });
 
       newPeer.on('connect', () => {
-        console.log('Peer connection established');
+        //console.log('Peer connection established');
         setConnected(true);
         setIsDisconnected(false);
       });
 
       newPeer.on('error', (err) => {
-        console.error('Peer error:', err);
+        //console.error('Peer error:', err);
         toast.error('Connection lost. Trying to find a new match...');
         handleNext();
       });
@@ -203,21 +198,21 @@ export default function ChatPage() {
             ]);
           }
         } catch (err) {
-          console.error('Error parsing data from peer:', err);
+          //console.error('Error parsing data from peer:', err);
         }
       });
 
       const handleSignal = (data: any) => {
-        console.log('Received signal data from server:', data);
+        //console.log('Received signal data from server:', data);
         if (peerRef.current) {
           peerRef.current.signal(data);
         } else {
-          console.error('No peer instance to signal');
+          //console.error('No peer instance to signal');
         }
       };
 
       const handleLeave = () => {
-        console.log('Received leave event');
+        //console.log('Received leave event');
         if (peerRef.current) {
           peerRef.current.destroy();
           peerRef.current = null;
@@ -244,7 +239,7 @@ export default function ChatPage() {
       };
 
       newPeer.on('close', () => {
-        console.log('Peer connection closed');
+        //console.log('Peer connection closed');
         cleanup();
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
@@ -254,7 +249,7 @@ export default function ChatPage() {
       });
 
       newPeer.on('destroy', () => {
-        console.log('Peer connection destroyed');
+        //console.log('Peer connection destroyed');
         cleanup();
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
@@ -265,21 +260,21 @@ export default function ChatPage() {
     };
 
     const handleNoMatch = ({ message }: { message: string }) => {
-      console.log('No match found:', message);
+      //console.log('No match found:', message);
       setIsSearching(false);
       setSearchCancelled(false);
       toast.error(message);
     };
 
     const handleSearchCancelled = ({ message }: { message: string }) => {
-      console.log('Search cancelled:', message);
+      //console.log('Search cancelled:', message);
       setIsSearching(false);
       setSearchCancelled(true);
       infoToast(message);
     };
 
     const handleNoUsersOnline = ({ message }: { message: string }) => {
-      console.log('No users online:', message);
+      //console.log('No users online:', message);
       setIsSearching(false);
       setSearchCancelled(false);
       setNoUsersOnline(true);

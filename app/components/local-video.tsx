@@ -12,7 +12,7 @@ const LocalVideo: React.FC<LocalVideoProps> = ({ localStream }) => {
       videoRef.current.srcObject = localStream;
       videoRef.current.muted = true;
       videoRef.current.play().catch((error) => {
-        console.error('Error playing local video:', error);
+        //console.error('Error playing local video:', error);
       });
     }
   }, [localStream]);

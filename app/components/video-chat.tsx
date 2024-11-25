@@ -24,27 +24,27 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
 }) {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      console.log('Assigning remote stream to video element.');
+      //console.log('Assigning remote stream to video element.');
       remoteVideoRef.current.srcObject = remoteStream;
 
       remoteStream.getTracks().forEach((track) => {
-        console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
+        //console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
       });
 
       remoteVideoRef.current.onloadedmetadata = () => {
-        console.log('Remote video metadata loaded.');
+        //console.log('Remote video metadata loaded.');
         remoteVideoRef.current
           ?.play()
           .catch((e) => console.error('Error playing remote video:', e));
       };
 
       remoteVideoRef.current.onerror = (e) => {
-        console.error('Remote video error:', e);
+        //console.error('Remote video error:', e);
       };
     } else {
-      console.warn(
-        'remoteVideoRef is not initialized or remoteStream is null.'
-      );
+      // console.warn(
+      //   'remoteVideoRef is not initialized or remoteStream is null.'
+      // );
     }
   }, [remoteStream, remoteVideoRef]);
 
