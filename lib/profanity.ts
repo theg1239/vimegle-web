@@ -30,7 +30,10 @@ const profaneWords = [
   'M/F ?',
   'F/M ?',
   'F/M?',
-  'M/F?'
+  'M/F?',
+  'male or fe',
+  'male or female',
+  'female or male'
 ];
 
 const profaneRegex = new RegExp(

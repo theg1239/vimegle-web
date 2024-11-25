@@ -378,7 +378,7 @@ export default function TextChatPage() {
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim() && connected && currentRoom) {
       if (isProfane(inputMessage)) {
-        toast.error("Please be respectful. Your message wasn't sent.");
+        toast.error("Please try to keep the conversation respectful.");
         console.warn('Profanity detected. Message not sent.');
         return;
       }
@@ -444,7 +444,7 @@ export default function TextChatPage() {
 
       const timer = setTimeout(() => {
         setShowLikeMessage(false);
-      }, 10000); // 10 seconds
+      }, 15000); // 10 seconds
 
       return () => clearTimeout(timer);
     }
