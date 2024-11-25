@@ -435,7 +435,7 @@ export default function TextChatPage() {
 
       const timer = setTimeout(() => {
         setShowLikeMessage(false);
-      }, 5000);
+      }, 10000);
 
       return () => clearTimeout(timer);
     }
