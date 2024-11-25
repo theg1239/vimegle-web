@@ -19,6 +19,13 @@ const profaneWords = [
   'woman or man',
   'm/f/',
   'f/m/',
+  'girl or boy',
+  'girl aur boy',
+  'send dick pics',
+  'send nudies',
+  'dick or pussy',
+  'send noods',
+  'send titties'
 ];
 
 const profaneRegex = new RegExp(
