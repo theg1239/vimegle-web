@@ -22,7 +22,7 @@ export function AboutSection() {
 
   return (
     <section className="relative py-14 pt-24 overflow-hidden bg-black text-white">
-      <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center opacity-10 pointer-events-none"></div>
+      <div className="absolute inset-0 bg-center opacity-10 pointer-events-none"></div>
       <div className="relative z-10 container mx-auto px-4 max-w-3xl">
         <div className="text-center mb-11">
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-100 via-gray-300 to-gray-500">

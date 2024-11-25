@@ -7,7 +7,7 @@ import { Analytics } from '@vercel/analytics/react';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Vimegle - Random Video Chat',
+  title: 'Vimegle',
   description: 'Connect with strangers through video and text chat',
 };
 
