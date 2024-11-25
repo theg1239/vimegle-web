@@ -15,9 +15,10 @@ import {
   AlertTriangle,
   Settings,
   Loader2,
+  Heart,
 } from 'lucide-react';
 import Link from 'next/link';
-import { textSocket } from '@/lib/socket';
+import { textSocket } from '@/lib/socket'; 
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Twemoji } from 'react-emoji-render';
@@ -29,6 +30,30 @@ import {
 import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
+import { Filter } from 'bad-words';
+
+const offensiveWords = ['nigger', 'kike', 'send boobs', 'send nudes'];
+
+class CustomFilter extends Filter {
+  constructor(customWords: string[] = []) {
+    super();
+
+    (this as any).badWords = []; 
+
+    this.addWords(...customWords); 
+  }
+}
+
+interface ReactionUpdate {
+  messageId: string;
+  liked: boolean;
+}
+
+interface ReactionData {
+  room: string;
+  messageId: string;
+  liked: boolean;
+}
 
 type Message = {
   id: string;
@@ -36,29 +61,56 @@ type Message = {
   isSelf: boolean;
   timestamp: Date;
   reactions: { [key: string]: number };
+  liked: boolean; 
 };
 
-export default function TextChatPage() {
-  const [connected, setConnected] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showIntroMessage, setShowIntroMessage] = useState(true);
-  const [currentRoom, setCurrentRoom] = useState<string>('');
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [isDisconnected, setIsDisconnected] = useState(false);
-  const [noUsersOnline, setNoUsersOnline] = useState(false);
+function useDebounce(callback: Function, delay: number) {
+  const timer = useRef<NodeJS.Timeout>();
 
-  const soundEnabledRef = useRef(soundEnabled);
-  const hasInteractedRef = useRef(hasInteracted);
-  const connectedRef = useRef(connected);
-  const currentRoomRef = useRef(currentRoom);
+  const debouncedFunction = useCallback(
+    (...args: any[]) => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    },
+    [callback, delay]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  return debouncedFunction;
+}
+
+export default function TextChatPage() {
+  const [connected, setConnected] = useState<boolean>(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputMessage, setInputMessage] = useState<string>('');
+  const [isTyping, setIsTyping] = useState<boolean>(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState<boolean>(false);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [darkMode, setDarkMode] = useState<boolean>(true);
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showIntroMessage, setShowIntroMessage] = useState<boolean>(true);
+  const [currentRoom, setCurrentRoom] = useState<string>('');
+  const [hasInteracted, setHasInteracted] = useState<boolean>(false);
+  const [isDisconnected, setIsDisconnected] = useState<boolean>(false);
+  const [noUsersOnline, setNoUsersOnline] = useState<boolean>(false);
+  const [lastTapTime, setLastTapTime] = useState<{ [key: string]: number }>({});
+  const [showTooltip, setShowTooltip] = useState<boolean>(false);
+
+  const soundEnabledRef = useRef<boolean>(soundEnabled);
+  const hasInteractedRef = useRef<boolean>(hasInteracted);
+  const connectedRef = useRef<boolean>(connected);
+  const currentRoomRef = useRef<string>(currentRoom);
+  const tooltipShownRef = useRef<boolean>(false);
+
+  const profanityFilter = useRef(new CustomFilter(offensiveWords));
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -76,29 +128,57 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
-  useEffect(() => {
-    if (!textSocket) {
-      //console.error('Text Socket not initialized');
-      return;
+  const playNotificationSound = useCallback(() => {
+    if (!soundEnabledRef.current) return;
+    if (!hasInteractedRef.current) return; 
+    try {
+      const audio = new Audio('/sounds/discord-notification.mp3');
+      audio.play().catch((err) => {
+        console.error('Error playing notification sound:', err);
+      });
+    } catch (err) {
+      console.error('Error playing notification sound:', err);
     }
+  }, []);
 
-    const handleSession = ({ sessionId }: { sessionId: string }) => {
-      //console.log('Received sessionId from server:', sessionId);
-      // Session ID is already handled in lib/socket.ts
-    };
+  const playMessageSound = useCallback(() => {
+    if (!soundEnabledRef.current) return;
+    if (!hasInteractedRef.current) return; 
+    try {
+      const audio = new Audio('/sounds/discord-message.mp3');
+      audio.play().catch((err) => {
+        console.error('Error playing message sound:', err);
+      });
+    } catch (err) {
+      console.error('Error playing message sound:', err);
+    }
+  }, []);
 
-    const handleConnect = () => {
-      textSocket.emit('findTextMatch');
-      setIsSearching(true);
-    };
+  const playDisconnectSound = useCallback(() => {
+    if (!soundEnabledRef.current) return;
+    if (!hasInteractedRef.current) return; 
+    try {
+      const audio = new Audio('/sounds/discord-disconnect.mp3');
+      audio.play().catch((err) => {
+        console.error('Error playing disconnect sound:', err);
+      });
+    } catch (err) {
+      console.error('Error playing disconnect sound:', err);
+    }
+  }, []);
 
-    const handleTextMatch = ({
-      room,
-      initiator,
-    }: {
-      room: string;
-      initiator: boolean;
-    }) => {
+  const handleSession = useCallback(({ sessionId }: { sessionId: string }) => {
+    console.log(`Session ID received: ${sessionId}`);
+  }, []);
+
+  const handleConnect = useCallback(() => {
+    textSocket.emit('findTextMatch');
+    setIsSearching(true);
+    console.log('Socket connected. Searching for a match...');
+  }, []);
+
+  const handleTextMatch = useCallback(
+    ({ room, initiator }: { room: string; initiator: boolean }) => {
       setConnected(true);
       setIsSearching(false);
       setNoUsersOnline(false);
@@ -106,25 +186,62 @@ export default function TextChatPage() {
       setShowIntroMessage(true);
       setIsDisconnected(false);
       toast.success('Connected to a stranger!');
+      console.log(`Text match found in room: ${room}`);
       if (soundEnabledRef.current && hasInteractedRef.current)
         playNotificationSound();
-    };
+    },
+    [playNotificationSound]
+  );
 
-    const handleTextMessage = ({
+  const addMessage = useCallback(
+    (text: string, isSelf: boolean, messageId: string) => {
+      if (!messageId) {
+        console.error('Received message without a messageId');
+        return;
+      }
+      setMessages((prev) => {
+        if (prev.find((msg) => msg.id === messageId)) {
+          console.warn(`Duplicate messageId detected: ${messageId}`);
+          return prev;
+        }
+        return [
+          ...prev,
+          {
+            id: messageId,
+            text,
+            isSelf,
+            timestamp: new Date(),
+            reactions: {},
+            liked: false, 
+          },
+        ];
+      });
+    },
+    []
+  );
+
+  const handleTextMessage = useCallback(
+    ({
       message,
       sender,
+      messageId,
     }: {
       message: string;
       sender: string;
+      messageId: string;
     }) => {
+      console.log('Received message:', { message, sender, messageId });
       const isSelf = sender === textSocket.id;
-      addMessage(message, isSelf);
+      addMessage(message, isSelf, messageId);
       if (!isSelf && soundEnabledRef.current && hasInteractedRef.current)
         playMessageSound();
-    };
+    },
+    [addMessage, playMessageSound]
+  );
 
-    const handlePeerDisconnected = ({ message }: { message: string }) => {
-      //console.log('Peer disconnected:', message);
+  const handlePeerDisconnected = useCallback(
+    ({ message }: { message: string }) => {
+      console.log('Peer disconnected:', message);
       setConnected(false);
       setMessages([]);
       setCurrentRoom('');
@@ -132,112 +249,158 @@ export default function TextChatPage() {
       toast.error(message || 'Your chat partner has disconnected.');
       if (soundEnabledRef.current && hasInteractedRef.current)
         playDisconnectSound();
-    };
+    },
+    [playDisconnectSound]
+  );
 
-    const handleNoTextMatch = ({ message }: { message: string }) => {
+  const handleNoTextMatch = useCallback(
+    ({ message }: { message: string }) => {
       setIsSearching(false);
       setNoUsersOnline(true);
       toast.error(message);
-    };
+      console.log('No text match found:', message);
+    },
+    []
+  );
 
-    const handleTypingFromPeer = () => {
-      setIsTyping(true);
-      setTimeout(() => setIsTyping(false), 3000);
-    };
-
-    const handleDisconnect = (reason: string) => {
-      //console.log('Disconnected from server:', reason);
-      setConnected(false);
-      if (reason === 'io server disconnect') {
-        // The disconnection was initiated by the server, need to reconnect manually
-        textSocket.connect();
-      }
-    };
-
-    const handleReconnect = (attemptNumber: number) => {
-      //console.log(`Reconnected after ${attemptNumber} attempts`);
-      if (currentRoomRef.current) {
-        // Attempt to rejoin or find a new match
-        textSocket.emit('findTextMatch');
-        setIsSearching(true);
-      }
-    };
-
-    textSocket.on('session', handleSession);
-    textSocket.on('connect', handleConnect);
-    textSocket.on('textMatch', handleTextMatch);
-    textSocket.on('textMessage', handleTextMessage);
-    textSocket.on('peerDisconnected', handlePeerDisconnected);
-    textSocket.on('noTextMatch', handleNoTextMatch);
-    textSocket.on('typing', handleTypingFromPeer);
-    textSocket.on('disconnect', handleDisconnect);
-    textSocket.on('reconnect', handleReconnect);
-
-    return () => {
-      textSocket.off('session', handleSession);
-      textSocket.off('connect', handleConnect);
-      textSocket.off('textMatch', handleTextMatch);
-      textSocket.off('textMessage', handleTextMessage);
-      textSocket.off('peerDisconnected', handlePeerDisconnected);
-      textSocket.off('noTextMatch', handleNoTextMatch);
-      textSocket.off('typing', handleTypingFromPeer);
-      textSocket.off('disconnect', handleDisconnect);
-      textSocket.off('reconnect', handleReconnect);
-    };
+  const handleTypingFromPeer = useCallback(() => {
+    setIsTyping(true);
+    setTimeout(() => setIsTyping(false), 3000);
+    console.log('Stranger is typing...');
   }, []);
 
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  const handleReactionUpdate = useCallback(
+    ({ messageId, liked }: ReactionUpdate) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId && !msg.isSelf ? { ...msg, liked } : msg
+        )
+      );
+      console.log(`Reaction updated for message ${messageId}: ${liked}`);
+    },
+    []
+  );
+
+  const handleDisconnect = useCallback(
+    (reason: string) => {
+      console.log('Disconnected from server:', reason);
+      setConnected(false);
+      if (reason === 'io server disconnect') {
+        textSocket.connect();
+      }
+    },
+    []
+  );
+
+  const handleReconnect = useCallback(
+    (attemptNumber: number) => {
+      console.log(`Reconnected after ${attemptNumber} attempts`);
+      if (currentRoomRef.current) {
+        textSocket.emit('findTextMatch');
+        setIsSearching(true);
+        console.log('Re-attempting to find a text match...');
+      }
+    },
+    []
+  );
+
+  const handleTyping = useCallback(() => {
+    if (connectedRef.current && currentRoomRef.current) {
+      textSocket.emit('typing', { room: currentRoomRef.current });
+      console.log('Emitting typing event...');
     }
-  }, [messages]);
+  }, []);
 
-  const addMessage = (text: string, isSelf: boolean) => {
-    setMessages((prev) => {
-      const newId = uuidv4();
-      return [
-        ...prev,
-        {
-          id: newId,
-          text,
-          isSelf,
-          timestamp: new Date(),
-          reactions: {},
-        },
-      ];
-    });
-  };
+  const handleTypingDebounced = useDebounce(handleTyping, 500);
 
-  const handleSendMessage = () => {
+  useEffect(() => {
+    if (isSearching && !tooltipShownRef.current) {
+      tooltipShownRef.current = true;
+      setShowTooltip(true);
+      console.log('Showing tooltip: We value your feedback!');
+
+      const tooltipTimeout = setTimeout(() => {
+        setShowTooltip(false);
+        console.log('Hiding tooltip after timeout');
+      }, 5000);
+
+      return () => clearTimeout(tooltipTimeout);
+    }
+
+    if (!isSearching) {
+      tooltipShownRef.current = false;
+      setShowTooltip(false); 
+      console.log('Hiding tooltip: Match found or search canceled');
+    }
+  }, [isSearching]);
+
+  const handleUserInteraction = useCallback(() => {
+    if (!hasInteracted) {
+      setHasInteracted(true);
+      console.log('User has interacted with the page');
+    }
+  }, [hasInteracted]);
+
+  const toggleEmojiPicker = useCallback(() => {
+    setShowEmojiPicker((prev) => !prev);
+    console.log('Toggled emoji picker');
+  }, []);
+
+  const handleDoubleTap = useCallback(
+    (messageId: string, isSelf: boolean) => {
+        if (isSelf) return; 
+
+        const now = Date.now();
+        const lastTap = lastTapTime[messageId] || 0;
+        const timeDiff = now - lastTap;
+
+        if (timeDiff < 300) {
+            const message = messages.find((msg) => msg.id === messageId);
+            if (!message) return;
+
+            const updatedLiked = !message.liked;
+            setMessages((prevMessages) =>
+                prevMessages.map((msg) =>
+                    msg.id === messageId ? { ...msg, liked: updatedLiked } : msg
+                )
+            );
+
+            const reactionData: ReactionData = {
+                room: currentRoom,
+                messageId,
+                liked: updatedLiked,
+            };
+            textSocket.emit('reaction', reactionData);
+            console.log(`Sent reaction for message ${messageId}: ${updatedLiked}`);
+        }
+
+        setLastTapTime((prev) => ({ ...prev, [messageId]: now }));
+    },
+    [lastTapTime, messages, currentRoom]
+);
+
+  const handleSendMessage = useCallback(() => {
     if (inputMessage.trim() && connected && currentRoom) {
+      if (profanityFilter.current.isProfane(inputMessage)) {
+        toast.error("Please be respectful. Your message wasn't sent.");
+        console.warn('Profanity detected. Message not sent.');
+        return;
+      }
+      const messageId = uuidv4(); 
       textSocket.emit('textMessage', {
         room: currentRoom,
         message: inputMessage,
+        messageId, 
       });
       setInputMessage('');
       setShowIntroMessage(false);
+      console.log(`Sent message: ${inputMessage} with ID: ${messageId}`);
+
+      addMessage(inputMessage, true, messageId);
     }
-  };
+  }, [inputMessage, connected, currentRoom, addMessage]);
 
-  const debounce = (func: Function, delay: number) => {
-    let timer: NodeJS.Timeout;
-    return (...args: any[]) => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        func(...args);
-      }, delay);
-    };
-  };
-
-  const handleTyping = () => {
-    if (connectedRef.current && currentRoomRef.current) {
-      textSocket.emit('typing', { room: currentRoomRef.current });
-    }
-  };
-
-  const handleTypingDebounced = useRef(debounce(handleTyping, 500)).current;
-
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setConnected(false);
     setMessages([]);
     setIsSearching(true);
@@ -251,51 +414,87 @@ export default function TextChatPage() {
     }
 
     textSocket.emit('findTextMatch');
-  };
+    console.log('Initiated next chat');
+  }, [currentRoom]);
 
-  const handleEmojiClick = (emojiData: EmojiClickData, event: MouseEvent) => {
-    setInputMessage((prev) => prev + emojiData.emoji);
-    setShowEmojiPicker(false);
-  };
+  const Tooltip = useCallback(
+    () => (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.5 }}
+        className="fixed top-10 right-5 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50"
+      >
+        <p>We value your feedback!</p>
+        <Link
+          href="/feedback"
+          className="underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Click here to provide feedback
+        </Link>
+      </motion.div>
+    ),
+    []
+  );
 
-  const playNotificationSound = () => {
-    if (!soundEnabled) return;
-    try {
-      const audio = new Audio('/sounds/discord-notification.mp3');
-      audio.play();
-    } catch (err) {
-      //console.error('Error playing notification sound:', err);
-    }
-  };
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  const playMessageSound = () => {
-    if (!soundEnabled) return;
-    try {
-      const audio = new Audio('/sounds/discord-message.mp3');
-      audio.play();
-    } catch (err) {
-      //console.error('Error playing message sound:', err);
-    }
-  };
+  useEffect(() => {
+    textSocket.on('reactionUpdate', ({ messageId, liked }) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId ? { ...msg, liked } : msg
+        )
+      );
+      console.log(`Reaction updated for message ${messageId}: ${liked}`);
+    });
+  
+    return () => {
+      textSocket.off('reactionUpdate');
+    };
+  }, []);
 
-  const playDisconnectSound = () => {
-    if (!soundEnabled) return;
-    try {
-      const audio = new Audio('/sounds/discord-disconnect.mp3');
-      audio.play();
-    } catch (err) {
-      //console.error('Error playing disconnect sound:', err);
-    }
-  };
-  const handleUserInteraction = useCallback(() => {
-    if (!hasInteracted) {
-      setHasInteracted(true);
-    }
-  }, [hasInteracted]);
+  useEffect(() => {
+    textSocket.on('connect', handleConnect);
+    textSocket.on('session', handleSession);
+    textSocket.on('textMatch', handleTextMatch);
+    textSocket.on('textMessage', handleTextMessage);
+    textSocket.on('peerDisconnected', handlePeerDisconnected);
+    textSocket.on('noTextMatch', handleNoTextMatch);
+    textSocket.on('typing', handleTypingFromPeer);
+    textSocket.on('reactionUpdate', handleReactionUpdate);
+    textSocket.on('disconnect', handleDisconnect);
+    textSocket.on('reconnect', handleReconnect);
 
-  const toggleEmojiPicker = () => {
-    setShowEmojiPicker((prev) => !prev);
-  };
+    return () => {
+      textSocket.off('connect', handleConnect);
+      textSocket.off('session', handleSession);
+      textSocket.off('textMatch', handleTextMatch);
+      textSocket.off('textMessage', handleTextMessage);
+      textSocket.off('peerDisconnected', handlePeerDisconnected);
+      textSocket.off('noTextMatch', handleNoTextMatch);
+      textSocket.off('typing', handleTypingFromPeer);
+      textSocket.off('reactionUpdate', handleReactionUpdate);
+      textSocket.off('disconnect', handleDisconnect);
+      textSocket.off('reconnect', handleReconnect);
+    };
+  }, [
+    handleConnect,
+    handleSession,
+    handleTextMatch,
+    handleTextMessage,
+    handlePeerDisconnected,
+    handleNoTextMatch,
+    handleTypingFromPeer,
+    handleReactionUpdate,
+    handleDisconnect,
+    handleReconnect,
+  ]);
 
   return (
     <div
@@ -308,20 +507,23 @@ export default function TextChatPage() {
     >
       <Toaster position="top-center" />
 
+      <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence>
+
       <AnimatePresence>
         {isSearching && (
           <motion.div
+            key="searching-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
+            className="fixed inset-0 flex items-center justify-center bg-black/75 z-40"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg"
+              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10"
             >
               <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
               <p className="text-2xl font-bold text-gray-700 dark:text-gray-200">
@@ -332,10 +534,10 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
-      {/* Modal: No Users Online */}
       <AnimatePresence>
         {noUsersOnline && (
           <motion.div
+            key="no-users-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -360,6 +562,7 @@ export default function TextChatPage() {
                   setNoUsersOnline(false);
                   textSocket.emit('findTextMatch');
                   setIsSearching(true);
+                  console.log('Retrying search for a match...');
                 }}
                 className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded"
               >
@@ -370,10 +573,10 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
-      {/* Disconnected Modal */}
       <AnimatePresence>
         {isDisconnected && (
           <motion.div
+            key="disconnected-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -390,7 +593,7 @@ export default function TextChatPage() {
               <p className="mb-4">
                 Your chat partner has left the conversation.
               </p>
-              <Button onClick={handleNext} className="w-full">
+              <Button onClick={handleNext} className="w-full" aria-label="Start New Chat">
                 Start a New Chat
               </Button>
             </motion.div>
@@ -426,10 +629,10 @@ export default function TextChatPage() {
                 setIsSearching(false);
                 setNoUsersOnline(false);
                 toast('Search cancelled.');
+                console.log('Search cancelled by user');
               }}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={false}
               aria-label="Cancel Search"
             >
               Cancel Search
@@ -439,7 +642,6 @@ export default function TextChatPage() {
               onClick={handleNext}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={false}
               aria-label="Next Chat"
             >
               Next Chat
@@ -449,10 +651,10 @@ export default function TextChatPage() {
               onClick={() => {
                 textSocket.emit('findTextMatch');
                 setIsSearching(true);
+                console.log('Initiated search for a match');
               }}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={false}
               aria-label="Find Match"
             >
               Find Match
@@ -468,7 +670,7 @@ export default function TextChatPage() {
             : 'bg-gradient-to-b from-gray-100 to-white'
         }`}
       >
-        <ScrollArea ref={scrollAreaRef} className="flex-grow relative">
+        <ScrollArea className="flex-grow relative">
           {/* Watermark */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <h1
@@ -482,6 +684,7 @@ export default function TextChatPage() {
 
           {showIntroMessage && connected && (
             <motion.div
+              key="intro-message"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -500,65 +703,83 @@ export default function TextChatPage() {
               </p>
             </motion.div>
           )}
-          <AnimatePresence>
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
-              >
-                <div
-                  className={`inline-block max-w-[70%] ${
-                    msg.isSelf
-                      ? darkMode
-                        ? 'bg-blue-600'
-                        : 'bg-blue-500'
-                      : darkMode
-                        ? 'bg-gray-700'
-                        : 'bg-gray-300'
-                  } rounded-2xl p-3 relative`}
-                >
-                  <span
-                    className={`${
-                      msg.isSelf
-                        ? 'text-white'
-                        : darkMode
-                          ? 'text-white'
-                          : 'text-black'
-                    } break-words`}
-                    style={{ display: 'inline' }}
-                  >
-                    <Twemoji
-                      text={msg.text}
-                      options={{
-                        className: 'inline-block align-middle',
-                      }}
-                    />
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      darkMode ? 'text-gray-400' : 'text-gray-600'
-                    } mt-1 block`}
-                  >
-                    {msg.timestamp.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+
+<AnimatePresence initial={false}>
+  {messages.map((msg) => (
+    <motion.div
+      key={msg.id}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
+    >
+      <div
+        className={`inline-block max-w-[70%] ${
+          msg.isSelf
+            ? darkMode
+              ? 'bg-blue-600'
+              : 'bg-blue-500'
+            : darkMode
+            ? 'bg-gray-700'
+            : 'bg-gray-300'
+        } rounded-2xl p-4 relative cursor-pointer`}
+        onClick={() => handleDoubleTap(msg.id, msg.isSelf)}
+      >
+        <span
+          className={`${
+            msg.isSelf
+              ? 'text-white'
+              : darkMode
+              ? 'text-white'
+              : 'text-black'
+          } break-words`}
+        >
+          <Twemoji
+            text={msg.text}
+            options={{
+              className: 'inline-block align-middle',
+            }}
+          />
+        </span>
+        <span
+          className={`text-xs ${
+            darkMode ? 'text-gray-400' : 'text-gray-600'
+          } mt-1 block`}
+        >
+          {msg.timestamp.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
+        </span>
+        {msg.liked && (
+  <motion.div
+    initial={{ opacity: 0, translateY: 10 }}
+    animate={{ opacity: 1, translateY: 0 }}
+    exit={{ opacity: 0, translateY: 10 }}
+    transition={{ duration: 0.3 }}
+    className={`absolute ${
+      msg.isSelf ? 'bottom-[-10px] left-0' : 'bottom-[-10px] right-0'
+    } z-10`}
+  >
+    <Heart className="w-6 h-6 text-red-500 fill-current" />
+  </motion.div>
+)}
+      </div>
+    </motion.div>
+  ))}
+</AnimatePresence>
+
 
           {isTyping && (
             <motion.div
+              key="typing-indicator"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} italic`}
+              className={`${
+                darkMode ? 'text-gray-400' : 'text-gray-600'
+              } italic`}
             >
               Stranger is typing...
             </motion.div>
@@ -583,6 +804,7 @@ export default function TextChatPage() {
                 ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
                 : 'bg-white border-gray-300 text-black placeholder-gray-500'
             } pr-24 rounded-full`}
+            aria-label="Message Input"
           />
           <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
             <Button
@@ -594,6 +816,7 @@ export default function TextChatPage() {
                   ? 'text-gray-400 hover:text-white hover:bg-gray-700'
                   : 'text-gray-600 hover:text-black hover:bg-gray-200'
               } rounded-full`}
+              aria-label="Toggle Emoji Picker"
             >
               <Smile className="w-5 h-5" />
             </Button>
@@ -606,6 +829,7 @@ export default function TextChatPage() {
                   ? 'bg-blue-600 hover:bg-blue-700'
                   : 'bg-blue-500 hover:bg-blue-600'
               } text-white rounded-full`}
+              aria-label="Send Message"
             >
               <Send className="w-5 h-5" />
             </Button>
@@ -613,7 +837,14 @@ export default function TextChatPage() {
           {showEmojiPicker && (
             <div className="absolute bottom-16 right-4 z-10">
               <EmojiPicker
-                onEmojiClick={handleEmojiClick}
+                onEmojiClick={useCallback(
+                  (emojiData: EmojiClickData, event: MouseEvent) => {
+                    setInputMessage((prev) => prev + emojiData.emoji);
+                    setShowEmojiPicker(false);
+                    console.log(`Emoji selected: ${emojiData.emoji}`);
+                  },
+                  []
+                )}
                 theme={darkMode ? Theme.DARK : Theme.LIGHT}
               />
             </div>
@@ -635,6 +866,7 @@ export default function TextChatPage() {
                   ? 'text-white hover:bg-gray-800'
                   : 'text-black hover:bg-gray-200'
               }`}
+              aria-label="Switch to Video Chat"
             >
               <Video className="w-5 h-5 mr-2" />
               Switch to Video
@@ -649,6 +881,7 @@ export default function TextChatPage() {
                     ? 'text-white hover:bg-gray-800'
                     : 'text-black hover:bg-gray-200'
                 }`}
+                aria-label="Open Settings"
               >
                 <Settings className="w-5 h-5" />
               </Button>
@@ -717,6 +950,7 @@ export default function TextChatPage() {
                 : 'text-black hover:bg-gray-200'
             }`}
             onClick={() => toast('Feature not implemented yet')}
+            aria-label="Flag"
           >
             <Flag className="w-5 h-5" />
           </Button>
@@ -728,6 +962,7 @@ export default function TextChatPage() {
                 : 'text-black hover:bg-gray-200'
             }`}
             onClick={() => toast('Feature not implemented yet')}
+            aria-label="Alert"
           >
             <AlertTriangle className="w-5 h-5" />
           </Button>
