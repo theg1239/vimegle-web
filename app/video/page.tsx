@@ -10,7 +10,15 @@ import { toast, Toaster } from 'react-hot-toast';
 import { infoToast } from '@/lib/toastHelpers';
 import { defaultSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
-import { ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Loader2, Video, MessageSquare } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/app/components/ui/tooltip";
+
 
 export default function ChatPage() {
   const [connected, setConnected] = useState(false);
@@ -25,6 +33,7 @@ export default function ChatPage() {
   const [searchCancelled, setSearchCancelled] = useState(false);
   const [noUsersOnline, setNoUsersOnline] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
+  const [showTextChat, setShowTextChat] = useState(false);
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<PeerInstance | null>(null);
@@ -352,18 +361,31 @@ export default function ChatPage() {
     [connected, room]
   );
 
+  const toggleTextChat = useCallback(() => {
+    setShowTextChat(prev => !prev);
+  }, []);
+
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black">
+    <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black text-white">
       <Toaster position="top-center" />
       <header className="bg-black/50 backdrop-blur-sm p-4 flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <button
-            onClick={() => (window.location.href = '/')}
-            className="text-white hover:text-gray-300 transition-colors"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-6 h-6" />
-          </button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => (window.location.href = '/')}
+                  className="text-white hover:text-gray-300 transition-colors"
+                  aria-label="Go back"
+                >
+                  <ArrowLeft className="w-6 h-6" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Go back to home</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
             Vimegle
           </h1>
@@ -375,8 +397,10 @@ export default function ChatPage() {
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
               disabled={isDebouncing}
-              aria-label="Cancel Search"
             >
+              {isDebouncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
               {isDebouncing ? 'Cancelling...' : 'Cancel Search'}
             </Button>
           ) : connected ? (
@@ -385,8 +409,10 @@ export default function ChatPage() {
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
               disabled={isDebouncing}
-              aria-label="Next Chat"
             >
+              {isDebouncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
               {isDebouncing ? 'Processing...' : 'Next Chat'}
             </Button>
           ) : (
@@ -395,8 +421,10 @@ export default function ChatPage() {
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
               disabled={isDebouncing}
-              aria-label="Find Match"
             >
+              {isDebouncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : null}
               {isDebouncing ? 'Searching...' : 'Find Match'}
             </Button>
           )}
@@ -411,49 +439,109 @@ export default function ChatPage() {
             isSearching={isSearching}
             searchCancelled={searchCancelled || noUsersOnline}
           />
-          <div className="absolute top-4 right-4 w-48 h-36 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.3 }}
+            className="absolute top-4 right-4 w-48 h-36 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500"
+          >
             <LocalVideo localStream={localStream} />
             <span className="absolute bottom-2 left-2 bg-pink-500 text-white text-sm px-2 py-0.5 rounded">
               You
             </span>
-          </div>
+          </motion.div>
         </div>
-        <div className="md:w-1/3 h-1/2 md:h-auto">
-          <TextChat
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            connected={connected}
-          />
-        </div>
+        <AnimatePresence>
+          {showTextChat && (
+            <motion.div
+              initial={{ opacity: 0, x: 300 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 300 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="md:w-1/3 h-full md:h-auto bg-gray-800 rounded-lg shadow-lg overflow-hidden"
+            >
+              <TextChat
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                connected={connected}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
-      {noUsersOnline && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white">
-          <div className="text-center">
-            <p className="text-2xl font-bold mb-4">No other users online.</p>
-            <Button
-              onClick={startSearch}
-              className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded"
+      <footer className="bg-black/50 backdrop-blur-sm p-4 flex justify-center">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={toggleTextChat}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+              >
+                {showTextChat ? <Video className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{showTextChat ? "Show full video" : "Open text chat"}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </footer>
+
+      <AnimatePresence>
+        {noUsersOnline && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/80 text-white"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="text-center bg-gray-800 p-8 rounded-lg shadow-xl"
             >
-              Retry Search
-            </Button>
-          </div>
-        </div>
-      )}
-      {isDisconnected && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white">
-          <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg">
-            <h2 className="text-xl font-bold mb-2">Stranger Disconnected</h2>
-            <p className="mb-4">Your chat partner has left the chat.</p>
-            <Button
-              onClick={startSearch}
-              className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded"
+              <p className="text-2xl font-bold mb-4">No other users online.</p>
+              <Button
+                onClick={startSearch}
+                className="px-6 py-3 bg-pink-500 hover:bg-pink-600 rounded-full text-lg font-semibold transition-colors duration-300"
+              >
+                Retry Search
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isDisconnected && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center bg-black/80 text-white"
+          >
+            <motion.div
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              className="text-center p-8 bg-gray-800 rounded-lg shadow-xl"
             >
-              Find New Match
-            </Button>
-          </div>
-        </div>
-      )}
+              <h2 className="text-2xl font-bold mb-4">Stranger Disconnected</h2>
+              <p className="mb-6">Your chat partner has left the chat.</p>
+              <Button
+                onClick={startSearch}
+                className="px-6 py-3 bg-pink-500 hover:bg-pink-600 rounded-full text-lg font-semibold transition-colors duration-300"
+              >
+                Find New Match
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+
