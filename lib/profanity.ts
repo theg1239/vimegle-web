@@ -25,7 +25,12 @@ const profaneWords = [
   'send nudies',
   'dick or pussy',
   'send noods',
-  'send titties'
+  'send titties',
+  'M / F ?',
+  'M/F ?',
+  'F/M ?',
+  'F/M?',
+  'M/F?'
 ];
 
 const profaneRegex = new RegExp(
