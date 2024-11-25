@@ -30,19 +30,7 @@ import {
 import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
-import { Filter } from 'bad-words';
-
-const offensiveWords = ['nigger', 'kike', 'send boobs', 'send nudes'];
-
-class CustomFilter extends Filter {
-  constructor(customWords: string[] = []) {
-    super();
-
-    (this as any).badWords = []; 
-
-    this.addWords(...customWords); 
-  }
-}
+import { isProfane } from '@/lib/profanity';
 
 interface ReactionUpdate {
   messageId: string;
@@ -110,8 +98,6 @@ export default function TextChatPage() {
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
-
-  const profanityFilter = useRef(new CustomFilter(offensiveWords));
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -382,7 +368,7 @@ export default function TextChatPage() {
 
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim() && connected && currentRoom) {
-      if (profanityFilter.current.isProfane(inputMessage)) {
+      if (isProfane(inputMessage)) {
         toast.error("Please be respectful. Your message wasn't sent.");
         console.warn('Profanity detected. Message not sent.');
         return;
