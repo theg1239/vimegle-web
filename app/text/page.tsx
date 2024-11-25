@@ -825,7 +825,10 @@ export default function TextChatPage() {
           )}
           <div ref={messagesEndRef} />
         </ScrollArea>
-        <div className="fixed bottom-16 left-0 right-0 p-4 bg-gray-100 dark:bg-gray-900 z-10">
+        <div
+  className="fixed inset-x-0 bottom-0 p-4 bg-gray-100 dark:bg-gray-900 z-10"
+  style={{ bottom: 'env(safe-area-inset-bottom)' }} // Adjust for mobile safe areas
+>
   <div className="relative">
     <Input
       type="text"
@@ -884,6 +887,7 @@ export default function TextChatPage() {
     )}
   </div>
 </div>
+
 
 
       </main>
