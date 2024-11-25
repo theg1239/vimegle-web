@@ -698,133 +698,71 @@ export default function TextChatPage() {
             : 'bg-gradient-to-b from-gray-100 to-white'
         }`}
       >
-        <ScrollArea className="flex-grow relative h-full">
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <h1
-              className={`text-6xl font-bold text-gray-300 opacity-10 ${
-                darkMode ? 'text-white' : 'text-gray-800'
-              }`}
-            >
-              Vimegle
-            </h1>
-            {showLikeMessage && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className={`mt-4 text-sm font-medium ${
-                  darkMode ? 'text-gray-200' : 'text-gray-800'
-                }`}
-              >
-                Double-tap a message to like!
-              </motion.div>
-            )}
-          </div>
+<ScrollArea
+  className="relative"
+  style={{
+    maxHeight: 'calc(100vh - 8rem)', // Calculate the available height between the header and footer
+    minHeight: '12rem', // Minimum height for the scroll area
+    overflowY: 'auto', // Enable scrolling when content exceeds maxHeight
+  }}
+>
+  {messages.length > 0 ? (
+    messages.map((msg) => (
+      <motion.div
+        key={msg.id}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.3 }}
+        className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
+      >
+        <div
+          className={`inline-block max-w-[70%] ${
+            msg.isSelf
+              ? darkMode
+                ? 'bg-blue-600'
+                : 'bg-blue-500'
+              : darkMode
+              ? 'bg-gray-700'
+              : 'bg-gray-300'
+          } rounded-2xl p-4 relative cursor-pointer`}
+        >
+          <span
+            className={`${
+              msg.isSelf
+                ? 'text-white'
+                : darkMode
+                ? 'text-white'
+                : 'text-black'
+            } break-words`}
+          >
+            <Twemoji
+              text={msg.text}
+              options={{
+                className: 'inline-block align-middle',
+              }}
+            />
+          </span>
+          <span
+            className={`text-xs ${
+              darkMode ? 'text-gray-400' : 'text-gray-600'
+            } mt-1 block`}
+          >
+            {msg.timestamp.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </span>
+        </div>
+      </motion.div>
+    ))
+  ) : (
+    <div className="text-center text-gray-500 dark:text-gray-400 mt-4">
+      No messages yet. Start chatting!
+    </div>
+  )}
+</ScrollArea>
 
-          {showIntroMessage && connected && (
-            <motion.div
-              key="intro-message"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className={`mb-4 p-4 rounded-lg ${
-                darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-              }`}
-            >
-              <h3 className="font-bold mb-2">Welcome to Vimegle Text Chat!</h3>
-              <p>
-                You're now connected with a random stranger. Say hello and start
-                chatting!
-              </p>
-              <p className="mt-2 text-sm">
-                Remember to be respectful and follow our community guidelines.
-              </p>
-            </motion.div>
-          )}
-
-          <AnimatePresence initial={false}>
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
-              >
-                <div
-                  className={`inline-block max-w-[70%] ${
-                    msg.isSelf
-                      ? darkMode
-                        ? 'bg-blue-600'
-                        : 'bg-blue-500'
-                      : darkMode
-                      ? 'bg-gray-700'
-                      : 'bg-gray-300'
-                  } rounded-2xl p-4 relative cursor-pointer`}
-                  onClick={() => handleDoubleTap(msg.id, msg.isSelf)}
-                >
-                  <span
-                    className={`${
-                      msg.isSelf
-                        ? 'text-white'
-                        : darkMode
-                        ? 'text-white'
-                        : 'text-black'
-                    } break-words`}
-                  >
-                    <Twemoji
-                      text={msg.text}
-                      options={{
-                        className: 'inline-block align-middle',
-                      }}
-                    />
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      darkMode ? 'text-gray-400' : 'text-gray-600'
-                    } mt-1 block`}
-                  >
-                    {msg.timestamp.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                  {msg.liked && (
-                    <motion.div
-                      initial={{ opacity: 0, translateY: 10 }}
-                      animate={{ opacity: 1, translateY: 0 }}
-                      exit={{ opacity: 0, translateY: 10 }}
-                      transition={{ duration: 0.3 }}
-                      className={`absolute ${
-                        msg.isSelf ? 'bottom-[-10px] left-0' : 'bottom-[-10px] right-0'
-                      } z-10`}
-                    >
-                      <Heart className="w-6 h-6 text-red-500 fill-current" />
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {/* Typing Indicator */}
-          {isTyping && (
-            <motion.div
-              key="typing-indicator"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className={`${
-                darkMode ? 'text-gray-400' : 'text-gray-600'
-              } italic`}
-            >
-              Stranger is typing...
-            </motion.div>
-          )}
-          <div ref={messagesEndRef} />
-        </ScrollArea>
         <div
   className="fixed inset-x-0 bottom-[4rem] p-4 bg-gray-100 dark:bg-gray-900 z-10" // Adjust bottom to sit above the footer
   style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom))' }} // Ensure compatibility with mobile safe areas
