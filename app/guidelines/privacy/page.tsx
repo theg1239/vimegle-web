@@ -109,14 +109,13 @@ export default function PrivacyPolicyPage() {
                 We may update our Privacy Policy from time to time. We will notify you of any changes by updating the "Last Updated" date at the top of this document. Your continued use of the Service after such changes constitutes your acceptance of the new Privacy Policy.
               </p>
 
-              {/* <h3 className="text-xl font-semibold text-gray-200">11. Contact Us</h3>
+              <h3 className="text-xl font-semibold text-gray-200">11. Contact Us</h3>
               <p className="text-gray-400">
                 If you have any questions about this Privacy Policy, please contact us at:
               </p>
               <ul className="list-disc list-inside text-gray-400">
                 <li><strong>Email:</strong> <a href="mailto:privacy@vimegle.com" className="underline text-blue-400 hover:text-blue-600">privacy@vimegle.com</a></li>
-                <li><strong>Address:</strong> [Your Physical Address, if applicable]</li>
-              </ul> */}
+              </ul>
             </div>
           </ScrollArea>
 

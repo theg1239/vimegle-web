@@ -91,28 +91,28 @@ export default function TermsOfServicePage() {
                 You agree to defend, indemnify, and hold harmless Vimegle, its affiliates, officers, directors, employees, and agents from and against any claims, liabilities, damages, losses, and expenses arising out of or in any way connected with your access to or use of the Service.
               </p>
 
-              {/* <h3 className="text-xl font-semibold text-gray-200">10. Governing Law</h3>
+              <h3 className="text-xl font-semibold text-gray-200">10. Governing Law</h3>
               <p className="text-gray-400">
                 These Terms shall be governed and construed in accordance with the laws of <strong>of the state of Delaware, United States</strong>, without regard to its conflict of law provisions.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">11. Dispute Resolution</h3>
               <p className="text-gray-400">
-                Any disputes arising out of or relating to these Terms or the Service shall be resolved through binding arbitration in <strong>[Your Jurisdiction]</strong>, in accordance with the rules of the <strong>[Arbitration Association]</strong>.
-              </p> */}
+                Any disputes arising out of or relating to these Terms shall be resolved through binding arbitration in accordance with the rules of the American Arbitration Association.
+              </p>
 
-              <h3 className="text-xl font-semibold text-gray-200">10. Changes to Terms</h3>
+              <h3 className="text-xl font-semibold text-gray-200">12. Changes to Terms</h3>
               <p className="text-gray-400">
                 We reserve the right to modify or replace these Terms at any time. We will provide notice of these changes by updating the "Last Updated" date at the top of this document. Your continued use of the Service after such changes constitutes your acceptance of the new Terms.
               </p>
 
-              {/* <h3 className="text-xl font-semibold text-gray-200">13. Contact Us</h3>
+              <h3 className="text-xl font-semibold text-gray-200">13. Contact Us</h3>
               <p className="text-gray-400">
                 If you have any questions about these Terms, please contact us at:
               </p>
               <ul className="list-disc list-inside text-gray-400">
                 <li><strong>Email:</strong> <a href="mailto:support@vimegle.com" className="underline text-blue-400 hover:text-blue-600">support@vimegle.com</a></li>
-              </ul> */}
+              </ul>
             </div>
           </ScrollArea>
 
