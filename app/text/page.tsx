@@ -18,7 +18,7 @@ import {
   Heart,
 } from 'lucide-react';
 import Link from 'next/link';
-import { textSocket } from '@/lib/socket'; 
+import { textSocket } from '@/lib/socket';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { v4 as uuidv4 } from 'uuid';
 import { Twemoji } from 'react-emoji-render';
@@ -49,7 +49,7 @@ type Message = {
   isSelf: boolean;
   timestamp: Date;
   reactions: { [key: string]: number };
-  liked: boolean; 
+  liked: boolean;
 };
 
 function useDebounce(callback: Function, delay: number) {
@@ -117,7 +117,7 @@ export default function TextChatPage() {
 
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
-    if (!hasInteractedRef.current) return; 
+    if (!hasInteractedRef.current) return;
     try {
       const audio = new Audio('/sounds/discord-notification.mp3');
       audio.play().catch((err) => {
@@ -130,7 +130,7 @@ export default function TextChatPage() {
 
   const playMessageSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
-    if (!hasInteractedRef.current) return; 
+    if (!hasInteractedRef.current) return;
     try {
       const audio = new Audio('/sounds/discord-message.mp3');
       audio.play().catch((err) => {
@@ -143,7 +143,7 @@ export default function TextChatPage() {
 
   const playDisconnectSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
-    if (!hasInteractedRef.current) return; 
+    if (!hasInteractedRef.current) return;
     try {
       const audio = new Audio('/sounds/discord-disconnect.mp3');
       audio.play().catch((err) => {
@@ -199,7 +199,7 @@ export default function TextChatPage() {
             isSelf,
             timestamp: new Date(),
             reactions: {},
-            liked: false, 
+            liked: false,
           },
         ];
       });
@@ -240,15 +240,12 @@ export default function TextChatPage() {
     [playDisconnectSound]
   );
 
-  const handleNoTextMatch = useCallback(
-    ({ message }: { message: string }) => {
-      setIsSearching(false);
-      setNoUsersOnline(true);
-      toast.error(message);
-      console.log('No text match found:', message);
-    },
-    []
-  );
+  const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
+    setIsSearching(false);
+    setNoUsersOnline(true);
+    toast.error(message);
+    console.log('No text match found:', message);
+  }, []);
 
   const handleTypingFromPeer = useCallback(() => {
     setIsTyping(true);
@@ -268,28 +265,22 @@ export default function TextChatPage() {
     []
   );
 
-  const handleDisconnect = useCallback(
-    (reason: string) => {
-      console.log('Disconnected from server:', reason);
-      setConnected(false);
-      if (reason === 'io server disconnect') {
-        textSocket.connect();
-      }
-    },
-    []
-  );
+  const handleDisconnect = useCallback((reason: string) => {
+    console.log('Disconnected from server:', reason);
+    setConnected(false);
+    if (reason === 'io server disconnect') {
+      textSocket.connect();
+    }
+  }, []);
 
-  const handleReconnect = useCallback(
-    (attemptNumber: number) => {
-      console.log(`Reconnected after ${attemptNumber} attempts`);
-      if (currentRoomRef.current) {
-        textSocket.emit('findTextMatch');
-        setIsSearching(true);
-        console.log('Re-attempting to find a text match...');
-      }
-    },
-    []
-  );
+  const handleReconnect = useCallback((attemptNumber: number) => {
+    console.log(`Reconnected after ${attemptNumber} attempts`);
+    if (currentRoomRef.current) {
+      textSocket.emit('findTextMatch');
+      setIsSearching(true);
+      console.log('Re-attempting to find a text match...');
+    }
+  }, []);
 
   const handleTyping = useCallback(() => {
     if (connectedRef.current && currentRoomRef.current) {
@@ -325,7 +316,7 @@ export default function TextChatPage() {
 
     if (!isSearching) {
       tooltipShownRef.current = false;
-      setShowTooltip(false); 
+      setShowTooltip(false);
       console.log('Hiding tooltip: Match found or search canceled');
     }
   }, [isSearching]);
@@ -344,33 +335,33 @@ export default function TextChatPage() {
 
   const handleDoubleTap = useCallback(
     (messageId: string, isSelf: boolean) => {
-        if (isSelf) return; 
+      if (isSelf) return;
 
-        const now = Date.now();
-        const lastTap = lastTapTime[messageId] || 0;
-        const timeDiff = now - lastTap;
+      const now = Date.now();
+      const lastTap = lastTapTime[messageId] || 0;
+      const timeDiff = now - lastTap;
 
-        if (timeDiff < 300) {
-            const message = messages.find((msg) => msg.id === messageId);
-            if (!message) return;
+      if (timeDiff < 300) {
+        const message = messages.find((msg) => msg.id === messageId);
+        if (!message) return;
 
-            const updatedLiked = !message.liked;
-            setMessages((prevMessages) =>
-                prevMessages.map((msg) =>
-                    msg.id === messageId ? { ...msg, liked: updatedLiked } : msg
-                )
-            );
+        const updatedLiked = !message.liked;
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === messageId ? { ...msg, liked: updatedLiked } : msg
+          )
+        );
 
-            const reactionData: ReactionData = {
-                room: currentRoom,
-                messageId,
-                liked: updatedLiked,
-            };
-            textSocket.emit('reaction', reactionData);
-            console.log(`Sent reaction for message ${messageId}: ${updatedLiked}`);
-        }
+        const reactionData: ReactionData = {
+          room: currentRoom,
+          messageId,
+          liked: updatedLiked,
+        };
+        textSocket.emit('reaction', reactionData);
+        console.log(`Sent reaction for message ${messageId}: ${updatedLiked}`);
+      }
 
-        setLastTapTime((prev) => ({ ...prev, [messageId]: now }));
+      setLastTapTime((prev) => ({ ...prev, [messageId]: now }));
     },
     [lastTapTime, messages, currentRoom]
   );
@@ -378,15 +369,15 @@ export default function TextChatPage() {
   const handleSendMessage = useCallback(() => {
     if (inputMessage.trim() && connected && currentRoom) {
       if (isProfane(inputMessage)) {
-        toast.error("Please try to keep the conversation respectful.");
+        toast.error('Please try to keep the conversation respectful.');
         console.warn('Profanity detected. Message not sent.');
         return;
       }
-      const messageId = uuidv4(); 
+      const messageId = uuidv4();
       textSocket.emit('textMessage', {
         room: currentRoom,
         message: inputMessage,
-        messageId, 
+        messageId,
       });
       setInputMessage('');
       setShowIntroMessage(false);
@@ -439,8 +430,8 @@ export default function TextChatPage() {
   useEffect(() => {
     const hasSeenMessage = localStorage.getItem('seenLikeMessage');
     if (!hasSeenMessage) {
-      setShowLikeMessage(true); 
-      localStorage.setItem('seenLikeMessage', 'true'); 
+      setShowLikeMessage(true);
+      localStorage.setItem('seenLikeMessage', 'true');
 
       const timer = setTimeout(() => {
         setShowLikeMessage(false);
@@ -463,7 +454,7 @@ export default function TextChatPage() {
       );
       console.log(`Reaction updated for message ${messageId}: ${liked}`);
     });
-  
+
     return () => {
       textSocket.off('reactionUpdate');
     };
@@ -615,7 +606,11 @@ export default function TextChatPage() {
               <p className="mb-4">
                 Your chat partner has left the conversation.
               </p>
-              <Button onClick={handleNext} className="w-full" aria-label="Start New Chat">
+              <Button
+                onClick={handleNext}
+                className="w-full"
+                aria-label="Start New Chat"
+              >
                 Start a New Chat
               </Button>
             </motion.div>
@@ -754,8 +749,8 @@ export default function TextChatPage() {
                         ? 'bg-blue-600'
                         : 'bg-blue-500'
                       : darkMode
-                      ? 'bg-gray-700'
-                      : 'bg-gray-300'
+                        ? 'bg-gray-700'
+                        : 'bg-gray-300'
                   } rounded-2xl p-4 relative cursor-pointer`}
                   onClick={() => handleDoubleTap(msg.id, msg.isSelf)}
                 >
@@ -764,8 +759,8 @@ export default function TextChatPage() {
                       msg.isSelf
                         ? 'text-white'
                         : darkMode
-                        ? 'text-white'
-                        : 'text-black'
+                          ? 'text-white'
+                          : 'text-black'
                     } break-words`}
                   >
                     <Twemoji
@@ -792,7 +787,9 @@ export default function TextChatPage() {
                       exit={{ opacity: 0, translateY: 10 }}
                       transition={{ duration: 0.3 }}
                       className={`absolute ${
-                        msg.isSelf ? 'bottom-[-10px] left-0' : 'bottom-[-10px] right-0'
+                        msg.isSelf
+                          ? 'bottom-[-10px] left-0'
+                          : 'bottom-[-10px] right-0'
                       } z-10`}
                     >
                       <Heart className="w-6 h-6 text-red-500 fill-current" />
