@@ -1,9 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
-import * as nsfwjs from 'nsfwjs';
-import '@tensorflow/tfjs'; // Ensure TensorFlow.js is imported
+'use client'; 
+
+import React, { useEffect, useState } from 'react';
+import NSFWModelSingleton from '@/lib/nsfwModel'; // Adjust the path as needed
+import * as tf from '@tensorflow/tfjs'; // Import TensorFlow.js directly
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
+import { NSFWJS, Prediction } from 'nsfwjs'; // Correctly import NSFWJS and Prediction
 
 interface VideoChatProps {
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
@@ -25,40 +28,53 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
   isSearching,
   searchCancelled,
 }) {
-  const [nsfwModel, setNsfwModel] = useState<nsfwjs.NSFWJS | null>(null);
-  const [nsfwDetected, setNsfwDetected] = useState<boolean>(false);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [nsfwModel, setNsfwModel] = useState<NSFWJS | null>(null);
   const [isBlurring, setIsBlurring] = useState<boolean>(false);
+  const [blurIntensity] = useState<number>(5); // Fixed blur intensity
+  const [webglSupported, setWebglSupported] = useState<boolean>(true); // Track WebGL support
 
-  // Load NSFWJS model on the client
+  // Load NSFWJS model only once using Singleton
   useEffect(() => {
-    if (typeof window === 'undefined') return; // Ensure code runs on the client
-
-    const loadModel = async () => {
-      try {
-        const model = await nsfwjs.load();
+    NSFWModelSingleton.loadModel()
+      .then((model) => {
         setNsfwModel(model);
-        console.log('NSFWJS Model Loaded');
+        console.log('NSFWJS Model Loaded from Singleton');
+      })
+      .catch((error) => {
+        console.error('Error loading NSFWJS model from Singleton:', error);
+      });
+  }, []);
+
+  // Initialize TensorFlow.js backend
+  useEffect(() => {
+    const initializeBackend = async () => {
+      try {
+        // Attempt to set WebGL as the backend
+        await tf.setBackend('webgl');
+        await tf.ready();
+        console.log('TensorFlow.js WebGL backend initialized');
       } catch (error) {
-        console.error('Error loading NSFWJS model:', error);
+        console.warn('WebGL backend failed, falling back to CPU backend:', error);
+        setWebglSupported(false);
+        try {
+          await tf.setBackend('cpu');
+          await tf.ready();
+          console.log('TensorFlow.js CPU backend initialized');
+        } catch (cpuError) {
+          console.error('Failed to initialize TensorFlow.js CPU backend:', cpuError);
+        }
       }
     };
 
-    loadModel();
+    initializeBackend();
   }, []);
 
   // Analyze video frames for NSFW content
   useEffect(() => {
-    if (
-      typeof window === 'undefined' || // Ensure client-side execution
-      !remoteVideoRef.current ||
-      !remoteStream ||
-      !nsfwModel
-    )
-      return;
+    if (!remoteVideoRef.current || !remoteStream || !nsfwModel) return;
 
     const video = remoteVideoRef.current;
-    const canvas = document.createElement('canvas'); // Dynamically create canvas in the browser
+    const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
@@ -66,9 +82,19 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
       return;
     }
 
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    // Function to set canvas dimensions based on video
+    const setCanvasDimensions = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    };
+
+    // Set initial dimensions
+    setCanvasDimensions();
+
+    // Update canvas dimensions when video metadata is loaded
+    video.onloadedmetadata = () => {
+      setCanvasDimensions();
+    };
 
     const analyzeFrame = async () => {
       if (video.paused || video.ended) return;
@@ -80,7 +106,7 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
         // Perform NSFW classification
         const predictions = await nsfwModel.classify(canvas);
         const nsfwScore = predictions.reduce(
-          (total, p) =>
+          (total: number, p: Prediction) =>
             total +
             (['Porn', 'Hentai', 'Sexy'].includes(p.className)
               ? p.probability
@@ -88,14 +114,12 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
           0
         );
 
-        // Define a threshold for NSFW content
-        const threshold = 1.5; // Adjust as needed
+        const threshold = 1.5; 
 
         if (nsfwScore > threshold) {
-          setNsfwDetected(true);
           setIsBlurring(true);
+          console.warn('NSFW content detected. Blurring video.');
         } else {
-          setNsfwDetected(false);
           setIsBlurring(false);
         }
       } catch (error) {
@@ -103,20 +127,20 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
       }
     };
 
-    // Analyze every 2 seconds
     const interval = setInterval(analyzeFrame, 2000);
 
     return () => clearInterval(interval);
   }, [remoteStream, nsfwModel, remoteVideoRef]);
 
-  // Apply CSS blur when NSFW content is detected
   useEffect(() => {
-    if (typeof window === 'undefined') return; // Ensure client-side execution
+    if (!remoteVideoRef.current) return;
 
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.style.filter = isBlurring ? 'blur(5px)' : 'none';
+    if (isBlurring) {
+      remoteVideoRef.current.style.filter = `blur(${blurIntensity}px)`;
+    } else {
+      remoteVideoRef.current.style.filter = 'none';
     }
-  }, [isBlurring, remoteVideoRef]);
+  }, [isBlurring, blurIntensity, remoteVideoRef]);
 
   return (
     <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30 backdrop-blur-sm">
@@ -128,17 +152,37 @@ const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
         aria-label="Remote Video"
       />
 
-      {/* Blurred Overlay for NSFW Content */}
       {isBlurring && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <p className="text-white text-2xl font-bold">Inappropriate Content Detected</p>
+        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
+          <p className="text-white text-2xl font-bold mb-4">
+            Inappropriate Content Detected
+          </p>
           <Button
             onClick={() => {
               console.log('Taking action due to NSFW content');
             }}
-            className="mt-4 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
           >
-            Take Action
+            Disconnect
+          </Button>
+        </div>
+      )}
+
+      {!webglSupported && (
+        <div className="absolute inset-0 bg-yellow-500/75 flex flex-col items-center justify-center">
+          <p className="text-black text-2xl font-bold mb-4">
+            Limited Functionality
+          </p>
+          <p className="text-black mb-4">
+            Your device does not support WebGL. NSFW detection may not function optimally.
+          </p>
+          <Button
+            onClick={() => {
+              console.log('User opted to disable NSFW detection');
+            }}
+            className="bg-yellow-700 hover:bg-yellow-800 text-white px-4 py-2 rounded"
+          >
+            Disable NSFW Detection
           </Button>
         </div>
       )}
