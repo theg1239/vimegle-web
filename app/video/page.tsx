@@ -15,9 +15,7 @@ import { ArrowLeft } from 'lucide-react';
 export default function ChatPage() {
   const [connected, setConnected] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>(
-    []
-  );
+  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [room, setRoom] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
@@ -31,6 +29,66 @@ export default function ChatPage() {
   const socketRef = useRef<Socket | null>(defaultSocket);
   const isSelfInitiatedDisconnectRef = useRef(false);
 
+const captureFrames = async (stream: MediaStream): Promise<string[]> => {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.play().catch(reject);
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      reject(new Error('Failed to get canvas context'));
+      return;
+    }
+
+    video.onloadedmetadata = () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+
+      const minDelay = 500;  // 0.5 seconds
+      const maxDelay = 3000; // 3 seconds
+
+      const getRandomDelay = () => {
+        return Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+      };
+
+      const randomDelay1 = getRandomDelay();
+      const randomDelay2 = getRandomDelay();
+
+      const captureFrame = (delay: number): Promise<string> => {
+        return new Promise((res, rej) => {
+          setTimeout(() => {
+            try {
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const image = canvas.toDataURL('image/jpeg');
+              res(image);
+            } catch (err) {
+              rej(err);
+            }
+          }, delay);
+        });
+      };
+
+      Promise.all([captureFrame(randomDelay1), captureFrame(randomDelay2)])
+        .then((images) => {
+          video.pause();
+          video.srcObject = null;
+          resolve(images);
+        })
+        .catch((err) => {
+          reject(err);
+        });
+    };
+
+    video.onerror = (err) => {
+      reject(err);
+    };
+  });
+};
+
+  // Function to start searching for a match
   const startSearch = useCallback(() => {
     setIsSearching(true);
     setSearchCancelled(false);
@@ -100,7 +158,10 @@ export default function ChatPage() {
         });
         setLocalStream(stream);
         //console.log('Obtained local media stream');
-        startSearch();
+
+        // Capture frames and send for NSFW analysis
+        const frames = await captureFrames(stream);
+        socketRef.current?.emit('check_nsfw', { images: frames });
       } catch (err) {
         //console.error('Error accessing media devices:', err);
         toast.error('Failed to access microphone and camera.');
@@ -122,7 +183,7 @@ export default function ChatPage() {
         socketRef.current?.off('connect', handleConnect);
       };
     }
-  }, [startSearch]);
+  }, []);
 
   useEffect(() => {
     const handleMatch = ({
@@ -281,16 +342,65 @@ export default function ChatPage() {
       toast.error(message);
     };
 
+    const handleNSFWDetected = ({ message }: { message: string }) => {
+      //console.log('NSFW detected:', message);
+      toast.error(message);
+      // Reset state and disconnect
+      setIsSearching(false);
+      setSearchCancelled(false);
+      setNoUsersOnline(false);
+      setIsDisconnected(true);
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+      }
+      setConnected(false);
+      setRemoteStream(null);
+      setRoom(null);
+      setMessages([]);
+    };
+
+    const handleNSFWClean = ({ message }: { message: string }) => {
+      //console.log('NSFW clean:', message);
+      toast.success(message);
+      // Start searching for a match
+      startSearch();
+    };
+
+    const handleNSFWError = ({ message }: { message: string }) => {
+      //console.log('NSFW error:', message);
+      toast.error(message);
+      // Disconnect due to error
+      setIsSearching(false);
+      setSearchCancelled(false);
+      setNoUsersOnline(false);
+      setIsDisconnected(true);
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+      }
+      setConnected(false);
+      setRemoteStream(null);
+      setRoom(null);
+      setMessages([]);
+    };
+
     socketRef.current?.on('match', handleMatch);
     socketRef.current?.on('no_match', handleNoMatch);
     socketRef.current?.on('search_cancelled', handleSearchCancelled);
     socketRef.current?.on('no_users_online', handleNoUsersOnline);
+    socketRef.current?.on('nsfw_detected', handleNSFWDetected);
+    socketRef.current?.on('nsfw_clean', handleNSFWClean);
+    socketRef.current?.on('nsfw_error', handleNSFWError);
 
     return () => {
       socketRef.current?.off('match', handleMatch);
       socketRef.current?.off('no_match', handleNoMatch);
       socketRef.current?.off('search_cancelled', handleSearchCancelled);
       socketRef.current?.off('no_users_online', handleNoUsersOnline);
+      socketRef.current?.off('nsfw_detected', handleNSFWDetected);
+      socketRef.current?.off('nsfw_clean', handleNSFWClean);
+      socketRef.current?.off('nsfw_error', handleNSFWError);
       if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
