@@ -16,7 +16,7 @@ export default function ErrorPage() {
           <div className="space-y-4">
             <h3 className="text-xl font-semibold text-gray-200">Why am I seeing this?</h3>
             <p className="text-gray-400">
-              Our website restricts access from certain locations to comply with local regulations and policies.
+              Our website restricts access from certain locations.
             </p>
           </div>
           <div className="space-y-4">
