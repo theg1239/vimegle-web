@@ -155,13 +155,13 @@ export default function TextChatPage() {
   }, []);
 
   const handleSession = useCallback(({ sessionId }: { sessionId: string }) => {
-    console.log(`Session ID received: ${sessionId}`);
+    //console.log(`Session ID received: ${sessionId}`);
   }, []);
 
   const handleConnect = useCallback(() => {
     textSocket.emit('findTextMatch');
     setIsSearching(true);
-    console.log('Socket connected. Searching for a match...');
+    //console.log('Socket connected. Searching for a match...');
   }, []);
 
   const handleTextMatch = useCallback(
@@ -173,7 +173,7 @@ export default function TextChatPage() {
       setShowIntroMessage(true);
       setIsDisconnected(false);
       toast.success('Connected to a stranger!');
-      console.log(`Text match found in room: ${room}`);
+      //console.log(`Text match found in room: ${room}`);
       if (soundEnabledRef.current && hasInteractedRef.current)
         playNotificationSound();
     },
@@ -217,7 +217,7 @@ export default function TextChatPage() {
       sender: string;
       messageId: string;
     }) => {
-      console.log('Received message:', { message, sender, messageId });
+      //console.log('Received message:', { message, sender, messageId });
       const isSelf = sender === textSocket.id;
       addMessage(message, isSelf, messageId);
       if (!isSelf && soundEnabledRef.current && hasInteractedRef.current)
@@ -228,7 +228,7 @@ export default function TextChatPage() {
 
   const handlePeerDisconnected = useCallback(
     ({ message }: { message: string }) => {
-      console.log('Peer disconnected:', message);
+      //console.log('Peer disconnected:', message);
       setConnected(false);
       setMessages([]);
       setCurrentRoom('');
@@ -244,13 +244,13 @@ export default function TextChatPage() {
     setIsSearching(false);
     setNoUsersOnline(true);
     toast.error(message);
-    console.log('No text match found:', message);
+    //console.log('No text match found:', message);
   }, []);
 
   const handleTypingFromPeer = useCallback(() => {
     setIsTyping(true);
     setTimeout(() => setIsTyping(false), 3000);
-    console.log('Stranger is typing...');
+    //console.log('Stranger is typing...');
   }, []);
 
   const handleReactionUpdate = useCallback(
@@ -260,13 +260,13 @@ export default function TextChatPage() {
           msg.id === messageId && !msg.isSelf ? { ...msg, liked } : msg
         )
       );
-      console.log(`Reaction updated for message ${messageId}: ${liked}`);
+      //console.log(`Reaction updated for message ${messageId}: ${liked}`);
     },
     []
   );
 
   const handleDisconnect = useCallback((reason: string) => {
-    console.log('Disconnected from server:', reason);
+    //console.log('Disconnected from server:', reason);
     setConnected(false);
     if (reason === 'io server disconnect') {
       textSocket.connect();
@@ -274,18 +274,18 @@ export default function TextChatPage() {
   }, []);
 
   const handleReconnect = useCallback((attemptNumber: number) => {
-    console.log(`Reconnected after ${attemptNumber} attempts`);
+    //console.log(`Reconnected after ${attemptNumber} attempts`);
     if (currentRoomRef.current) {
       textSocket.emit('findTextMatch');
       setIsSearching(true);
-      console.log('Re-attempting to find a text match...');
+      //console.log('Re-attempting to find a text match...');
     }
   }, []);
 
   const handleTyping = useCallback(() => {
     if (connectedRef.current && currentRoomRef.current) {
       textSocket.emit('typing', { room: currentRoomRef.current });
-      console.log('Emitting typing event...');
+      //console.log('Emitting typing event...');
     }
   }, []);
 
@@ -295,7 +295,7 @@ export default function TextChatPage() {
     (emojiData: EmojiClickData, event: MouseEvent) => {
       setInputMessage((prev) => prev + emojiData.emoji);
       setShowEmojiPicker(false);
-      console.log(`Emoji selected: ${emojiData.emoji}`);
+      //console.log(`Emoji selected: ${emojiData.emoji}`);
     },
     []
   );
@@ -304,11 +304,11 @@ export default function TextChatPage() {
     if (isSearching && !tooltipShownRef.current) {
       tooltipShownRef.current = true;
       setShowTooltip(true);
-      console.log('Showing tooltip: We value your feedback!');
+      //console.log('Showing tooltip: We value your feedback!');
 
       const tooltipTimeout = setTimeout(() => {
         setShowTooltip(false);
-        console.log('Hiding tooltip after timeout');
+        //console.log('Hiding tooltip after timeout');
       }, 5000);
 
       return () => clearTimeout(tooltipTimeout);
@@ -317,20 +317,20 @@ export default function TextChatPage() {
     if (!isSearching) {
       tooltipShownRef.current = false;
       setShowTooltip(false);
-      console.log('Hiding tooltip: Match found or search canceled');
+      //console.log('Hiding tooltip: Match found or search canceled');
     }
   }, [isSearching]);
 
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
       setHasInteracted(true);
-      console.log('User has interacted with the page');
+      //console.log('User has interacted with the page');
     }
   }, [hasInteracted]);
 
   const toggleEmojiPicker = useCallback(() => {
     setShowEmojiPicker((prev) => !prev);
-    console.log('Toggled emoji picker');
+    //console.log('Toggled emoji picker');
   }, []);
 
   const handleDoubleTap = useCallback(
@@ -358,7 +358,7 @@ export default function TextChatPage() {
           liked: updatedLiked,
         };
         textSocket.emit('reaction', reactionData);
-        console.log(`Sent reaction for message ${messageId}: ${updatedLiked}`);
+        //console.log(`Sent reaction for message ${messageId}: ${updatedLiked}`);
       }
 
       setLastTapTime((prev) => ({ ...prev, [messageId]: now }));
@@ -381,7 +381,7 @@ export default function TextChatPage() {
       });
       setInputMessage('');
       setShowIntroMessage(false);
-      console.log(`Sent message: ${inputMessage} with ID: ${messageId}`);
+      //console.log(`Sent message: ${inputMessage} with ID: ${messageId}`);
 
       addMessage(inputMessage, true, messageId);
     }
@@ -401,7 +401,7 @@ export default function TextChatPage() {
     }
 
     textSocket.emit('findTextMatch');
-    console.log('Initiated next chat');
+    //console.log('Initiated next chat');
   }, [currentRoom]);
 
   const Tooltip = useCallback(
@@ -452,7 +452,7 @@ export default function TextChatPage() {
           msg.id === messageId ? { ...msg, liked } : msg
         )
       );
-      console.log(`Reaction updated for message ${messageId}: ${liked}`);
+      //console.log(`Reaction updated for message ${messageId}: ${liked}`);
     });
 
     return () => {
@@ -475,7 +475,7 @@ export default function TextChatPage() {
     const handleBeforeUnload = () => {
       if (connected && currentRoom) {
         textSocket.emit('nextTextChat', { room: currentRoom });
-        console.log('Emitted nextTextChat due to tab closure');
+        //console.log('Emitted nextTextChat due to tab closure');
       }
     };
 
@@ -575,7 +575,7 @@ export default function TextChatPage() {
                   setNoUsersOnline(false);
                   textSocket.emit('findTextMatch');
                   setIsSearching(true);
-                  console.log('Retrying search for a match...');
+                  //console.log('Retrying search for a match...');
                 }}
                 className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded"
               >
@@ -646,7 +646,7 @@ export default function TextChatPage() {
                 setIsSearching(false);
                 setNoUsersOnline(false);
                 toast('Search cancelled.');
-                console.log('Search cancelled by user');
+                //console.log('Search cancelled by user');
               }}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
@@ -668,7 +668,7 @@ export default function TextChatPage() {
               onClick={() => {
                 textSocket.emit('findTextMatch');
                 setIsSearching(true);
-                console.log('Initiated search for a match');
+                //console.log('Initiated search for a match');
               }}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
