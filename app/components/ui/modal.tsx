@@ -1,3 +1,5 @@
+"use client"; 
+
 import React, { useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 
@@ -14,17 +16,12 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, ariaLabel }) =
 
   useEffect(() => {
     if (isOpen) {
-      // Save the currently focused element to restore focus later
       previousActiveElement.current = document.activeElement;
-
-      // Add event listeners for keydown and click
       document.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+      document.body.style.overflow = 'hidden';
     } else {
-      // Remove event listeners and restore focus
       document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'auto'; // Restore scrolling
-
+      document.body.style.overflow = 'auto';
       if (previousActiveElement.current instanceof HTMLElement) {
         previousActiveElement.current.focus();
       }
@@ -34,7 +31,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, ariaLabel }) =
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'auto';
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -42,7 +38,6 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, ariaLabel }) =
       onClose();
     }
 
-    // Trap focus inside the modal
     if (e.key === 'Tab' && modalRef.current) {
       const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
         'a[href], area[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), iframe, object, embed, [tabindex="0"], [contenteditable]'
@@ -80,7 +75,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, children, ariaLabel }) =
     >
       <div
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-6 relative focus:outline-none transition-transform transform scale-95 opacity-0 animate-modalOpen"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full p-6 relative focus:outline-none animate-modalOpen"
       >
         {children}
         <button
