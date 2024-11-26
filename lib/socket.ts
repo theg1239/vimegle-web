@@ -5,7 +5,7 @@ const TEXT_NAMESPACE = '/text';
 const DEFAULT_NAMESPACE = '/';
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+  process.env.NEXT_PUBLIC_SOCKET_URL || 'https://vimegle-backend.onrender.com';
 
 declare global {
   interface Window {
