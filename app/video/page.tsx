@@ -1,16 +1,26 @@
-'use client';
+// File: src/pages/chat/ChatPage.tsx
+
+"use client"; // <-- Ensure this directive is at the very top
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Peer, { Instance as PeerInstance } from 'simple-peer';
 import { Button } from '@/app/components/ui/button';
-import TextChat from '../components/text-chat';
-import VideoChat from '../components/video-chat';
-import LocalVideo from '../components/local-video';
+import TextChat from '@/app/components/text-chat';
+import VideoChat from '@/app/components/video-chat';
+import LocalVideo from '@/app/components/local-video';
 import { toast, Toaster } from 'react-hot-toast';
 import { infoToast } from '@/lib/toastHelpers';
 import { defaultSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
 import { ArrowLeft } from 'lucide-react';
+import Modal from '@/app/components/ui/modal'; // Ensure this path is correct
+
+interface Frame {
+  data: ArrayBuffer;
+  mimeType: string;
+  name: string;
+  size: number;
+}
 
 export default function ChatPage() {
   const [connected, setConnected] = useState(false);
@@ -23,70 +33,75 @@ export default function ChatPage() {
   const [searchCancelled, setSearchCancelled] = useState(false);
   const [noUsersOnline, setNoUsersOnline] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
+  const modalRef = useRef<HTMLDivElement>(null); // Optional: For additional modal handling
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<PeerInstance | null>(null);
   const socketRef = useRef<Socket | null>(defaultSocket);
   const isSelfInitiatedDisconnectRef = useRef(false);
+  const partnerIdRef = useRef<string | null>(null); // To store partner's socket ID
 
-const captureFrames = async (stream: MediaStream): Promise<string[]> => {
-  return new Promise((resolve, reject) => {
+  /**
+   * Capture frames from the local video stream.
+   * @param stream - MediaStream from the local video.
+   * @param frameCount - Number of frames to capture.
+   * @returns Array of image objects with data, mimeType, name, and size.
+   */
+  const captureFrames = async (
+    stream: MediaStream,
+    frameCount: number = 2
+  ): Promise<Frame[]> => {
+    const frames: Frame[] = [];
     const video = document.createElement('video');
     video.srcObject = stream;
-    video.play().catch(reject);
+    await video.play();
 
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
 
     if (!context) {
-      reject(new Error('Failed to get canvas context'));
-      return;
+      throw new Error('Failed to get canvas context');
     }
 
-    video.onloadedmetadata = () => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+    return new Promise((resolve, reject) => {
+      video.onloadedmetadata = async () => {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
 
-      const minDelay = 500;  // 0.5 seconds
-      const maxDelay = 3000; // 3 seconds
+        const delays = Array.from({ length: frameCount }, () =>
+          Math.floor(Math.random() * (3000 - 500 + 1)) + 500
+        );
 
-      const getRandomDelay = () => {
-        return Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
-      };
-
-      const randomDelay1 = getRandomDelay();
-      const randomDelay2 = getRandomDelay();
-
-      const captureFrame = (delay: number): Promise<string> => {
-        return new Promise((res, rej) => {
-          setTimeout(() => {
-            try {
-              context.drawImage(video, 0, 0, canvas.width, canvas.height);
-              const image = canvas.toDataURL('image/jpeg');
-              res(image);
-            } catch (err) {
-              rej(err);
-            }
-          }, delay);
-        });
-      };
-
-      Promise.all([captureFrame(randomDelay1), captureFrame(randomDelay2)])
-        .then((images) => {
+        try {
+          for (let i = 0; i < frameCount; i++) {
+            await new Promise((res) => setTimeout(res, delays[i]));
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const blob = await new Promise<Blob | null>((res) =>
+              canvas.toBlob((b) => res(b), 'image/jpeg')
+            );
+            if (!blob) throw new Error('Failed to convert canvas to Blob');
+            const arrayBuffer = await blob.arrayBuffer();
+            frames.push({
+              data: arrayBuffer,
+              mimeType: blob.type || 'image/jpeg',
+              name: `report_image${i + 1}.jpg`,
+              size: blob.size,
+            });
+          }
           video.pause();
           video.srcObject = null;
-          resolve(images);
-        })
-        .catch((err) => {
+          resolve(frames);
+        } catch (err) {
           reject(err);
-        });
-    };
+        }
+      };
 
-    video.onerror = (err) => {
-      reject(err);
-    };
-  });
-};
+      video.onerror = (err) => {
+        reject(err);
+      };
+    });
+  };
 
   // Function to start searching for a match
   const startSearch = useCallback(() => {
@@ -117,7 +132,8 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
       setMessages([]);
       setRoom(null);
       setIsDisconnected(true);
-      toast.error(message || 'Your chat partner has disconnected.');
+      // Removed toast to keep it silent as per requirements
+      // toast.error(message || 'Your chat partner has disconnected.');
     };
 
     socketRef.current?.on('peerDisconnected', handlePeerDisconnected);
@@ -160,7 +176,7 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
         //console.log('Obtained local media stream');
 
         // Capture frames and send for NSFW analysis
-        const frames = await captureFrames(stream);
+        const frames = await captureFrames(stream, 3); // Capture 3 frames for initial check
         socketRef.current?.emit('check_nsfw', { images: frames });
       } catch (err) {
         //console.error('Error accessing media devices:', err);
@@ -185,24 +201,53 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
     }
   }, []);
 
+      const handleReportCancel = useCallback(() => {
+        setIsReportModalOpen(false);
+      }, []);
+  
+      const handleReportConfirm = useCallback(async () => {
+        if (!localStream || !partnerIdRef.current) {
+          console.error('Cannot report without a partner.');
+          setIsReportModalOpen(false);
+          return;
+        }
+  
+        try {
+          const reportFrames = await captureFrames(localStream, 3); 
+          socketRef.current?.emit('report_user', {
+            reportedId: partnerIdRef.current,
+            images: reportFrames,
+          });
+        } catch (err) {
+          console.error('Error capturing frames for report:', err);
+        } finally {
+          setIsReportModalOpen(false);
+        }
+      }, [localStream]);
+  
+
   useEffect(() => {
     const handleMatch = ({
       initiator,
       room,
+      partnerId,
     }: {
       initiator: boolean;
       room: string;
+      partnerId: string;
     }) => {
-      //console.log('Match found!', { initiator, room });
+      //console.log('Match found!', { initiator, room, partnerId });
       setIsSearching(false);
       setConnected(true);
       setRoom(room);
       setSearchCancelled(false);
       setIsDisconnected(false); // Reset disconnection state
-      toast.success('Match found!');
+      // Removed toast to keep it silent as per requirements
+      // toast.success('Match found!');
 
       if (!localStream) {
-        toast.error('Failed to get local media stream.');
+        // Removed toast
+        // toast.error('Failed to get local media stream.');
         return;
       }
 
@@ -210,6 +255,8 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
         peerRef.current.destroy();
         peerRef.current = null;
       }
+
+      partnerIdRef.current = partnerId; // Store partner's socket ID
 
       const newPeer = new Peer({
         initiator,
@@ -245,7 +292,8 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
 
       newPeer.on('error', (err) => {
         //console.error('Peer error:', err);
-        toast.error('Connection lost. Trying to find a new match...');
+        // Removed toast
+        // toast.error('Connection lost. Trying to find a new match...');
         handleNext();
       });
 
@@ -284,11 +332,9 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
         setRoom(null);
         setIsSearching(false);
         setSearchCancelled(false);
-        if (!isSelfInitiatedDisconnectRef.current) {
-          setIsDisconnected(true);
-          toast.error('Your chat partner has disconnected.');
-        }
-        isSelfInitiatedDisconnectRef.current = false;
+        // Removed toast
+        // toast.error('Your chat partner has disconnected.');
+        setIsDisconnected(true); // To show disconnection UI
       };
 
       socketRef.current?.on('signal', handleSignal);
@@ -304,7 +350,8 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
         cleanup();
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
-          toast.error('Connection closed.');
+          // Removed toast
+          // toast.error('Connection closed.');
         }
         isSelfInitiatedDisconnectRef.current = false;
       });
@@ -314,7 +361,8 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
         cleanup();
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
-          toast.error('Connection destroyed.');
+          // Removed toast
+          // toast.error('Connection destroyed.');
         }
         isSelfInitiatedDisconnectRef.current = false;
       });
@@ -324,7 +372,8 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
       //console.log('No match found:', message);
       setIsSearching(false);
       setSearchCancelled(false);
-      toast.error(message);
+      // Removed toast
+      // toast.error(message);
     };
 
     const handleSearchCancelled = ({ message }: { message: string }) => {
@@ -339,12 +388,14 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
       setIsSearching(false);
       setSearchCancelled(false);
       setNoUsersOnline(true);
-      toast.error(message);
+      // Removed toast
+      // toast.error(message);
     };
 
     const handleNSFWDetected = ({ message }: { message: string }) => {
       //console.log('NSFW detected:', message);
-      toast.error(message);
+      // Removed toast
+      // toast.error(message);
       // Reset state and disconnect
       setIsSearching(false);
       setSearchCancelled(false);
@@ -362,14 +413,16 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
 
     const handleNSFWClean = ({ message }: { message: string }) => {
       //console.log('NSFW clean:', message);
-      toast.success(message);
+      // Removed toast
+      // toast.success(message);
       // Start searching for a match
       startSearch();
     };
 
     const handleNSFWError = ({ message }: { message: string }) => {
       //console.log('NSFW error:', message);
-      toast.error(message);
+      // Removed toast
+      // toast.error(message);
       // Disconnect due to error
       setIsSearching(false);
       setSearchCancelled(false);
@@ -384,7 +437,7 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
       setRoom(null);
       setMessages([]);
     };
-
+    // Listen for match event with partnerId
     socketRef.current?.on('match', handleMatch);
     socketRef.current?.on('no_match', handleNoMatch);
     socketRef.current?.on('search_cancelled', handleSearchCancelled);
@@ -490,15 +543,26 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
               {isDebouncing ? 'Cancelling...' : 'Cancel Search'}
             </Button>
           ) : connected ? (
-            <Button
-              onClick={handleNext}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={isDebouncing}
-              aria-label="Next Chat"
-            >
-              {isDebouncing ? 'Processing...' : 'Next Chat'}
-            </Button>
+            <>
+              <Button
+                onClick={() => setIsReportModalOpen(true)}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                disabled={isDebouncing}
+                aria-label="Report User"
+              >
+                Report
+              </Button>
+              <Button
+                onClick={handleNext}
+                variant="outline"
+                className="bg-white/10 hover:bg-white/20 text-white border-white/20"
+                disabled={isDebouncing}
+                aria-label="Next Chat"
+              >
+                {isDebouncing ? 'Processing...' : 'Next Chat'}
+              </Button>
+            </>
           ) : (
             <Button
               onClick={startSearch}
@@ -564,6 +628,22 @@ const captureFrames = async (stream: MediaStream): Promise<string[]> => {
           </div>
         </div>
       )}
+
+      {/* Report Modal */}
+      <Modal isOpen={isReportModalOpen} onClose={() => setIsReportModalOpen(false)} ariaLabel="Report User">
+        <div className="p-6 bg-white dark:bg-gray-800 rounded">
+          <h2 className="text-xl font-bold mb-4">Report User</h2>
+          <p className="mb-6">Are you sure you want to report this user?</p>
+          <div className="flex justify-end space-x-4">
+            <Button onClick={handleReportCancel} variant="outline" aria-label="Cancel Report">
+              Cancel
+            </Button>
+            <Button onClick={handleReportConfirm} variant="destructive" aria-label="Confirm Report">
+              Report
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
