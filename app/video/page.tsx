@@ -137,7 +137,7 @@ export default function ChatPage() {
       setConnected(true);
       setRoom(room);
       setSearchCancelled(false);
-      setIsDisconnected(false); // Reset disconnection state
+      setIsDisconnected(false); 
       toast.success('Match found!');
 
       if (!localStream) {

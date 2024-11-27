@@ -9,7 +9,6 @@ import Link from 'next/link';
 export function HeroSection() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden">
-      {/* Video Chat Section */}
       <motion.div
         initial={{ opacity: 0, x: -50 }}
         animate={{ opacity: 1, x: 0 }}
@@ -34,7 +33,6 @@ export function HeroSection() {
         </Link>
       </motion.div>
 
-      {/* Text Chat Section */}
       <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}

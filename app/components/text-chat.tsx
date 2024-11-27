@@ -41,7 +41,7 @@ export default function TextChat({
             key={index}
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.2 }} // Faster animation time
+            transition={{ duration: 0.2 }} 
             className={`mb-2 ${msg.isSelf ? 'text-right' : 'text-left'}`}
           >
             <span

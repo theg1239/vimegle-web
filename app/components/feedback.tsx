@@ -19,13 +19,12 @@ interface FeedbackFormProps {
 }
 
 export function FeedbackForm({ onSubmit }: FeedbackFormProps) {
-  // Properly destructuring onSubmit
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [feedbackText, setFeedbackText] = React.useState('');
   const [experience, setExperience] = React.useState('neutral');
   const [characterCount, setCharacterCount] = React.useState(0);
 
-  const RATE_LIMIT_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+  const RATE_LIMIT_DURATION = 60 * 60 * 1000; 
 
   const getLocalStorageItem = (key: string): string | null => {
     try {

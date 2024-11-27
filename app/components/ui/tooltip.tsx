@@ -1,10 +1,8 @@
-// app/components/ui/tooltip.tsx
-
 'use client';
 
 import * as React from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
-import { cn } from '@/lib/utils'; // Ensure you have a utility function for classNames
+import { cn } from '@/lib/utils'; 
 
 const TooltipProvider = TooltipPrimitive.Provider;
 

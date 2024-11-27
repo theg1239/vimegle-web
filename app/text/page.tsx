@@ -435,7 +435,7 @@ export default function TextChatPage() {
 
       const timer = setTimeout(() => {
         setShowLikeMessage(false);
-      }, 15000); // 10 seconds
+      }, 15000); // 15 seconds
 
       return () => clearTimeout(timer);
     }
@@ -800,7 +800,6 @@ export default function TextChatPage() {
             ))}
           </AnimatePresence>
 
-          {/* Typing Indicator */}
           {isTyping && (
             <motion.div
               key="typing-indicator"

@@ -1,4 +1,4 @@
-// // app/components/TextChat.tsx
+// app/components/TextChat.tsx
 
 // 'use client';
 
