@@ -58,3 +58,5 @@ export function isProfane(text: string): boolean {
 
   return profaneRegex.test(normalizedText);
 }
+
+// build
