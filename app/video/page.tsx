@@ -5,19 +5,21 @@ import Peer, { Instance as PeerInstance } from 'simple-peer';
 import { Button } from '@/app/components/ui/button';
 import TextChat from '../components/text-chat';
 import VideoChat from '../components/video-chat';
-import LocalVideo from '../components/local-video';
 import { toast, Toaster } from 'react-hot-toast';
 import { infoToast } from '@/lib/toastHelpers';
 import { defaultSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
+import DraggableLocalVideo from '@/app/components/draggable-local-video';
+import LocalVideo from '@/app/components/local-video';
+
+type ChatState = 'idle' | 'searching' | 'connecting' | 'connected' | 'disconnected';
 
 export default function ChatPage() {
+  const [chatState, setChatState] = useState<ChatState>('idle');
   const [connected, setConnected] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>(
-    []
-  );
+  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [room, setRoom] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
@@ -25,49 +27,427 @@ export default function ChatPage() {
   const [searchCancelled, setSearchCancelled] = useState(false);
   const [noUsersOnline, setNoUsersOnline] = useState(false);
   const [isDisconnected, setIsDisconnected] = useState(false);
+  const [hasCameraError, setHasCameraError] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<PeerInstance | null>(null);
   const socketRef = useRef<Socket | null>(defaultSocket);
   const isSelfInitiatedDisconnectRef = useRef(false);
 
+  const roomRef = useRef<string | null>(null);
+  const isDebouncingRef = useRef<boolean>(false);
+  const localStreamRef = useRef<MediaStream | null>(null);
+
+  const signalQueueRef = useRef<any[]>([]);
+  const processedSignals = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
+
+  useEffect(() => {
+    isDebouncingRef.current = isDebouncing;
+  }, [isDebouncing]);
+
+  useEffect(() => {
+    localStreamRef.current = localStream;
+  }, [localStream]);
+
+  const toggleChat = useCallback(() => {
+    setIsChatOpen((prev) => !prev);
+  }, []);
+
+  const handleSignal = useCallback(
+    (data: any) => {
+      console.log('Received "signal" event from socket:', data);
+
+      if (!data) {
+        console.warn('Invalid signaling data received:', data);
+        return;
+      }
+
+      const signalId = JSON.stringify(data);
+      if (processedSignals.current.has(signalId)) {
+        console.warn('Duplicate signaling data received and ignored:', data);
+        return;
+      }
+
+      processedSignals.current.add(signalId);
+
+      if (!peerRef.current) {
+        console.log('Peer instance not ready. Queuing signal.');
+        signalQueueRef.current.push(data);
+        return;
+      }
+
+      const validTypes = ['offer', 'answer', 'candidate'];
+      if (!validTypes.includes(data.type)) {
+        console.warn('Received signaling data with invalid type:', data.type);
+        return;
+      }
+
+      try {
+        peerRef.current.signal(data);
+        console.log('Signaled Peer with data:', data);
+      } catch (error) {
+        console.error('Error signaling peer:', error);
+        toast.error('Error establishing connection.', { id: 'signal-error-toast' });
+      }
+    },
+    []
+  );
+
+  const handleLeave = useCallback(() => {
+    console.log('Received "leave" event from socket.');
+    setConnected(false);
+    setRemoteStream(null);
+    setMessages([]);
+    setRoom(null);
+    setIsSearching(false);
+    setSearchCancelled(false);
+    if (!isSelfInitiatedDisconnectRef.current) {
+      setIsDisconnected(true);
+      setChatState('disconnected');
+      toast.error('Your chat partner has disconnected.', { id: 'disconnected-toast' });
+    }
+    isSelfInitiatedDisconnectRef.current = false;
+    if (peerRef.current) {
+      peerRef.current.destroy();
+      peerRef.current = null;
+      socketRef.current?.off('signal', handleSignal);
+      socketRef.current?.off('leave', handleLeave);
+      console.log('Destroyed Peer instance due to partner leaving and removed event listeners.');
+    }
+  }, [handleSignal]);
+
+  const processSignalQueue = useCallback(() => {
+    while (signalQueueRef.current.length > 0) {
+      const signalData = signalQueueRef.current.shift();
+      try {
+        peerRef.current?.signal(signalData);
+        console.log('Processed queued signal:', signalData);
+      } catch (error) {
+        console.error('Error processing queued signal:', error);
+      }
+    }
+  }, []);
+
   const startSearch = useCallback(() => {
+    if (isDebouncingRef.current) {
+      console.log('Debouncing active. Search request ignored.');
+      return;
+    }
+    setChatState('searching');
     setIsSearching(true);
     setSearchCancelled(false);
     setNoUsersOnline(false);
+    setIsDisconnected(false);
+    setHasCameraError(false);
+    setMessages([]);
+
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('find');
-      //console.log('Emitted "find" event');
+      console.log('Emitted "find" event to server.');
     } else {
-      //console.error('Socket not connected. Cannot emit "find"');
       socketRef.current?.once('connect', () => {
         socketRef.current?.emit('find');
-        //console.log('Emitted "find" event after reconnection');
+        console.log('Emitted "find" event after socket connection established.');
       });
     }
   }, []);
 
-  useEffect(() => {
-    const handlePeerDisconnected = ({ message }: { message: string }) => {
-      //console.log('Peer disconnected:', message);
+  const handleNext = useCallback(() => {
+    if (isDebouncingRef.current) {
+      console.log('Debouncing active. Next chat request ignored.');
+      return;
+    }
+
+    isSelfInitiatedDisconnectRef.current = true;
+    if (peerRef.current) {
+      peerRef.current.destroy();
+      peerRef.current = null;
+      socketRef.current?.off('signal', handleSignal);
+      socketRef.current?.off('leave', handleLeave);
+      console.log('Destroyed existing Peer instance for next chat and removed event listeners.');
+    }
+    setConnected(false);
+    setRemoteStream(null);
+    setMessages([]);
+    setIsSearching(true);
+    setSearchCancelled(false);
+    setNoUsersOnline(false);
+    setIsDisconnected(false);
+    setHasCameraError(false);
+    setChatState('searching');
+
+    if (roomRef.current) {
+      socketRef.current?.emit('next', { room: roomRef.current });
+      console.log(`Emitted "next" event for room: ${roomRef.current}`);
+      setRoom(null);
+    }
+
+    startSearch();
+
+    setIsDebouncing(true);
+    setTimeout(() => {
+      setIsDebouncing(false);
+      console.log('Debouncing reset.');
+    }, 2000);
+  }, [startSearch, handleSignal, handleLeave]);
+
+  const handleMatch = useCallback(
+    ({
+      initiator,
+      room,
+    }: {
+      initiator: boolean;
+      room: string;
+    }) => {
+      console.log(`Received "match" event for room: ${room} as initiator: ${initiator}`);
+      setIsSearching(false);
+      setConnected(true);
+      setRoom(room);
+      setSearchCancelled(false);
+      setIsDisconnected(false);
+      setHasCameraError(false);
+      setMessages([]);
+      setChatState('connecting');
+      toast.success('Match found! Connecting...', { id: 'match-toast' });
+
+      if (!localStreamRef.current) {
+        toast.error('Failed to get local media stream.', { id: 'media-error-toast' });
+        setChatState('idle');
+        return;
+      }
+
       if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
+        socketRef.current?.off('signal', handleSignal);
+        socketRef.current?.off('leave', handleLeave);
+        console.log('Destroyed existing Peer instance before creating a new one and removed event listeners.');
       }
-      setConnected(false);
-      setRemoteStream(null);
-      setMessages([]);
-      setRoom(null);
-      setIsDisconnected(true);
-      toast.error(message || 'Your chat partner has disconnected.');
-    };
 
-    socketRef.current?.on('peerDisconnected', handlePeerDisconnected);
+      const newPeer = new Peer({
+        initiator,
+        trickle: true,
+        stream: localStreamRef.current,
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun.relay.metered.ca:80' },
+          ],
+        },
+      });
+
+      peerRef.current = newPeer;
+      console.log('Created new Peer instance.');
+
+      newPeer.on('signal', (data) => {
+        console.log('Peer signaling data:', data);
+        socketRef.current?.emit('signal', { room, data });
+        console.log('Emitted "signal" event to server with data:', data);
+      });
+
+      newPeer.on('stream', (stream) => {
+        console.log('Received remote stream.');
+        setRemoteStream(stream);
+      });
+
+      newPeer.on('connect', () => {
+        console.log('Peer connection established.');
+        setConnected(true);
+        setIsDisconnected(false);
+        setChatState('connected');
+        toast.success('Connected to your chat partner!', { id: 'connected-toast' });
+        processSignalQueue();
+      });
+
+      newPeer.on('error', (err) => {
+        console.error('Peer error:', err);
+        toast.error('Connection error. Attempting to find a new match...', { id: 'peer-error-toast' });
+        handleNext();
+      });
+
+      newPeer.on('data', (data) => {
+        try {
+          const parsedData = JSON.parse(data as string);
+          if (parsedData.type === 'chat') {
+            setMessages((prev) => [
+              ...prev,
+              { text: parsedData.message, isSelf: false },
+            ]);
+            console.log('Received message:', parsedData.message);
+          }
+        } catch (err) {
+          console.error('Error parsing data from peer:', err);
+        }
+      });
+
+      newPeer.on('close', () => {
+        console.log('Peer connection closed.');
+        if (!isSelfInitiatedDisconnectRef.current) {
+          setIsDisconnected(true);
+          setChatState('disconnected');
+          toast.error('Connection closed.', { id: 'closed-toast' });
+        }
+        isSelfInitiatedDisconnectRef.current = false;
+        if (peerRef.current) {
+          peerRef.current.destroy();
+          peerRef.current = null;
+          socketRef.current?.off('signal', handleSignal);
+          socketRef.current?.off('leave', handleLeave);
+          console.log('Destroyed Peer instance on connection close and removed event listeners.');
+        }
+      });
+
+      newPeer.on('destroy', () => {
+        console.log('Peer connection destroyed.');
+        if (!isSelfInitiatedDisconnectRef.current) {
+          setIsDisconnected(true);
+          setChatState('disconnected');
+          toast.error('Connection destroyed.', { id: 'destroyed-toast' });
+        }
+        isSelfInitiatedDisconnectRef.current = false;
+        if (peerRef.current) {
+          peerRef.current.destroy();
+          peerRef.current = null;
+          socketRef.current?.off('signal', handleSignal);
+          socketRef.current?.off('leave', handleLeave);
+          console.log('Destroyed Peer instance on connection destroy and removed event listeners.');
+        }
+      });
+
+      socketRef.current?.off('signal', handleSignal);
+      socketRef.current?.off('leave', handleLeave);
+      socketRef.current?.on('signal', handleSignal);
+      socketRef.current?.on('leave', handleLeave);
+      console.log('Registered "signal" and "leave" event listeners on socket.');
+    },
+    [handleLeave, handleSignal, handleNext, processSignalQueue]
+  );
+
+  const handleNoMatch = useCallback(({ message }: { message: string }) => {
+    console.log(`Received "no_match" event: ${message}`);
+    setIsSearching(false);
+    setSearchCancelled(false);
+    toast.error(message, { id: 'no-match-toast' });
+    setChatState('idle');
+  }, []);
+
+  const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
+    console.log(`Received "search_cancelled" event: ${message}`);
+    setIsSearching(false);
+    setSearchCancelled(true);
+    infoToast(message);
+    setChatState('idle');
+  }, []);
+
+  const handleNoUsersOnline = useCallback(({ message }: { message: string }) => {
+    console.log(`Received "no_users_online" event: ${message}`);
+    setIsSearching(false);
+    setSearchCancelled(false);
+    setNoUsersOnline(true);
+    toast.error(message, { id: 'no-users-toast' });
+    setChatState('idle');
+  }, []);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    socketRef.current.on('match', handleMatch);
+    socketRef.current.on('no_match', handleNoMatch);
+    socketRef.current.on('search_cancelled', handleSearchCancelled);
+    socketRef.current.on('no_users_online', handleNoUsersOnline);
+
+    console.log('Registered "match", "no_match", "search_cancelled", "no_users_online" event listeners on socket.');
 
     return () => {
-      socketRef.current?.off('peerDisconnected', handlePeerDisconnected);
+      socketRef.current?.off('match', handleMatch);
+      socketRef.current?.off('no_match', handleNoMatch);
+      socketRef.current?.off('search_cancelled', handleSearchCancelled);
+      socketRef.current?.off('no_users_online', handleNoUsersOnline);
+      console.log('Cleaned up socket event listeners on unmount.');
+
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        peerRef.current = null;
+        socketRef.current?.off('signal', handleSignal);
+        socketRef.current?.off('leave', handleLeave);
+        console.log('Destroyed Peer instance on unmount and removed event listeners.');
+      }
     };
+  }, [handleMatch, handleNoMatch, handleSearchCancelled, handleNoUsersOnline, handleSignal, handleLeave]);
+
+  const handleCancelSearch = useCallback(() => {
+    if (isDebouncingRef.current) {
+      console.log('Debouncing active. Cancel search request ignored.');
+      return;
+    }
+
+    socketRef.current?.emit('cancel_search');
+    console.log('Emitted "cancel_search" event.');
+    setIsSearching(false);
+    setChatState('idle');
+    setSearchCancelled(true);
+    setNoUsersOnline(false);
+    setIsDisconnected(false);
+    setHasCameraError(false);
+    infoToast('Search cancelled.');
+
+    setIsDebouncing(true);
+    setTimeout(() => {
+      setIsDebouncing(false);
+      console.log('Debouncing reset after canceling search.');
+    }, 2000);
   }, []);
+
+  const handleSendMessage = useCallback(
+    (message: string) => {
+      if (peerRef.current && chatState === 'connected' && roomRef.current) {
+        const dataChannel = (peerRef.current as any)._channel;
+        if (dataChannel && dataChannel.readyState === 'open') {
+          peerRef.current.send(JSON.stringify({ type: 'chat', message }));
+          setMessages((prev) => [...prev, { text: message, isSelf: true }]);
+          console.log('Sent message:', message);
+        } else {
+          toast.error('Unable to send message. Connection is not open.', { id: 'send-error-toast' });
+          console.error('Data channel not open. Cannot send message.');
+        }
+      } else {
+        toast.error('Unable to send message. You are not connected.', { id: 'not-connected-toast' });
+        console.error('Peer not connected or room not set. Cannot send message.');
+      }
+    },
+    [chatState]
+  );
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      console.log('Page unloading. Notifying server of disconnection.');
+      if (roomRef.current) {
+        socketRef.current?.emit('leave', { room: roomRef.current });
+        console.log(`Emitted "leave" event for room: ${roomRef.current}`);
+      }
+      if (peerRef.current) {
+        peerRef.current.destroy();
+        socketRef.current?.off('signal', handleSignal);
+        socketRef.current?.off('leave', handleLeave);
+        console.log('Destroyed Peer instance on page unload and removed event listeners.');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleBeforeUnload);
+    console.log('Added window "beforeunload" and "unload" event listeners.');
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleBeforeUnload);
+      console.log('Removed window "beforeunload" and "unload" event listeners.');
+    };
+  }, [handleSignal, handleLeave]);
 
   useEffect(() => {
     const getMedia = async () => {
@@ -82,283 +462,64 @@ export default function ChatPage() {
         };
 
         if (connection) {
-          //console.log('Connection downlink speed:', connection.downlink);
           if (connection.downlink < 1) {
-            // less than 1 Mbps
             videoConstraints = {
               width: { ideal: 640 },
               height: { ideal: 480 },
             };
-            //console.log('Adjusting video constraints to lower resolution due to low bandwidth.');
+            console.log('Adjusted video constraints based on network downlink.');
           }
         }
 
-        //console.log('Requesting media stream with constraints:',videoConstraints);
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: videoConstraints,
         });
         setLocalStream(stream);
-        //console.log('Obtained local media stream');
-        startSearch();
+        console.log('Local media stream acquired.');
       } catch (err) {
-        //console.error('Error accessing media devices:', err);
-        toast.error('Failed to access microphone and camera.');
+        console.error('Error accessing media devices:', err);
+        toast.error('Failed to access microphone and camera.', { id: 'media-error-toast' });
+        setHasCameraError(true);
+        setChatState('idle');
       }
     };
 
     if (socketRef.current && socketRef.current.connected) {
-      //console.log('Socket already connected. Starting media acquisition.');
       getMedia();
     } else {
       const handleConnect = () => {
-        //console.log('Socket connected. Starting media acquisition.');
         getMedia();
       };
 
       socketRef.current?.on('connect', handleConnect);
+      console.log('Listening for socket "connect" event.');
 
       return () => {
         socketRef.current?.off('connect', handleConnect);
+        console.log('Stopped listening for socket "connect" event.');
       };
     }
-  }, [startSearch]);
-
-  useEffect(() => {
-    const handleMatch = ({
-      initiator,
-      room,
-    }: {
-      initiator: boolean;
-      room: string;
-    }) => {
-      //console.log('Match found!', { initiator, room });
-      setIsSearching(false);
-      setConnected(true);
-      setRoom(room);
-      setSearchCancelled(false);
-      setIsDisconnected(false); // Reset disconnection state
-      toast.success('Match found!');
-
-      if (!localStream) {
-        toast.error('Failed to get local media stream.');
-        return;
-      }
-
-      if (peerRef.current) {
-        peerRef.current.destroy();
-        peerRef.current = null;
-      }
-
-      const newPeer = new Peer({
-        initiator,
-        trickle: true,
-        stream: localStream,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            {
-              urls: 'stun:stun.relay.metered.ca:80',
-            },
-          ],
-        },
-      });
-
-      peerRef.current = newPeer;
-
-      newPeer.on('signal', (data) => {
-        //console.log('Peer signal data:', data);
-        socketRef.current?.emit('signal', { room, data });
-      });
-
-      newPeer.on('stream', (stream) => {
-        //console.log('Received remote stream');
-        setRemoteStream(stream);
-      });
-
-      newPeer.on('connect', () => {
-        //console.log('Peer connection established');
-        setConnected(true);
-        setIsDisconnected(false);
-      });
-
-      newPeer.on('error', (err) => {
-        //console.error('Peer error:', err);
-        toast.error('Connection lost. Trying to find a new match...');
-        handleNext();
-      });
-
-      newPeer.on('data', (data) => {
-        try {
-          const parsedData = JSON.parse(data as string);
-          if (parsedData.type === 'chat') {
-            setMessages((prev) => [
-              ...prev,
-              { text: parsedData.message, isSelf: false },
-            ]);
-          }
-        } catch (err) {
-          //console.error('Error parsing data from peer:', err);
-        }
-      });
-
-      const handleSignal = (data: any) => {
-        //console.log('Received signal data from server:', data);
-        if (peerRef.current) {
-          peerRef.current.signal(data);
-        } else {
-          //console.error('No peer instance to signal');
-        }
-      };
-
-      const handleLeave = () => {
-        //console.log('Received leave event');
-        if (peerRef.current) {
-          peerRef.current.destroy();
-          peerRef.current = null;
-        }
-        setConnected(false);
-        setRemoteStream(null);
-        setMessages([]);
-        setRoom(null);
-        setIsSearching(false);
-        setSearchCancelled(false);
-        if (!isSelfInitiatedDisconnectRef.current) {
-          setIsDisconnected(true);
-          toast.error('Your chat partner has disconnected.');
-        }
-        isSelfInitiatedDisconnectRef.current = false;
-      };
-
-      socketRef.current?.on('signal', handleSignal);
-      socketRef.current?.on('leave', handleLeave);
-
-      const cleanup = () => {
-        socketRef.current?.off('signal', handleSignal);
-        socketRef.current?.off('leave', handleLeave);
-      };
-
-      newPeer.on('close', () => {
-        //console.log('Peer connection closed');
-        cleanup();
-        if (!isSelfInitiatedDisconnectRef.current) {
-          setIsDisconnected(true);
-          toast.error('Connection closed.');
-        }
-        isSelfInitiatedDisconnectRef.current = false;
-      });
-
-      newPeer.on('destroy', () => {
-        //console.log('Peer connection destroyed');
-        cleanup();
-        if (!isSelfInitiatedDisconnectRef.current) {
-          setIsDisconnected(true);
-          toast.error('Connection destroyed.');
-        }
-        isSelfInitiatedDisconnectRef.current = false;
-      });
-    };
-
-    const handleNoMatch = ({ message }: { message: string }) => {
-      //console.log('No match found:', message);
-      setIsSearching(false);
-      setSearchCancelled(false);
-      toast.error(message);
-    };
-
-    const handleSearchCancelled = ({ message }: { message: string }) => {
-      //console.log('Search cancelled:', message);
-      setIsSearching(false);
-      setSearchCancelled(true);
-      infoToast(message);
-    };
-
-    const handleNoUsersOnline = ({ message }: { message: string }) => {
-      //console.log('No users online:', message);
-      setIsSearching(false);
-      setSearchCancelled(false);
-      setNoUsersOnline(true);
-      toast.error(message);
-    };
-
-    socketRef.current?.on('match', handleMatch);
-    socketRef.current?.on('no_match', handleNoMatch);
-    socketRef.current?.on('search_cancelled', handleSearchCancelled);
-    socketRef.current?.on('no_users_online', handleNoUsersOnline);
-
-    return () => {
-      socketRef.current?.off('match', handleMatch);
-      socketRef.current?.off('no_match', handleNoMatch);
-      socketRef.current?.off('search_cancelled', handleSearchCancelled);
-      socketRef.current?.off('no_users_online', handleNoUsersOnline);
-      if (peerRef.current) {
-        peerRef.current.destroy();
-        peerRef.current = null;
-      }
-    };
-  }, [localStream, startSearch]);
-
-  const handleNext = useCallback(() => {
-    if (isDebouncing) return;
-
-    if (peerRef.current) {
-      isSelfInitiatedDisconnectRef.current = true;
-      peerRef.current.destroy();
-      peerRef.current = null;
-    }
-    setConnected(false);
-    setRemoteStream(null);
-    setMessages([]);
-    setIsSearching(true);
-    setSearchCancelled(false);
-    setNoUsersOnline(false);
-
-    if (room) {
-      socketRef.current?.emit('next', { room });
-      setRoom(null);
-    }
-
-    // Start searching for a new match
-    startSearch();
-
-    setIsDebouncing(true);
-    setTimeout(() => {
-      setIsDebouncing(false);
-    }, 2000);
-  }, [room, startSearch, isDebouncing]);
-
-  const handleCancelSearch = useCallback(() => {
-    if (isDebouncing) return;
-
-    socketRef.current?.emit('cancel_search');
-    setIsSearching(false);
-    setSearchCancelled(true);
-    setNoUsersOnline(false); // Reset
-    infoToast('Search cancelled.');
-
-    setIsDebouncing(true);
-    setTimeout(() => {
-      setIsDebouncing(false);
-    }, 2000);
-  }, [isDebouncing]);
-
-  const handleSendMessage = useCallback(
-    (message: string) => {
-      if (peerRef.current && connected && room) {
-        peerRef.current.send(JSON.stringify({ type: 'chat', message }));
-        setMessages((prev) => [...prev, { text: message, isSelf: true }]);
-      }
-    },
-    [connected, room]
-  );
+  }, []);
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black">
+    <div
+      className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black"
+      onClick={() => {}}
+      onKeyDown={() => {}}
+      onMouseMove={() => {}}
+    >
       <Toaster position="top-center" />
-      <header className="bg-black/50 backdrop-blur-sm p-4 flex justify-between items-center">
+      <header className="bg-black/50 backdrop-blur-sm p-4 flex justify-between items-center z-50">
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => (window.location.href = '/')}
+            onClick={() => {
+              if (roomRef.current) {
+                socketRef.current?.emit('leave', { room: roomRef.current });
+                console.log(`Emitted "leave" event for room: ${roomRef.current}`);
+              }
+              window.location.href = '/';
+            }}
             className="text-white hover:text-gray-300 transition-colors"
             aria-label="Go back"
           >
@@ -368,69 +529,89 @@ export default function ChatPage() {
             Vimegle
           </h1>
         </div>
-        <div className="flex space-x-2">
-          {isSearching ? (
+        <div className="flex items-center space-x-2">
+          <Button
+            onClick={toggleChat}
+            variant="outline"
+            className={`bg-white/10 hover:bg-white/20 text-white border-white/20 flex items-center justify-center ${
+              chatState === 'connected' ? 'border-green-500' : ''
+            }`}
+            aria-label="Toggle chat"
+          >
+            {chatState === 'connecting' || chatState === 'searching' ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <MessageCircle className="w-5 h-5" />
+            )}
+          </Button>
+
+          {chatState === 'searching' ? (
             <Button
               onClick={handleCancelSearch}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={isDebouncing}
               aria-label="Cancel Search"
             >
-              {isDebouncing ? 'Cancelling...' : 'Cancel Search'}
+              Cancel Search
             </Button>
-          ) : connected ? (
+          ) : chatState === 'connected' ? (
             <Button
               onClick={handleNext}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={isDebouncing}
               aria-label="Next Chat"
             >
-              {isDebouncing ? 'Processing...' : 'Next Chat'}
+              Next Chat
             </Button>
-          ) : (
+          ) : chatState === 'idle' || chatState === 'disconnected' ? (
             <Button
               onClick={startSearch}
               variant="outline"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              disabled={isDebouncing}
               aria-label="Find Match"
             >
-              {isDebouncing ? 'Searching...' : 'Find Match'}
+              Find Match
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="bg-white/10 text-white border-white/20"
+              disabled
+              aria-label="Connecting"
+            >
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Connecting...
             </Button>
           )}
         </div>
       </header>
-      <main className="flex-grow flex flex-col md:flex-row p-4 gap-4 overflow-hidden relative">
-        <div className="flex-grow md:w-2/3 h-full relative">
-          <VideoChat
-            remoteVideoRef={remoteVideoRef}
-            connected={connected}
-            remoteStream={remoteStream}
-            isSearching={isSearching}
-            searchCancelled={searchCancelled || noUsersOnline}
-          />
-          <div className="absolute top-4 right-4 w-48 h-36 bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500">
-            <LocalVideo localStream={localStream} />
-            <span className="absolute bottom-2 left-2 bg-pink-500 text-white text-sm px-2 py-0.5 rounded">
-              You
-            </span>
-          </div>
-        </div>
-        <div className="md:w-1/3 h-1/2 md:h-auto">
+      <main className="flex-grow relative overflow-hidden">
+        <VideoChat
+          remoteVideoRef={remoteVideoRef}
+          connected={chatState === 'connected'}
+          remoteStream={remoteStream}
+          isSearching={chatState === 'searching'}
+          searchCancelled={chatState === 'idle'}
+          hasCameraError={hasCameraError}
+          isConnecting={chatState === 'connecting'}
+          chatState={chatState}
+        />
+        {isChatOpen && chatState === 'connected' && (
           <TextChat
             messages={messages}
             onSendMessage={handleSendMessage}
-            connected={connected}
+            connected={chatState === 'connected'}
+            onClose={toggleChat}
           />
-        </div>
+        )}
       </main>
 
+      {localStream && <LocalVideo localStream={localStream} />}
+
       {noUsersOnline && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80 text-white">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white p-4 z-50">
           <div className="text-center">
-            <p className="text-2xl font-bold mb-4">No other users online.</p>
+            <p className="text-lg md:text-2xl font-bold mb-4">No other users online.</p>
             <Button
               onClick={startSearch}
               className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded"
@@ -440,9 +621,9 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-      {isDisconnected && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white">
-          <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg">
+      {chatState === 'disconnected' && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white p-4 z-50">
+          <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg w-full max-w-sm">
             <h2 className="text-xl font-bold mb-2">Stranger Disconnected</h2>
             <p className="mb-4">Your chat partner has left the chat.</p>
             <Button
