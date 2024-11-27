@@ -11,7 +11,7 @@ export default function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith('/sounds')) {
-    console.log('Request to /sounds, bypassing geolocation checks.');
+    //console.log('Request to /sounds, bypassing geolocation checks.');
     return NextResponse.next();
   }
 
@@ -28,7 +28,7 @@ export default function middleware(request: NextRequest) {
   }
 
   if (country === 'UNKNOWN') {
-    console.log('Visitor country is UNKNOWN, treating as disallowed.');
+    //console.log('Visitor country is UNKNOWN, treating as disallowed.');
   } else {
     console.log(`Non-allowed visitor detected from country: ${country}`);
   }

@@ -16,7 +16,7 @@ declare global {
 
 if (typeof window !== 'undefined') {
   if (!window.textSocket) {
-    //console.log('Initializing new Socket.io client for /text namespace');
+    ////console.log('Initializing new Socket.io client for /text namespace');
 
     const savedSessionId = localStorage.getItem('sessionId');
 
@@ -34,11 +34,11 @@ if (typeof window !== 'undefined') {
     });
 
     window.textSocket.on('connect', () => {
-      //console.log('Text Socket connected:', window.textSocket.id);
+      ////console.log('Text Socket connected:', window.textSocket.id);
     });
 
     window.textSocket.on('session', ({ sessionId }) => {
-      //console.log('Received sessionId from server:', sessionId);
+      ////console.log('Received sessionId from server:', sessionId);
       localStorage.setItem('sessionId', sessionId);
       window.textSocket.auth = { sessionId };
     });
@@ -51,14 +51,14 @@ if (typeof window !== 'undefined') {
     });
 
     window.textSocket.on('disconnect', (reason: string) => {
-      //console.log('Text Socket disconnected:', reason);
+      ////console.log('Text Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
         window.textSocket.connect();
       }
     });
 
     window.textSocket.on('reconnect_attempt', () => {
-      //console.log('Text Socket reconnecting...');
+      ////console.log('Text Socket reconnecting...');
     });
 
     window.textSocket.on('reconnect_failed', () => {
@@ -69,7 +69,7 @@ if (typeof window !== 'undefined') {
   }
 
   if (!window.defaultSocket) {
-    //console.log('Initializing new Socket.io client for default namespace');
+    ////console.log('Initializing new Socket.io client for default namespace');
 
     window.defaultSocket = io(`${SOCKET_URL}${DEFAULT_NAMESPACE}`, {
       transports: ['websocket'],
@@ -82,7 +82,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.defaultSocket.on('connect', () => {
-      //console.log('Default Socket connected:', window.defaultSocket.id);
+      ////console.log('Default Socket connected:', window.defaultSocket.id);
     });
 
     window.defaultSocket.on('connect_error', (error) => {
@@ -93,14 +93,14 @@ if (typeof window !== 'undefined') {
     });
 
     window.defaultSocket.on('disconnect', (reason: string) => {
-      //console.log('Default Socket disconnected:', reason);
+      ////console.log('Default Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
         window.defaultSocket.connect();
       }
     });
 
     window.defaultSocket.on('reconnect_attempt', () => {
-      //console.log('Default Socket reconnecting...');
+      ////console.log('Default Socket reconnecting...');
     });
 
     window.defaultSocket.on('reconnect_failed', () => {

@@ -27,7 +27,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       remoteVideoRef.current.srcObject = remoteStream;
 
       remoteStream.getTracks().forEach((track) => {
-        console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
+        //console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
       });
 
       remoteVideoRef.current.onloadedmetadata = () => {
