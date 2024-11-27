@@ -606,7 +606,7 @@ export default function ChatPage() {
         )}
       </main>
 
-      {localStream && <LocalVideo localStream={localStream} />}
+      {localStream && <DraggableLocalVideo localStream={localStream} />}
 
       {noUsersOnline && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white p-4 z-50">

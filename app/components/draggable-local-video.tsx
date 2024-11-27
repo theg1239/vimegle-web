@@ -10,7 +10,13 @@ interface DraggableLocalVideoProps {
 export default function DraggableLocalVideo({ localStream }: DraggableLocalVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ x: 16, y: 16 });
+
+  // Set initial position to the center-right of the screen
+  const [position, setPosition] = useState({
+    x: window.innerWidth - 160, // 32px from right (for 128px width + 32px padding)
+    y: window.innerHeight / 2 - 48, // Vertically centered for 96px height
+  });
+
   const [isDragging, setIsDragging] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -21,21 +27,27 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
     }
   }, [localStream]);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    setIsDragging(true);
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    dragStartRef.current = { x: clientX - position.x, y: clientY - position.y };
-  }, [position]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent | React.TouchEvent) => {
+      setIsDragging(true);
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      dragStartRef.current = { x: clientX - position.x, y: clientY - position.y };
+    },
+    [position]
+  );
 
-  const handleMouseMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDragging) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const newX = clientX - dragStartRef.current.x;
-    const newY = clientY - dragStartRef.current.y;
-    setPosition({ x: newX, y: newY });
-  }, [isDragging]);
+  const handleMouseMove = useCallback(
+    (e: MouseEvent | TouchEvent) => {
+      if (!isDragging) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+      const newX = clientX - dragStartRef.current.x;
+      const newY = clientY - dragStartRef.current.y;
+      setPosition({ x: newX, y: newY });
+    },
+    [isDragging]
+  );
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -98,4 +110,3 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
     </div>
   );
 }
-
