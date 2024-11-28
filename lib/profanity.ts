@@ -93,36 +93,36 @@ function escapeRegex(pattern: string): string {
   return XRegExp.escape(pattern);
 }
 
-function createProfaneRegexChunks(
-  words: string[],
-  chunkSize: number
-): RegExp[] {
+function createProfaneRegexChunks(words: string[], chunkSize: number): RegExp[] {
   return chunk(words, chunkSize)
     .map((chunkedWords: string[]) => {
       const combinedPattern = chunkedWords
         .map((word: string) => {
           const escapedWord = escapeRegex(word.trim());
           return escapedWord
+            // Replace spaces with optional whitespace patterns
             .replace(/\s+/g, '\\s*')
-            .replace(/./g, (char) =>
-              char === '\\' ? '\\' : `${char}[^a-z0-9]*`
-            );
+            // Replace each character with a more controlled pattern
+            .replace(/./g, (char) => {
+              if (char === '\\') return '\\'; // Keep escaped characters
+              if (/\s/.test(char)) return '\\s*'; // Handle spaces
+              if (/[^a-z0-9]/i.test(char)) return `\\${char}`; // Escape punctuation
+              return `${char}[^a-z0-9]*`; // Default character handling
+            });
         })
-        .join('|');
+        .join('|'); // Combine into a single pattern with `|`
+
       try {
         return new RegExp(`(${combinedPattern})`, 'i');
       } catch (error) {
-        console.error(
-          `Failed to create regex chunk: ${combinedPattern}`,
-          error
-        );
+        console.error(`Failed to create regex chunk: ${combinedPattern}`, error);
         return null as unknown as RegExp;
       }
     })
-    .filter(Boolean);
+    .filter(Boolean); // Remove any null or invalid regex objects
 }
 
-// Generate regex chunks globally
+// Example Usage
 const profaneRegexChunks: RegExp[] = createProfaneRegexChunks(profaneWords, 5);
 
 export function isProfane(text: string): boolean {

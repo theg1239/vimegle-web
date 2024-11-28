@@ -991,7 +991,7 @@ export default function TextChatPage() {
       onKeyDown={handleUserInteraction}
       onMouseMove={handleUserInteraction}
     >
-      {/* Configure Toaster with bottom-center position */}
+      {/* Configure Toaster with top-center position */}
       <Toaster position="top-center" />
 
       {/* Background Watermark */}
@@ -1133,17 +1133,26 @@ export default function TextChatPage() {
         <div className="flex items-center space-x-2">
           <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
             <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                className={`${
-                  darkMode
-                    ? 'text-white hover:bg-gray-800'
-                    : 'text-black hover:bg-gray-200'
-                } rounded-full p-1`}
-                aria-label="Advanced Search"
-              >
-                <SparklesIcon className="w-4 h-4" />
-              </Button>
+            <Button
+  variant="ghost"
+  className={`${
+    darkMode
+      ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
+      : 'text-black bg-gray-200 hover:bg-gray-300 shadow-md'
+  } rounded-full p-3 sm:p-2 transition-all duration-300`}
+  aria-label="Advanced Search"
+  style={{
+    fontSize: '1rem', // Increase font size for better visibility
+    width: '48px', // Larger tap target
+    height: '48px',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+  }}
+>
+  <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+</Button>
+
             </PopoverTrigger>
             <PopoverContent
               align="end"
@@ -1162,8 +1171,8 @@ export default function TextChatPage() {
                         tags.includes(tag)
                           ? 'bg-blue-500 text-white hover:bg-blue-600'
                           : darkMode
-                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-200'
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-200'
                       } rounded-full px-2 py-1 text-xs`}
                       onClick={() => toggleTag(tag)}
                     >
@@ -1231,7 +1240,11 @@ export default function TextChatPage() {
               }}
               variant="outline"
               size="sm"
-              className={`bg-white/10 hover:bg-white/20 text-white border-white/20`}
+              className={`${
+                darkMode
+                  ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                  : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
+              }`}
               aria-label="Cancel Search"
             >
               Cancel
@@ -1241,8 +1254,12 @@ export default function TextChatPage() {
               onClick={handleNextChat}
               variant="outline"
               size="sm"
-              className={`bg-white/10 hover:bg-white/20 text-white border-white/20`}
-              aria-label="Next Chat"
+              className={`${
+                darkMode
+                  ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                  : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
+              }`}
+              aria-label="Next Match"
             >
               Next
             </Button>
@@ -1264,153 +1281,150 @@ export default function TextChatPage() {
         </div>
       </header>
 
+      {/* Main Content Area */}
       <main
-        className={`flex-grow flex flex-col overflow-hidden ${
+        className={`flex flex-col flex-grow overflow-hidden ${
           darkMode
             ? 'bg-gradient-to-b from-gray-800 to-gray-900'
             : 'bg-gradient-to-b from-gray-100 to-white'
         }`}
-        style={{
-          height: '100vh',
-        }}
       >
-        {' '}
         {connected && (
-          <ScrollArea
-            className="flex-grow overflow-y-auto px-4 pt-4 pb-2"
-            style={{
-              height: 'calc(100vh - 112px)', // Subtract combined height of header and footer
-              paddingBottom: '1rem',
-            }} // Add spacing for a better view
-            ref={scrollAreaRef}
-          >
-            <div className="flex flex-col gap-2">
-              <AnimatePresence>
-                {messages.map((msg) => (
-                  <MessageBubble
-                    key={msg.id}
-                    message={msg}
-                    onDoubleTap={handleDoubleTap}
-                    onReply={handleReply}
-                    darkMode={darkMode}
-                    isSelf={msg.isSelf}
-                    onInView={handleInView}
-                  />
-                ))}
-                {showIntroMessage && (
-                  <motion.div
-                    key="intro-message"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                    className={`p-4 rounded-lg ${
-                      darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-                    }`}
-                  >
-                    <h3 className="font-bold mb-2">
-                      Welcome to Vimegle Text Chat!
-                    </h3>
-                    <p>
-                      You're now connected with a random stranger. Say hello and
-                      start chatting!
-                    </p>
-                    {matchedTags.length > 0 && (
-                      <p className="mt-2 text-sm">
-                        Connected based on tags:{' '}
-                        <strong>{matchedTags.join(', ')}</strong>
+          <div className="flex flex-col flex-grow">
+            {/* Scrollable Messages Area */}
+            <ScrollArea
+              className="flex-grow overflow-y-auto px-4 pt-4 pb-2"
+              ref={scrollAreaRef}
+            >
+              <div className="flex flex-col gap-2">
+                <AnimatePresence>
+                  {messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      onDoubleTap={handleDoubleTap}
+                      onReply={handleReply}
+                      darkMode={darkMode}
+                      isSelf={msg.isSelf}
+                      onInView={handleInView}
+                    />
+                  ))}
+                  {showIntroMessage && (
+                    <motion.div
+                      key="intro-message"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className={`p-4 rounded-lg ${
+                        darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                      }`}
+                    >
+                      <h3 className="font-bold mb-2">
+                        Welcome to Vimegle Text Chat!
+                      </h3>
+                      <p>
+                        You're now connected with a random stranger. Say hello and
+                        start chatting!
                       </p>
-                    )}
-                    {!matchedTags.length && (
+                      {matchedTags.length > 0 && (
+                        <p className="mt-2 text-sm">
+                          Connected based on tags:{' '}
+                          <strong>{matchedTags.join(', ')}</strong>
+                        </p>
+                      )}
+                      {!matchedTags.length && (
+                        <p className="mt-2 text-sm">
+                          Connected to a stranger! Feel free to start the
+                          conversation.
+                        </p>
+                      )}
                       <p className="mt-2 text-sm">
-                        Connected to a stranger! Feel free to start the
-                        conversation.
+                        Remember to be respectful and follow our community
+                        guidelines.
                       </p>
-                    )}
-                    <p className="mt-2 text-sm">
-                      Remember to be respectful and follow our community
-                      guidelines.
-                    </p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              <div ref={messagesEndRef} />
-            </div>
-          </ScrollArea>
-        )}
-        {replyTo && (
-          <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
-        )}
-        {connected && (
-          <div
-            className={`fixed bottom-14 left-0 right-0 z-20 px-4 py-2 ${
-              darkMode ? 'bg-gray-800' : 'bg-gray-100'
-            }`}
-            style={{ height: '56px' }} // Ensure consistent height
-          >
-            <div className="relative">
-              <Input
-                id="message-input"
-                type="text"
-                value={inputMessage}
-                onChange={(e) => {
-                  setInputMessage(e.target.value);
-                  handleTypingDebounced();
-                  handleStopTyping();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSendMessage();
-                }}
-                placeholder="Type a message..."
-                disabled={!connected}
-                autoComplete="off"
-                className={`w-full ${
-                  darkMode
-                    ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-                    : 'bg-white border-gray-300 text-black placeholder-gray-500'
-                } pr-20 rounded-full text-sm`}
-                aria-label="Message Input"
-              />
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setShowEmojiPicker((prev) => !prev)}
-                  className={`${
-                    darkMode
-                      ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                      : 'text-gray-600 hover:text-black hover:bg-gray-200'
-                  } rounded-full w-8 h-8`}
-                  aria-label="Toggle Emoji Picker"
-                >
-                  <Smile className="w-4 h-4" />
-                </Button>
-
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!connected || !inputMessage.trim()}
-                  size="icon"
-                  className={`${
-                    darkMode
-                      ? 'bg-blue-600 hover:bg-blue-700'
-                      : 'bg-blue-500 hover:bg-blue-600'
-                  } text-white rounded-full w-8 h-8`}
-                  aria-label="Send Message"
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <div ref={messagesEndRef} />
               </div>
+            </ScrollArea>
 
-              {showEmojiPicker && (
-                <div className="absolute bottom-12 right-2 z-30">
-                  <EmojiPicker
-                    onEmojiClick={handleEmojiClick}
-                    theme={darkMode ? Theme.DARK : Theme.LIGHT}
-                    width={280}
-                    height={350}
-                  />
+            {/* Reply Preview */}
+            {replyTo && (
+              <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
+            )}
+
+            {/* Input Box */}
+            <div
+              className={`px-4 py-2 ${
+                darkMode ? 'bg-gray-800' : 'bg-gray-100'
+              }`}
+            >
+              <div className="relative">
+                <Input
+                  id="message-input"
+                  type="text"
+                  value={inputMessage}
+                  onChange={(e) => {
+                    setInputMessage(e.target.value);
+                    handleTypingDebounced();
+                    handleStopTyping();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSendMessage();
+                  }}
+                  placeholder="Type a message..."
+                  disabled={!connected}
+                  autoComplete="off"
+                  className={`w-full ${
+                    darkMode
+                      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
+                      : 'bg-white border-gray-300 text-black placeholder-gray-500'
+                  } pr-20 rounded-full text-sm`}
+                  aria-label="Message Input"
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                    className={`${
+                      darkMode
+                        ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                        : 'text-gray-600 hover:text-black hover:bg-gray-200'
+                    } rounded-full w-8 h-8`}
+                    aria-label="Toggle Emoji Picker"
+                  >
+                    <Smile className="w-4 h-4" />
+                  </Button>
+
+                  <Button
+                    onClick={handleSendMessage}
+                    disabled={!connected || !inputMessage.trim()}
+                    size="icon"
+                    className={`${
+                      darkMode
+                        ? 'bg-blue-600 hover:bg-blue-700'
+                        : 'bg-blue-500 hover:bg-blue-600'
+                    } text-white rounded-full w-8 h-8`}
+                    aria-label="Send Message"
+                  >
+                    <Send className="w-4 h-4" />
+                  </Button>
                 </div>
-              )}
+
+                {showEmojiPicker && (
+                  <div className="absolute bottom-12 right-2 z-30">
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      theme={darkMode ? Theme.DARK : Theme.LIGHT}
+                      width={280}
+                      height={350}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1420,7 +1434,7 @@ export default function TextChatPage() {
       <footer
         className={`${
           darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-        } border-t p-2 flex justify-between items-center fixed bottom-0 left-0 right-0 z-10`}
+        } border-t p-2 flex justify-between items-center`}
         style={{ height: '56px' }} // Fixed footer height
       >
         {/* Left-aligned Content */}
@@ -1520,31 +1534,31 @@ export default function TextChatPage() {
 
           {/* Flag and Alert Buttons */}
           {/* <Button
-      variant="ghost"
-      size="sm"
-      className={`${
-        darkMode
-          ? 'text-white hover:bg-gray-800'
-          : 'text-black hover:bg-gray-200'
-      }`}
-      onClick={() => toast('Feature not implemented yet')}
-      aria-label="Flag"
-    >
-      <Flag className="w-4 h-4" />
-    </Button>
-    <Button
-      variant="ghost"
-      size="sm"
-      className={`${
-        darkMode
-          ? 'text-white hover:bg-gray-800'
-          : 'text-black hover:bg-gray-200'
-      }`}
-      onClick={() => toast('Feature not implemented yet')}
-      aria-label="Alert"
-    >
-      <AlertTriangle className="w-4 h-4" />
-    </Button> */}
+            variant="ghost"
+            size="sm"
+            className={`${
+              darkMode
+                ? 'text-white hover:bg-gray-800'
+                : 'text-black hover:bg-gray-200'
+            }`}
+            onClick={() => toast('Feature not implemented yet')}
+            aria-label="Flag"
+          >
+            <Flag className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`${
+              darkMode
+                ? 'text-white hover:bg-gray-800'
+                : 'text-black hover:bg-gray-200'
+            }`}
+            onClick={() => toast('Feature not implemented yet')}
+            aria-label="Alert"
+          >
+            <AlertTriangle className="w-4 h-4" />
+          </Button> */}
         </div>
       </footer>
     </div>
