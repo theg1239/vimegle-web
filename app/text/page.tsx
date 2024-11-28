@@ -1161,15 +1161,20 @@ export default function TextChatPage() {
               Next
             </Button>
           ) : (
-            <Button
-              onClick={startSearch}
-              variant="outline"
-              size="sm"
-              className={`bg-white/10 hover:bg-white/20 text-white border-white/20`}
-              aria-label="Find Match"
-            >
-              Find Match
-            </Button>
+<Button
+  onClick={startSearch}
+  variant="outline"
+  size="sm"
+  className={`${
+    darkMode
+      ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+      : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
+  }`}
+  aria-label="Find Match"
+>
+  Find Match
+</Button>
+
           )}
         </div>
       </header>
@@ -1320,20 +1325,13 @@ export default function TextChatPage() {
           </div>
         )}
       </main>
-
       <footer
   className={`${
     darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-  } border-t p-2 flex justify-between items-center`}
-  style={{
-    position: 'sticky',
-    bottom: 0,
-    zIndex: 10,
-    height: '56px', // Match the height used in calc
-    boxShadow: '0 -2px 5px rgba(0,0,0,0.1)',
-    backgroundColor: darkMode ? '#000' : '#fff',
-  }}
+  } border-t p-2 flex justify-between items-center fixed bottom-0 left-0 right-0 z-10`}
+  style={{ minHeight: '56px' }} // Ensure consistent height across devices
 >
+  {/* Left-aligned Content */}
   <div className="flex space-x-2">
     <Link href="/video">
       <Button
@@ -1350,6 +1348,11 @@ export default function TextChatPage() {
         <span className="text-xs hidden sm:inline">Video</span>
       </Button>
     </Link>
+  </div>
+
+  {/* Right-aligned Content */}
+  <div className="flex space-x-2">
+    {/* Settings Popover */}
     <Popover>
       <PopoverTrigger asChild>
         <Button
@@ -1400,11 +1403,61 @@ export default function TextChatPage() {
               }`}
             />
           </div>
+          <div className="flex items-center justify-between">
+            <Label
+              htmlFor="sound"
+              className={`${
+                darkMode ? 'text-gray-200' : 'text-gray-700'
+              } text-sm`}
+            >
+              Sound
+            </Label>
+            <Switch
+              id="sound"
+              checked={soundEnabled}
+              onCheckedChange={setSoundEnabled}
+              className={`${
+                darkMode
+                  ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                  : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+              }`}
+            />
+          </div>
         </div>
       </PopoverContent>
     </Popover>
+
+    {/* Flag and Alert Buttons */}
+    {/* <Button
+      variant="ghost"
+      size="sm"
+      className={`${
+        darkMode
+          ? 'text-white hover:bg-gray-800'
+          : 'text-black hover:bg-gray-200'
+      }`}
+      onClick={() => toast('Feature not implemented yet')}
+      aria-label="Flag"
+    >
+      <Flag className="w-4 h-4" />
+    </Button>
+    <Button
+      variant="ghost"
+      size="sm"
+      className={`${
+        darkMode
+          ? 'text-white hover:bg-gray-800'
+          : 'text-black hover:bg-gray-200'
+      }`}
+      onClick={() => toast('Feature not implemented yet')}
+      aria-label="Alert"
+    >
+      <AlertTriangle className="w-4 h-4" />
+    </Button> */}
   </div>
 </footer>
+
+
     </div>
   );
 }
