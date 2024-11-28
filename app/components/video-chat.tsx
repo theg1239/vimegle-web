@@ -28,16 +28,24 @@ const VideoChat: React.FC<VideoChatProps> = ({
   const [isNSFW, setIsNSFW] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [model, setModel] = useState<nsfwjs.NSFWJS | null>(null);
+  const [frameScores, setFrameScores] = useState<number[]>([]);
+
+  const WEIGHTS = {
+    Porn: 0.9,
+    Sexy: 0.8,
+    Hentai: 1.1,
+    Neutral: 0.2,
+    Drawing: 0.1,
+  };
+  const AVERAGE_THRESHOLD = 0.85; // Adjust this for sensitivity
+  const FRAME_BUFFER_SIZE = 10; // Number of frames to average
 
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const backend = tf.getBackend(); 
+        const backend = tf.getBackend();
         if (backend !== 'webgl') {
           await tf.setBackend('cpu');
-          //console.warn('WebGL not available. Using CPU backend for TensorFlow.js.');
-        } else {
-          //console.log('Using WebGL backend for TensorFlow.js.');
         }
         await tf.ready();
         const nsfwModel = await nsfwjs.load('/models/mobilenet_v2/');
@@ -63,17 +71,16 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
     try {
       const predictions = await model.classify(canvas);
-      const nsfwDetected = predictions.some(
-        (prediction) =>
-          ['Porn', 'Sexy', 'Hentai'].includes(prediction.className) &&
-          prediction.probability > 0.8
-      );
+      const weightedScore = predictions.reduce((sum, prediction) => {
+        const weight = WEIGHTS[prediction.className] || 0;
+        return sum + prediction.probability * weight;
+      }, 0);
 
-      if (nsfwDetected) {
-        console.warn('NSFW content detected.');
-        setIsNSFW(true);
-        setIsBlocked(true);
-      }
+      setFrameScores((prevScores) => {
+        const newScores = [...prevScores, weightedScore];
+        if (newScores.length > FRAME_BUFFER_SIZE) newScores.shift();
+        return newScores;
+      });
     } catch (error) {
       console.error('Error analyzing frame with NSFW.js:', error);
     }
@@ -84,7 +91,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
     const interval = setInterval(() => {
       analyzeFrame();
-    }, 500);
+    }, 500); // Check every 500ms
 
     return () => clearInterval(interval);
   }, [connected, remoteStream, model, analyzeFrame]);
@@ -99,9 +106,19 @@ const VideoChat: React.FC<VideoChatProps> = ({
   }, [remoteStream, remoteVideoRef]);
 
   useEffect(() => {
+    const averageScore =
+      frameScores.length > 0 ? frameScores.reduce((a, b) => a + b, 0) / frameScores.length : 0;
+    if (averageScore > AVERAGE_THRESHOLD) {
+      setIsNSFW(true);
+      setIsBlocked(true);
+    }
+  }, [frameScores]);
+
+  useEffect(() => {
     if (chatState === 'searching' || chatState === 'idle') {
       setIsBlocked(false);
       setIsNSFW(false);
+      setFrameScores([]);
     }
   }, [chatState]);
 
@@ -125,22 +142,25 @@ const VideoChat: React.FC<VideoChatProps> = ({
           <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse" />
           <p className="text-white text-2xl font-bold mt-4">NSFW Content Detected</p>
           <p className="text-gray-300 mt-2 text-center">
-            This video contains potentially inappropriate content and has been blurred for your safety.
+            This video contains potentially inappropriate content and has been blurred for your
+            safety.
           </p>
         </div>
       )}
 
-{chatState === 'idle' && (
-  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white z-10">
-    <span
-      className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600 leading-none"
-      style={{ lineHeight: '1.2', paddingBottom: '0.2em' }} // Ensures descenders are visible
-    >
-      Vimegle
-    </span>
-    <p className="text-lg mt-6 text-gray-300">Click "Find Match" to start chatting.</p>
-  </div>
-)}
+      {/* Default State with Prominent Logo */}
+      {chatState === 'idle' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white z-10">
+          <span
+            className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600 leading-none"
+            style={{ lineHeight: '1.2', paddingBottom: '0.2em' }}
+          >
+            Vimegle
+          </span>
+          <p className="text-lg mt-6 text-gray-300">Click "Find Match" to start chatting.</p>
+        </div>
+      )}
+
       {/* Status Overlays */}
       {(!connected || !remoteStream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
@@ -153,10 +173,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-pink-500 mx-auto mb-4" />
               <p className="text-lg">Searching for a match...</p>
-            </div>
-          ) : chatState === 'idle' ? (
-            <div className="text-center">
-              {/* <p className="text-lg">Click "Find Match" to start chatting.</p> */}
             </div>
           ) : searchCancelled ? (
             <div className="text-center">
