@@ -24,6 +24,7 @@ import {
   Loader2,
   Search,
   X as CloseIcon,
+  SparklesIcon
 } from 'lucide-react';
 import Link from 'next/link';
 import { textSocket } from '@/lib/socket';
@@ -933,7 +934,7 @@ export default function TextChatPage() {
                 } rounded-full p-1`}
                 aria-label="Advanced Search"
               >
-                <Search className="w-4 h-4" />
+                <SparklesIcon className="w-4 h-4" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
