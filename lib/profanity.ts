@@ -1,4 +1,6 @@
-const profaneWords = [
+// profanityFilter.ts
+
+const profaneWords: string[] = [
   'nigger',
   'send boobs',
   'send nudes',
@@ -7,8 +9,6 @@ const profaneWords = [
   'bobs or vagana',
   'm/f',
   'f/m',
-  'Morf',
-  'M/F',
   'bobs or vegana',
   'G or B',
   'B or G',
@@ -63,6 +63,7 @@ const profaneWords = [
   'ShEiK_HuSsAiNbEeVi',
   'sh3ik_hu$$ainb33v1'
 ];
+
 // Normalize leetspeak and homoglyphs
 const leetspeakMap: Record<string, string[]> = {
   a: ['4', '@', 'á', 'à', 'ä', 'â', 'ã'],
@@ -81,6 +82,11 @@ const leetspeakMap: Record<string, string[]> = {
   z: ['2', 'ž']
 };
 
+/**
+ * Function to normalize leetspeak and homoglyphs in the input text.
+ * @param text The input string to normalize.
+ * @returns The normalized string.
+ */
 function normalizeLeetspeak(text: string): string {
   let normalizedText = text;
 
@@ -92,34 +98,74 @@ function normalizeLeetspeak(text: string): string {
   return normalizedText;
 }
 
-// Split profane words into manageable chunks
+/**
+ * Function to escape special regex characters in a string.
+ * @param pattern The string to escape.
+ * @returns The escaped string.
+ */
+function escapeRegex(pattern: string): string {
+  return pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+/**
+ * Function to create regex chunks from profane words.
+ * Splits the profane words into smaller chunks to avoid excessively large regex patterns.
+ * @param words Array of profane words.
+ * @param chunkSize Number of words per regex chunk.
+ * @returns Array of RegExp objects.
+ */
 function createProfaneRegexChunks(words: string[], chunkSize: number): RegExp[] {
-  const chunks = [];
+  const chunks: RegExp[] = [];
+
   for (let i = 0; i < words.length; i += chunkSize) {
     const chunk = words.slice(i, i + chunkSize)
-      .map((word) =>
-        word
-          .trim()
-          .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') // Escape regex special characters
-          .replace(/\s+/g, '\\s*') // Handle spacing variations
+      .map((word) => {
+        const escapedWord = escapeRegex(word.trim());
+
+        // Replace spaces with \s* to allow for spacing variations
+        const spacedWord = escapedWord.replace(/\s+/g, '\\s*');
+
+        // Split into characters and join with [^a-z0-9]* to allow random non-alphanumerics between letters
+        const regexPattern = spacedWord
           .split('')
-          .join('[^a-z0-9]*') // Allow random characters between letters
-      )
+          .map((char) => {
+            // If the character is already a regex escape (like \/), keep it as is
+            if (char === '\\') {
+              return '\\\\';
+            }
+            return char;
+          })
+          .join('[^a-z0-9]*');
+
+        return regexPattern;
+      })
       .join('|');
-    chunks.push(new RegExp(chunk, 'i')); // Case-insensitive
+
+    try {
+      // Create a case-insensitive regex
+      chunks.push(new RegExp(chunk, 'i'));
+    } catch (error) {
+      console.error(`Failed to create regex chunk: ${chunk}`);
+      throw error;
+    }
   }
+
   return chunks;
 }
 
-// Generate regexes from profane words
-const profaneRegexChunks = createProfaneRegexChunks(profaneWords, 100); // Split into chunks of 100 words
+// Generate regexes from profane words with a safer chunk size
+const profaneRegexChunks: RegExp[] = createProfaneRegexChunks(profaneWords, 20); // Reduced chunk size
 
-// Function to check for profanity
+/**
+ * Function to check if a given text contains any profane words.
+ * @param text The input text to check.
+ * @returns Boolean indicating if profanity is found.
+ */
 export function isProfane(text: string): boolean {
   const normalizedText = normalizeLeetspeak(
     text
       .toLowerCase()
-      .replace(/[^a-z0-9\s]/gi, '') // Remove non-alphanumeric characters
+      .replace(/[^a-z0-9\s]/gi, '') // Remove non-alphanumeric characters except spaces
       .trim()
   );
 
