@@ -11,15 +11,11 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Set initial position to the center-right of the screen
-  const [position, setPosition] = useState({
-    x: window.innerWidth - 160, // 32px from right (for 128px width + 32px padding)
-    y: window.innerHeight / 2 - 48, // Vertically centered for 96px height
-  });
-
   const [isDragging, setIsDragging] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const positionRef = useRef({ x: window.innerWidth - 160, y: window.innerHeight / 2 - 48 });
+  const [renderPosition, setRenderPosition] = useState(positionRef.current);
 
   useEffect(() => {
     if (videoRef.current && localStream) {
@@ -32,9 +28,12 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
       setIsDragging(true);
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      dragStartRef.current = { x: clientX - position.x, y: clientY - position.y };
+      dragStartRef.current = {
+        x: clientX - positionRef.current.x,
+        y: clientY - positionRef.current.y,
+      };
     },
-    [position]
+    []
   );
 
   const handleMouseMove = useCallback(
@@ -42,9 +41,14 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
       if (!isDragging) return;
       const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
       const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const newX = clientX - dragStartRef.current.x;
-      const newY = clientY - dragStartRef.current.y;
-      setPosition({ x: newX, y: newY });
+      positionRef.current = {
+        x: clientX - dragStartRef.current.x,
+        y: clientY - dragStartRef.current.y,
+      };
+      // Throttle updates using requestAnimationFrame
+      requestAnimationFrame(() => {
+        setRenderPosition(positionRef.current);
+      });
     },
     [isDragging]
   );
@@ -74,12 +78,11 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
   return (
     <div
       ref={containerRef}
-      className={`fixed bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500 cursor-move transition-all duration-300 ease-in-out ${
+      className={`fixed bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500 cursor-move transition-transform duration-300 ease-in-out ${
         isMinimized ? 'w-12 h-12' : 'w-32 h-24'
       }`}
       style={{
-        top: `${position.y}px`,
-        left: `${position.x}px`,
+        transform: `translate(${renderPosition.x}px, ${renderPosition.y}px)`,
         touchAction: 'none',
       }}
       onMouseDown={handleMouseDown}
