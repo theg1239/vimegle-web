@@ -7,5 +7,5 @@ html {
 }
 
 .blur-md {
-  filter: blur(10px);
+  filter: blur(50px);
 }

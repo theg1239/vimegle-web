@@ -15,6 +15,10 @@ export default function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (path.startsWith('/models')) {
+    return NextResponse.next();
+  }
+
   const { country = 'UNKNOWN' } = geolocation(request);
 
   console.log({
