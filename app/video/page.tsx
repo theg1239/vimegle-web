@@ -64,42 +64,42 @@ export default function ChatPage() {
     setIsChatOpen((prev) => !prev);
   }, []);
 
-  // Handle incoming 'signal' events
   const handleSignal = useCallback(
     ({ room: signalRoom, data }: { room: string; data: any }) => {
       console.log('Received "signal" event from socket:', { room: signalRoom, data });
-
-      // Ensure the signal is for the current active room
-      if (signalRoom !== roomRef.current) {
-        console.warn(`Received signal for room ${signalRoom}, but current room is ${roomRef.current}. Ignoring.`);
+  
+      if (!signalRoom) {
+        console.error('Signal received without a room. Ignoring.');
         return;
       }
-
+  
+      // Ensure the signal is for the current active room
+      if (signalRoom !== roomRef.current) {
+        console.warn(
+          `Received signal for room ${signalRoom}, but current room is ${roomRef.current}. Ignoring.`,
+        );
+        return;
+      }
+  
       if (!data) {
         console.warn('Invalid signaling data received:', data);
         return;
       }
-
+  
       const signalId = JSON.stringify(data);
       if (processedSignals.current.has(signalId)) {
         console.warn('Duplicate signaling data received and ignored:', data);
         return;
       }
-
+  
       processedSignals.current.add(signalId);
-
+  
       if (!peerRef.current) {
         console.log('Peer instance not ready. Queuing signal.');
         signalQueueRef.current.push(data);
         return;
       }
-
-      const validTypes = ['offer', 'answer', 'candidate'];
-      if (!validTypes.includes(data.type)) {
-        console.warn('Received signaling data with invalid type:', data.type);
-        return;
-      }
-
+  
       try {
         peerRef.current.signal(data);
         console.log('Signaled Peer with data:', data);
@@ -110,6 +110,7 @@ export default function ChatPage() {
     },
     []
   );
+  
 
   // Handle 'leave' events
   const handleLeave = useCallback(() => {
@@ -289,14 +290,14 @@ export default function ChatPage() {
       console.log('Created new Peer instance.');
 
       newPeer.on('signal', (data) => {
-        if (!room) {
+        if (!roomRef.current) {
           console.warn('Cannot emit "signal" event without a room.');
           return;
         }
         console.log('Peer signaling data:', data);
-        socketRef.current?.emit('signal', { room, data });
+        socketRef.current?.emit('signal', { room: roomRef.current, data });
         console.log('Emitted "signal" event to server with data:', data);
-      });
+      });      
 
       newPeer.on('stream', (stream) => {
         console.log('Received remote stream.');
