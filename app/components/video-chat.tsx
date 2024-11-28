@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
+import * as nsfwjs from 'nsfwjs'; 
 
 interface VideoChatProps {
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
@@ -28,6 +29,96 @@ const VideoChat: React.FC<VideoChatProps> = ({
   isConnecting,
   chatState,
 }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isNSFW, setIsNSFW] = useState(false);
+  const [model, setModel] = useState<nsfwjs.NSFWJS | null>(null);
+
+// Load NSFW model on component mount
+useEffect(() => {
+  const loadModel = async () => {
+    console.log("Loading NSFW model...");
+    try {
+      const nsfwModel = await nsfwjs.load();
+      setModel(nsfwModel);
+      console.log("NSFW model loaded successfully.");
+    } catch (error) {
+      console.error("Error loading NSFW model:", error);
+    }
+  };
+  loadModel();
+}, []);
+
+// Analyze video frames for NSFW content
+const analyzeFrame = async () => {
+  if (!model) {
+    console.warn("NSFW model is not loaded yet.");
+    return;
+  }
+  if (!canvasRef.current) {
+    console.warn("Canvas reference is not set.");
+    return;
+  }
+  if (!remoteVideoRef.current) {
+    console.warn("Remote video reference is not set.");
+    return;
+  }
+
+  const canvas = canvasRef.current;
+  const video = remoteVideoRef.current;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    console.warn("Failed to get 2D context for canvas.");
+    return;
+  }
+
+  try {
+    // Draw the current video frame onto the canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    console.log("Analyzing video frame...");
+    // Predict using the NSFW model
+    const predictions = await model.classify(canvas);
+    console.log("Predictions:", predictions);
+
+    // Check if any prediction exceeds a threshold (e.g., 0.8)
+    const nsfwDetected = predictions.some(
+      (prediction) =>
+        ['Porn', 'Sexy'].includes(prediction.className) &&
+        prediction.probability > 0.8
+    );
+
+    if (nsfwDetected) {
+      console.warn("NSFW content detected in the video stream.");
+    } else {
+      console.log("No NSFW content detected.");
+    }
+
+    setIsNSFW(nsfwDetected);
+  } catch (error) {
+    console.error("Error analyzing video frame:", error);
+  }
+};
+
+// Start analyzing video frames at a regular interval
+useEffect(() => {
+  if (!connected) {
+    console.warn("Not connected to a remote stream.");
+    return;
+  }
+  if (!remoteStream) {
+    console.warn("Remote stream is not available.");
+    return;
+  }
+
+  console.log("Starting to analyze video frames...");
+  const interval = setInterval(analyzeFrame, 500); // Analyze every 500ms
+  return () => {
+    console.log("Stopping video frame analysis.");
+    clearInterval(interval); // Cleanup on unmount
+  };
+}, [connected, remoteStream, model]);
+
+
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       console.log('Assigning remote stream to video element.');
@@ -59,9 +150,24 @@ const VideoChat: React.FC<VideoChatProps> = ({
         ref={remoteVideoRef}
         autoPlay
         playsInline
-        className="w-full h-full object-cover transform scale-x-[-1]"
+        className={`w-full h-full object-cover transform scale-x-[-1] ${
+          isNSFW ? 'blur-lg' : ''
+        }`}
         aria-label="Remote Video"
       />
+
+      <canvas
+        ref={canvasRef}
+        width={640}
+        height={480}
+        className="hidden" // Hidden canvas for frame analysis
+      />
+
+      {isNSFW && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+          <p className="text-white text-xl">NSFW content detected. Video blurred.</p>
+        </div>
+      )}
 
       {(!connected || !remoteStream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
@@ -112,30 +218,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
           )}
         </div>
       )}
-
-      {/* <AnimatePresence>
-        {!isSearching && !connected && !searchCancelled && (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={overlayVariants}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="absolute inset-0 flex items-center justify-center bg-black/75 text-white"
-          >
-            <div className="text-center">
-              <p className="text-2xl font-bold mb-4">
-                Waiting for connection...
-              </p>
-              <div className="inline-flex space-x-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-200"></div>
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-400"></div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence> */}
     </div>
   );
 };
