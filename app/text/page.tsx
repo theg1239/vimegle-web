@@ -228,16 +228,16 @@ export default function TextChatPage() {
 
   const defaultTags = useMemo(
     () => [
-      'Music',
-      'Movies',
-      'Books',
-      'Sports',
-      'Technology',
-      'Art',
-      'Travel',
-      'Gaming',
-      'Cooking',
-      'Fitness',
+      'music',
+      'movies',
+      'books',
+      'sports',
+      'technology',
+      'art',
+      'travel',
+      'gaming',
+      'cooking',
+      'fitness',
     ],
     []
   );
@@ -312,6 +312,9 @@ export default function TextChatPage() {
     setReplyTo(null);
     setMessages([]);
     setMatchedTags([]);
+
+    const normalizedTags = tags.map((tag) => tag.trim().toLowerCase());
+
     if (textSocket && textSocket.connected) {
       textSocket.emit('findTextMatch', { tags });
     } else {
@@ -942,56 +945,71 @@ export default function TextChatPage() {
               sideOffset={5}
               className="w-72 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
             >
-              <h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">
-                Select Tags
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map((tag) => (
-                  <Button
-                    key={tag}
-                    variant={tags.includes(tag) ? 'default' : 'outline'}
-                    className={`${
-                      tags.includes(tag)
-                        ? 'bg-blue-500 text-white hover:bg-blue-600'
-                        : darkMode
-                        ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-200'
-                    } rounded-full px-2 py-1 text-xs`}
-                    onClick={() => toggleTag(tag)}
-                  >
-                    {tag}
-                  </Button>
-                ))}
-              </div>
-              <div className="mt-4">
-                <Input
-                  value={customTagInput}
-                  onChange={(e) => setCustomTagInput(e.target.value)}
-                  placeholder="Add custom tag (max 6 letters)"
-                  maxLength={6}
-                  className="mb-2"
-                  disabled={!!customTag}
-                  aria-label="Custom Tag Input"
-                />
-                <Button
-                  onClick={handleAddCustomTag}
-                  className="w-full"
-                  disabled={!!customTag}
-                  aria-label="Add Custom Tag"
-                >
-                  Add Custom Tag
-                </Button>
-              </div>
-              <Button
-                onClick={() => {
-                  setShowTagMenu(false);
-                  startSearch();
-                }}
-                className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white"
-                aria-label="Search with Tags"
-              >
-                Search with Tags
-              </Button>
+<h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">
+  Select Tags
+</h3>
+<div className="flex flex-wrap gap-2">
+  {availableTags.map((tag) => (
+    <div key={tag} className="relative inline-block">
+      <Button
+        variant={tags.includes(tag) ? 'default' : 'outline'}
+        className={`${
+          tags.includes(tag)
+            ? 'bg-blue-500 text-white hover:bg-blue-600'
+            : darkMode
+            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+            : 'border-gray-300 text-gray-700 hover:bg-gray-200'
+        } rounded-full px-2 py-1 text-xs`}
+        onClick={() => toggleTag(tag)}
+      >
+        {tag}
+      </Button>
+      {customTag === tag && (
+        <button
+          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+          onClick={() => {
+            setCustomTag(null); // Clear the custom tag
+            setTags((prevTags) => prevTags.filter((t) => t !== tag)); // Remove it from selected tags
+          }}
+          aria-label={`Remove ${tag}`}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  ))}
+</div>
+<div className="mt-4">
+  <Input
+    value={customTagInput}
+    onChange={(e) => setCustomTagInput(e.target.value)}
+    placeholder="Add custom tag (max 6 letters)"
+    maxLength={6}
+    className="mb-2"
+    // Enable input regardless of the presence of a custom tag
+    disabled={false}
+    aria-label="Custom Tag Input"
+  />
+  <Button
+    onClick={handleAddCustomTag}
+    className="w-full"
+    // Allow adding new custom tags even if a custom tag exists
+    aria-label="Add Custom Tag"
+  >
+    Add Custom Tag
+  </Button>
+</div>
+<Button
+  onClick={() => {
+    setShowTagMenu(false);
+    startSearch();
+  }}
+  className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white"
+  aria-label="Search with Tags"
+>
+  Search with Tags
+</Button>
+
             </PopoverContent>
           </Popover>
 
