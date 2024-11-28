@@ -34,6 +34,10 @@ const profaneWords = [
   'male or fe',
   'male or female',
   'female or male',
+  'M?',
+  'F?',
+  'weed',
+  'drugs'
 ];
 
 const profaneRegex = new RegExp(
