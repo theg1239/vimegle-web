@@ -429,8 +429,17 @@ export default function TextChatPage() {
     },
     []
   );
-
-  // Handle Incoming Text Messages
+  const handleInView = useCallback(
+    (messageId: string, inView: boolean) => {
+      if (inView && !seenMessages.has(messageId)) {
+        setSeenMessages((prev) => new Set([...prev, messageId]));
+        textSocket.emit('messageSeen', { messageId, room: currentRoom });
+        console.log(`Message ${messageId} seen and notified to server.`);
+      }
+    },
+    [seenMessages, currentRoom]
+  );
+  
   const handleTextMessage = useCallback(
     ({
       message,
@@ -456,20 +465,31 @@ export default function TextChatPage() {
         reactions: {},
         liked: false,
         replyTo: replyToMessage || null,
-        seen: false, // Initialize as not seen
+        seen: false, // Default to unseen
       };
+  
       setMessages((prev) => {
         if (prev.find((msg) => msg.id === messageId)) {
           return prev;
         }
+  
         return [...prev, newMessage];
       });
-      if (!isSelf && soundEnabledRef.current && hasInteractedRef.current)
+  
+      if (!isSelf) {
+        // Automatically mark the message as seen if it's in view
+        if (scrollAreaRef.current) {
+          const messageElement = document.getElementById(messageId);
+          if (messageElement && messageElement.getBoundingClientRect().top < window.innerHeight) {
+            handleInView(messageId, true);
+          }
+        }
         playMessageSound();
-
+      }
+  
       setTimeout(scrollToBottom, 0);
     },
-    [playMessageSound, messages, scrollToBottom]
+    [playMessageSound, messages, scrollToBottom, handleInView]
   );
 
   // Handle Typing from Peer
@@ -942,23 +962,6 @@ export default function TextChatPage() {
     setChatState,
   ]);
 
-  const handleInView = useCallback(
-    (messageId: string) => {
-      if (!hideSeenForMessageIds.has(messageId)) {
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === messageId ? { ...msg, seen: true } : msg
-          )
-        );
-
-        setHideSeenForMessageIds((prev) => new Set([...prev, messageId]));
-
-        textSocket.emit('messageSeen', { messageId, room: currentRoom });
-      }
-    },
-    [hideSeenForMessageIds, currentRoom]
-  );
-
   const handleNewMessageFromRecipient = useCallback((messageId: string) => {
     setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
   }, []);
@@ -1300,17 +1303,17 @@ export default function TextChatPage() {
             >
               <div className="flex flex-col gap-2">
                 <AnimatePresence>
-                  {messages.map((msg) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      onDoubleTap={handleDoubleTap}
-                      onReply={handleReply}
-                      darkMode={darkMode}
-                      isSelf={msg.isSelf}
-                      onInView={handleInView}
-                    />
-                  ))}
+                {messages.map((msg) => (
+  <MessageBubble
+    key={msg.id}
+    message={msg}
+    onDoubleTap={handleDoubleTap}
+    onReply={handleReply}
+    darkMode={darkMode}
+    isSelf={msg.isSelf}
+    onInView={(messageId, inView) => handleInView(messageId, inView)} // Correctly passing two arguments
+  />
+))}
                   {showIntroMessage && (
                     <motion.div
                       key="intro-message"

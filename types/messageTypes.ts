@@ -7,4 +7,5 @@ export interface Message {
   liked: boolean;
   replyTo?: Message | null;
   seen: boolean;
+  isLastMessage?: boolean;
 }

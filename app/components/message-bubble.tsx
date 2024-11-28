@@ -13,7 +13,7 @@ interface MessageBubbleProps {
   onReply: (message: Message) => void;
   darkMode: boolean;
   isSelf: boolean;
-  onInView: (messageId: string) => void; // Notify when a message is in view
+  onInView: (messageId: string, inView: boolean) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -32,10 +32,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   });
 
   useEffect(() => {
-    if (inView && !message.isSelf) {
-      onInView(message.id);
+    if (!message.isSelf) {
+      onInView(message.id, inView); 
     }
-  }, [inView, message, onInView]);
+  }, [inView, message.id, message.isSelf, onInView]);
 
   const bind = useGesture(
     {
@@ -124,7 +124,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               darkMode ? 'text-gray-400' : 'text-gray-600'
             }`}
           >
-            Seen
+            
           </div>
         )}
       </div>

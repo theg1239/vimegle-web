@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { geolocation } from '@vercel/functions';
 
-const ALLOWED_COUNTRY = 'IN';
+const ALLOWED_COUNTRY = 'UNKNOWN';
 
 export const config = {
   matcher: '/((?!_next/static|_next/image|favicon.ico).*)',
