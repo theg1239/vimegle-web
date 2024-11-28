@@ -57,7 +57,11 @@ const profaneWords = [
   'sheik@hussain@beevi',
   '22BEC0956',
   'sheikhussain.beevia2022@vitstudent.ac.in',
-  'sheikhussain.beevia2022'
+  'sheikhussain.beevia2022',
+  's-h-e-i-k_h-u-s-s-a-i-n-b-e-e-v-i',
+  'sheik    hussain   beevi,',
+  'ShEiK_HuSsAiNbEeVi',
+  'sh3ik_hu$$ainb33v1'
 ];
 // Normalize leetspeak and homoglyphs
 const leetspeakMap: Record<string, string[]> = {
