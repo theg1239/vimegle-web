@@ -61,23 +61,28 @@ const VideoChat: React.FC<VideoChatProps> = ({
   const analyzeFrame = useCallback(async () => {
     if (!model || !canvasRef.current || !remoteVideoRef.current || isBlocked)
       return;
-
+  
     const canvas = canvasRef.current;
     const video = remoteVideoRef.current;
     const context = canvas.getContext('2d');
     if (!context) return;
-
+  
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.warn('Video dimensions are not ready.');
+      return;
+    }
+  
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
+  
     try {
       const predictions = await model.classify(canvas);
       const weightedScore = predictions.reduce((sum, prediction) => {
         const weight = WEIGHTS[prediction.className] || 0;
         return sum + prediction.probability * weight;
       }, 0);
-
+  
       setFrameScores((prevScores) => {
         const newScores = [...prevScores, weightedScore];
         if (newScores.length > FRAME_BUFFER_SIZE) newScores.shift();
@@ -99,13 +104,14 @@ const VideoChat: React.FC<VideoChatProps> = ({
   }, [connected, remoteStream, model, analyzeFrame]);
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.onloadedmetadata = () => {
-        remoteVideoRef.current?.play().catch(console.error);
+    if (remoteVideoRef.current) {
+      const video = remoteVideoRef.current;
+  
+      video.onloadedmetadata = () => {
+        video.play().catch(console.error); 
       };
     }
-  }, [remoteStream, remoteVideoRef]);
+  }, [remoteVideoRef]);
 
   useEffect(() => {
     if (frameScores.length === FRAME_BUFFER_SIZE) {
