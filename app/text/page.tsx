@@ -1248,13 +1248,15 @@ export default function TextChatPage() {
       : 'bg-gradient-to-b from-gray-100 to-white'
   }`}
   style={{
-    height: 'calc(100vh - 112px)',
-    overflow: 'auto',
+    height: '100vh',
   }}
->
-        {connected && (
-          <ScrollArea
-            className="flex-grow p-2"
+>    {connected && (
+    <ScrollArea
+      className="flex-grow overflow-y-auto px-4 pt-4 pb-2"  
+      style={{
+        height: 'calc(100vh - 112px)', // Subtract combined height of header and footer
+        paddingBottom: '1rem',
+      }} // Add spacing for a better view
             ref={scrollAreaRef}
           >
             <div className="flex flex-col gap-2">
