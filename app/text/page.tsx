@@ -1174,14 +1174,17 @@ export default function TextChatPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main
-        className={`flex-grow flex flex-col overflow-hidden ${
-          darkMode
-            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
-            : 'bg-gradient-to-b from-gray-100 to-white'
-        }`}
-      >
+  className={`flex-grow flex flex-col overflow-hidden ${
+    darkMode
+      ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+      : 'bg-gradient-to-b from-gray-100 to-white'
+  }`}
+  style={{
+    height: 'calc(100vh - 56px)',
+    overflow: 'auto',
+  }}
+>
         {connected && (
           <ScrollArea
             className="flex-grow p-2"
@@ -1197,7 +1200,7 @@ export default function TextChatPage() {
                     onReply={handleReply}
                     darkMode={darkMode}
                     isSelf={msg.isSelf}
-                    onInView={handleInView} // Pass the handler for read receipts
+                    onInView={handleInView}
                   />
                 ))}
                 {showIntroMessage && (
@@ -1318,131 +1321,90 @@ export default function TextChatPage() {
         )}
       </main>
 
-      {/* Footer */}
       <footer
+  className={`${
+    darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
+  } border-t p-2 flex justify-between items-center`}
+  style={{
+    position: 'sticky',
+    bottom: 0,
+    zIndex: 10,
+    height: '56px', // Match the height used in calc
+    boxShadow: '0 -2px 5px rgba(0,0,0,0.1)',
+    backgroundColor: darkMode ? '#000' : '#fff',
+  }}
+>
+  <div className="flex space-x-2">
+    <Link href="/video">
+      <Button
+        variant="ghost"
+        size="sm"
         className={`${
-          darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-        } border-t p-2 flex justify-between items-center`}
+          darkMode
+            ? 'text-white hover:bg-gray-800'
+            : 'text-black hover:bg-gray-200'
+        } flex items-center space-x-1`}
+        aria-label="Switch to Video Chat"
       >
-        <div className="flex space-x-2">
-          <Link href="/video">
-            <Button
-              variant="ghost"
-              size="sm"
+        <Video className="w-4 h-4" />
+        <span className="text-xs hidden sm:inline">Video</span>
+      </Button>
+    </Link>
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`${
+            darkMode
+              ? 'text-white hover:bg-gray-800'
+              : 'text-black hover:bg-gray-200'
+          } rounded-full p-1`}
+          aria-label="Open Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className={`w-72 p-4 rounded-lg shadow-lg ${
+          darkMode
+            ? 'bg-gray-700 text-gray-100'
+            : 'bg-gray-50 text-gray-800'
+        }`}
+      >
+        <div className="grid gap-4">
+          <div className="space-y-2">
+            <h4 className="font-medium leading-none">Settings</h4>
+            <p className="text-xs text-gray-400">
+              Customize your chat experience
+            </p>
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <Label
+              htmlFor="dark-mode"
+              className={`${
+                darkMode ? 'text-gray-200' : 'text-gray-700'
+              } text-sm`}
+            >
+              Dark Mode
+            </Label>
+            <Switch
+              id="dark-mode"
+              checked={darkMode}
+              onCheckedChange={setDarkMode}
               className={`${
                 darkMode
-                  ? 'text-white hover:bg-gray-800'
-                  : 'text-black hover:bg-gray-200'
-              } flex items-center space-x-1`}
-              aria-label="Switch to Video Chat"
-            >
-              <Video className="w-4 h-4" />
-              <span className="text-xs hidden sm:inline">Video</span>
-            </Button>
-          </Link>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`${
-                  darkMode
-                    ? 'text-white hover:bg-gray-800'
-                    : 'text-black hover:bg-gray-200'
-                } rounded-full p-1`}
-                aria-label="Open Settings"
-              >
-                <Settings className="w-4 h-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className={`w-72 p-4 rounded-lg shadow-lg ${
-                darkMode
-                  ? 'bg-gray-700 text-gray-100'
-                  : 'bg-gray-50 text-gray-800'
+                  ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                  : 'bg-gray-300 data-[state=checked]:bg-blue-600'
               }`}
-            >
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Settings</h4>
-                  <p className="text-xs text-gray-400">
-                    Customize your chat experience
-                  </p>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="dark-mode"
-                    className={`${
-                      darkMode ? 'text-gray-200' : 'text-gray-700'
-                    } text-sm`}
-                  >
-                    Dark Mode
-                  </Label>
-                  <Switch
-                    id="dark-mode"
-                    checked={darkMode}
-                    onCheckedChange={setDarkMode}
-                    className={`${
-                      darkMode
-                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-                    }`}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="sound"
-                    className={`${
-                      darkMode ? 'text-gray-200' : 'text-gray-700'
-                    } text-sm`}
-                  >
-                    Sound
-                  </Label>
-                  <Switch
-                    id="sound"
-                    checked={soundEnabled}
-                    onCheckedChange={setSoundEnabled}
-                    className={`${
-                      darkMode
-                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-                    }`}
-                  />
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+            />
+          </div>
         </div>
-        <div className="flex space-x-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:bg-gray-800'
-                : 'text-black hover:bg-gray-200'
-            }`}
-            onClick={() => toast('Feature not implemented yet')}
-            aria-label="Flag"
-          >
-            <Flag className="w-4 h-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:bg-gray-800'
-                : 'text-black hover:bg-gray-200'
-            }`}
-            onClick={() => toast('Feature not implemented yet')}
-            aria-label="Alert"
-          >
-            <AlertTriangle className="w-4 h-4" />
-          </Button>
-        </div>
-      </footer>
+      </PopoverContent>
+    </Popover>
+  </div>
+</footer>
     </div>
   );
 }
