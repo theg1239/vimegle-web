@@ -41,8 +41,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
   const AVERAGE_THRESHOLD = 0.7;
   const FRAME_BUFFER_SIZE = 10;
-  const FRAME_INTERVAL = 300; // milliseconds
+  const FRAME_INTERVAL = 1000; // milliseconds, reduce frequency
 
+  // Load NSFW.js model
   useEffect(() => {
     const loadModel = async () => {
       try {
@@ -60,6 +61,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     loadModel();
   }, []);
 
+  // Analyze frame for NSFW content
   const analyzeFrame = useCallback(async () => {
     if (
       !model ||
@@ -80,9 +82,17 @@ const VideoChat: React.FC<VideoChatProps> = ({
       return;
     }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Downscale the video for faster processing
+    const downscaleFactor = 0.9;
+    canvas.width = video.videoWidth * downscaleFactor;
+    canvas.height = video.videoHeight * downscaleFactor;
+    context.drawImage(
+      video,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
 
     try {
       const predictions = await model.classify(canvas);
@@ -95,9 +105,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       const combinedScore =
         pornScore * WEIGHTS.Porn + hentaiScore * WEIGHTS.Hentai;
 
-      // Immediate blocking on high confidence
       if (combinedScore > 0.8) {
-        // High confidence threshold
         setIsNSFW(true);
         setIsBlocked(true);
       }
@@ -112,6 +120,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     }
   }, [model, remoteVideoRef, isBlocked, nsfwDetectionEnabled]);
 
+  // Schedule frame analysis at intervals
   useEffect(() => {
     if (!connected || !remoteStream || !model) return;
 
@@ -122,6 +131,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     return () => clearInterval(interval);
   }, [connected, remoteStream, model, analyzeFrame]);
 
+  // Play remote video stream
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
@@ -138,6 +148,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     }
   }, [remoteStream, remoteVideoRef]);
 
+  // Analyze average score
   useEffect(() => {
     if (frameScores.length === FRAME_BUFFER_SIZE) {
       const averageScore =
@@ -153,6 +164,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     }
   }, [frameScores]);
 
+  // Reset states when chat state changes
   useEffect(() => {
     if (chatState === 'searching' || chatState === 'idle') {
       setIsBlocked(false);
@@ -162,6 +174,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     }
   }, [chatState]);
 
+  // Handle "Show Anyway"
   const handleShowAnyway = () => {
     setNSFWDetectionEnabled(false);
     setIsBlocked(false);
