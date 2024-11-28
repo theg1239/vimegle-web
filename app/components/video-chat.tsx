@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 import * as nsfwjs from 'nsfwjs';
 
 interface VideoChatProps {
@@ -30,7 +30,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const nsfwModel = await nsfwjs.load('/models/'); 
+        const nsfwModel = await nsfwjs.load('/models/');
         setModel(nsfwModel);
         console.log('NSFW.js model loaded.');
       } catch (error) {
@@ -40,13 +40,16 @@ const VideoChat: React.FC<VideoChatProps> = ({
     loadModel();
   }, []);
 
-  const analyzeFrame = async () => {
+  const analyzeFrame = useCallback(async () => {
     if (!model || !canvasRef.current || !remoteVideoRef.current) return;
 
     const canvas = canvasRef.current;
     const video = remoteVideoRef.current;
     const context = canvas.getContext('2d');
     if (!context) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
@@ -55,7 +58,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       const nsfwDetected = predictions.some(
         (prediction) =>
           ['Porn', 'Sexy', 'Hentai'].includes(prediction.className) &&
-          prediction.probability > 0.6 
+          prediction.probability > 0.6
       );
 
       if (nsfwDetected) {
@@ -65,51 +68,19 @@ const VideoChat: React.FC<VideoChatProps> = ({
         setIsNSFW(false);
       }
     } catch (error) {
-      console.error('Error analyzing video frame:', error);
+      console.error('Error analyzing video frame with NSFW.js:', error);
     }
-  };
-
-  const analyzeWithSafeSearch = async () => {
-    if (!canvasRef.current || !remoteVideoRef.current) return;
-
-    const canvas = canvasRef.current;
-    const video = remoteVideoRef.current;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const imageDataUrl = canvas.toDataURL();
-
-    try {
-      const response = await fetch('/api/safesearch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: imageDataUrl }),
-      });
-      const data = await response.json();
-
-      if (data.safeSearch && data.safeSearch.adult === 'LIKELY') {
-        console.warn('NSFW content detected by SafeSearch.');
-        setIsNSFW(true);
-      } else {
-        setIsNSFW(false);
-      }
-    } catch (error) {
-      console.error('Error analyzing with SafeSearch:', error);
-    }
-  };
+  }, [model, remoteVideoRef]);
 
   useEffect(() => {
-    if (!connected || !remoteStream) return;
+    if (!connected || !remoteStream || !model) return;
 
     const interval = setInterval(() => {
       analyzeFrame();
-      analyzeWithSafeSearch();
     }, 500); 
 
     return () => clearInterval(interval);
-  }, [connected, remoteStream, model]);
+  }, [connected, remoteStream, model, analyzeFrame]);
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
@@ -132,19 +103,23 @@ const VideoChat: React.FC<VideoChatProps> = ({
         autoPlay
         playsInline
         className={`w-full h-full object-cover transform scale-x-[-1] ${
-          isNSFW ? 'blur-strong' : ''
+          isNSFW ? 'blur-lg grayscale' : ''
         }`}
         aria-label="Remote Video"
       />
-
-      <canvas ref={canvasRef} width={640} height={480} className="hidden" />
+      <canvas ref={canvasRef} className="hidden" />
 
       {isNSFW && (
-        <div className="absolute inset-0 bg-black/75 flex items-center justify-center z-10">
-          <p className="text-white text-xl">NSFW content detected. Video blurred.</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10">
+          <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse" />
+          <p className="text-white text-2xl font-bold mt-4">NSFW Content Detected</p>
+          <p className="text-gray-300 mt-2 text-center">
+            This video contains potentially inappropriate content and has been blurred for your safety.
+          </p>
         </div>
       )}
 
+      {/* Various States (Loading, Searching, etc.) */}
       {(!connected || !remoteStream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
           {isConnecting ? (

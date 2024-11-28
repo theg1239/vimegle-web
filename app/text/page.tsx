@@ -1061,7 +1061,7 @@ export default function TextChatPage() {
       </header>
 
       <main
-        className={`flex-grow flex flex-col p-2 overflow-hidden ${
+        className={`flex-grow flex flex-col overflow-hidden ${
           darkMode
             ? 'bg-gradient-to-b from-gray-800 to-gray-900'
             : 'bg-gradient-to-b from-gray-100 to-white'
@@ -1069,75 +1069,56 @@ export default function TextChatPage() {
       >
         {connected && (
           <ScrollArea
-  className="flex-grow relative overflow-y-auto"
-  ref={scrollAreaRef}
->
-  <div className="flex flex-col gap-2 px-2 pb-4">
-    <AnimatePresence>
-      {/* Map through messages and render them */}
-      {messages.map((msg) => (
-        <MessageBubble
-          key={msg.id}
-          message={msg}
-          onDoubleTap={handleDoubleTap}
-          onReply={handleReply}
-          darkMode={darkMode}
-          isSelf={msg.isSelf}
-        />
-      ))}
-
-      {/* Show the intro message if applicable */}
-      {showIntroMessage && (
-        <motion.div
-          key="intro-message"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className={`p-4 rounded-lg ${
-            darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-          }`}
-        >
-          <h3 className="font-bold mb-2">
-            Welcome to Vimegle Text Chat!
-          </h3>
-          <p>
-            You're now connected with a random stranger. Say hello and
-            start chatting!
-          </p>
-          {matchedTags.length > 0 && (
-            <p className="mt-2 text-sm">
-              Connected based on tags:{' '}
-              <strong>{matchedTags.join(', ')}</strong>
-            </p>
-          )}
-          {!matchedTags.length && (
-            <p className="mt-2 text-sm">
-              Connected to a stranger! Feel free to start the conversation.
-            </p>
-          )}
-          <p className="mt-2 text-sm">
-            Remember to be respectful and follow our community guidelines.
-          </p>
-        </motion.div>
-      )}
-
-      {/* Typing indicator */}
-      {isTyping && (
-        <motion.div
-          key="typing-indicator"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className={`p-2 text-sm italic ${
-            darkMode ? 'text-gray-400' : 'text-gray-600'
-          }`}
-        >
-          Stranger is typing...
-        </motion.div>
-      )}
-    </AnimatePresence>
+            className="flex-grow"
+            ref={scrollAreaRef}
+          >
+            <div className="flex flex-col gap-2 p-2">
+              <AnimatePresence>
+                {messages.map((msg) => (
+                  <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    onDoubleTap={handleDoubleTap}
+                    onReply={handleReply}
+                    darkMode={darkMode}
+                    isSelf={msg.isSelf}
+                  />
+                ))}
+                {showIntroMessage && (
+                  <motion.div
+                    key="intro-message"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className={`p-4 rounded-lg ${
+                      darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                    }`}
+                  >
+                    <h3 className="font-bold mb-2">
+                      Welcome to Vimegle Text Chat!
+                    </h3>
+                    <p>
+                      You're now connected with a random stranger. Say hello and
+                      start chatting!
+                    </p>
+                    {matchedTags.length > 0 && (
+                      <p className="mt-2 text-sm">
+                        Connected based on tags:{' '}
+                        <strong>{matchedTags.join(', ')}</strong>
+                      </p>
+                    )}
+                    {!matchedTags.length && (
+                      <p className="mt-2 text-sm">
+                        Connected to a stranger! Feel free to start the conversation.
+                      </p>
+                    )}
+                    <p className="mt-2 text-sm">
+                      Remember to be respectful and follow our community guidelines.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
               <div ref={messagesEndRef} />
             </div>
           </ScrollArea>
@@ -1147,8 +1128,8 @@ export default function TextChatPage() {
           <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
         )}
 
-{connected && (
-          <div className="relative mt-2">
+        {connected && (
+          <div className="relative mt-2 p-2">
             <Input
               id="message-input"
               type="text"
@@ -1169,7 +1150,7 @@ export default function TextChatPage() {
               } pr-20 rounded-full text-sm`}
               aria-label="Message Input"
             />
-            <div className="absolute right-1 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
               <Button
                 size="icon"
                 variant="ghost"
@@ -1256,7 +1237,55 @@ export default function TextChatPage() {
                   : 'bg-gray-50 text-gray-800'
               }`}
             >
-              {/* Keep the existing settings content */}
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Settings</h4>
+                  <p className="text-xs text-gray-400">
+                    Customize your chat experience
+                  </p>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="dark-mode"
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
+                  >
+                    Dark Mode
+                  </Label>
+                  <Switch
+                    id="dark-mode"
+                    checked={darkMode}
+                    onCheckedChange={setDarkMode}
+                    className={`${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="sound"
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
+                  >
+                    Sound
+                  </Label>
+                  <Switch
+                    id="sound"
+                    checked={soundEnabled}
+                    onCheckedChange={setSoundEnabled}
+                    className={`${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
