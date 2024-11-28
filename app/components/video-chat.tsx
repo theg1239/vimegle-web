@@ -30,7 +30,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const nsfwModel = await nsfwjs.load('/models/');
+        const nsfwModel = await nsfwjs.load('/models/mobilenet_v2');
         setModel(nsfwModel);
         console.log('NSFW.js model loaded.');
       } catch (error) {
