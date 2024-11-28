@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import * as nsfwjs from 'nsfwjs';
 import * as tf from '@tensorflow/tfjs';
@@ -33,15 +32,16 @@ const VideoChat: React.FC<VideoChatProps> = ({
   const [nsfwDetectionEnabled, setNSFWDetectionEnabled] = useState(true);
 
   const WEIGHTS = {
-    Porn: 1.0,
-    Sexy: 0.5,
-    Hentai: 1.2,
+    Porn: 1.5,
+    Sexy: 0.3,
+    Hentai: 1.5,
     Neutral: 0.0,
     Drawing: 0.0,
   };
 
-  const AVERAGE_THRESHOLD = 0.9;
-  const FRAME_BUFFER_SIZE = 15;
+  const AVERAGE_THRESHOLD = 0.7;
+  const FRAME_BUFFER_SIZE = 10;
+  const FRAME_INTERVAL = 300; // milliseconds
 
   useEffect(() => {
     const loadModel = async () => {
@@ -52,6 +52,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
         await tf.ready();
         const nsfwModel = await nsfwjs.load('/models/mobilenet_v2/');
         setModel(nsfwModel);
+        console.log('NSFW.js model loaded.');
       } catch (error) {
         console.error('Error loading NSFW.js model:', error);
       }
@@ -78,13 +79,20 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
     try {
       const predictions = await model.classify(canvas);
-      const weightedScore = predictions.reduce((sum, prediction) => {
-        const weight = WEIGHTS[prediction.className] || 0;
-        return sum + prediction.probability * weight;
-      }, 0);
+      console.log('NSFW Predictions:', predictions); // Debugging
 
-      setFrameScores((prevScores) => {
-        const newScores = [...prevScores, weightedScore];
+      const pornScore = predictions.find(p => p.className === 'Porn')?.probability || 0;
+      const hentaiScore = predictions.find(p => p.className === 'Hentai')?.probability || 0;
+      const combinedScore = pornScore * WEIGHTS.Porn + hentaiScore * WEIGHTS.Hentai;
+
+      // Immediate blocking on high confidence
+      if (combinedScore > 0.8) { // High confidence threshold
+        setIsNSFW(true);
+        setIsBlocked(true);
+      }
+
+      setFrameScores(prevScores => {
+        const newScores = [...prevScores, combinedScore];
         if (newScores.length > FRAME_BUFFER_SIZE) newScores.shift();
         return newScores;
       });
@@ -98,7 +106,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
     const interval = setInterval(() => {
       analyzeFrame();
-    }, 500);
+    }, FRAME_INTERVAL);
 
     return () => clearInterval(interval);
   }, [connected, remoteStream, model, analyzeFrame]);
@@ -119,8 +127,8 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
   useEffect(() => {
     if (frameScores.length === FRAME_BUFFER_SIZE) {
-      const averageScore =
-        frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
+      const averageScore = frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
+      console.log('Average NSFW Score:', averageScore); // Debugging
       if (averageScore > AVERAGE_THRESHOLD) {
         setIsNSFW(true);
         setIsBlocked(true);
@@ -151,8 +159,8 @@ const VideoChat: React.FC<VideoChatProps> = ({
         ref={remoteVideoRef}
         autoPlay
         playsInline
-        className={`w-full h-full object-cover transform scale-x-[-1] ${
-          isBlocked ? 'blur-lg grayscale' : ''
+        className={`w-full h-full object-cover ${
+          isBlocked ? 'blur-lg grayscale' : 'transform scale-x-[-1]'
         }`}
         aria-label="Remote Video"
       />
