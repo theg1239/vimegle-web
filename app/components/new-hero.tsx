@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { Video, MessageSquare, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { Button } from '@/app/components/ui/button';
 import Link from 'next/link';
 
@@ -10,10 +9,7 @@ export function HeroSection() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden">
       {/* Video Chat Section */}
-      <motion.div
-        initial={{ opacity: 0, x: -50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5 }}
+      <div
         className="flex-1 bg-gradient-to-br from-purple-900 to-indigo-900 flex flex-col items-center justify-center text-white"
       >
         <Video className="w-16 h-16 mb-6 text-purple-300" />
@@ -32,13 +28,9 @@ export function HeroSection() {
             <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
         </Link>
-      </motion.div>
-
+</div>
       {/* Text Chat Section */}
-      <motion.div
-        initial={{ opacity: 0, x: 50 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
+<div
         className="flex-1 bg-gradient-to-bl from-indigo-900 to-purple-900 flex flex-col items-center justify-center text-white"
       >
         <MessageSquare className="w-16 h-16 mb-6 text-indigo-300" />
@@ -58,7 +50,7 @@ export function HeroSection() {
             <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
         </Link>
-      </motion.div>
+      </div>
     </div>
   );
 }
