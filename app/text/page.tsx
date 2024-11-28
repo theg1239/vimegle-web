@@ -269,6 +269,7 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
+  
   // Sound Effects
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
@@ -338,6 +339,7 @@ export default function TextChatPage() {
     }
   }, [tags]);
 
+  
   // Reply Handling
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
@@ -676,6 +678,7 @@ export default function TextChatPage() {
     textSocket,
   ]);
 
+  
   // Handle Before Unload (User leaves the page)
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -686,6 +689,7 @@ export default function TextChatPage() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('unload', handleBeforeUnload);
+    
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -985,6 +989,42 @@ export default function TextChatPage() {
     [textSocket, currentRoom, messages]
   );
 
+  useEffect(() => {
+    const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
+      // Prevent navigation and show confirmation dialog
+      const confirmationMessage =
+        'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.';
+      const confirmed = window.confirm(confirmationMessage);
+      if (!confirmed) {
+        // Prevent navigation by re-adding the current state to the history stack
+        if (event.type === 'popstate') {
+          window.history.pushState(null, document.title, window.location.href);
+        }
+      } else {
+        notifyPeerDisconnection();
+        setConnected(false);
+        setMessages([]);
+        setCurrentRoom('');
+        setReplyTo(null);
+        setMatchedTags([]);
+        setChatState('idle');
+      }
+    };
+  
+    // Add event listeners for back navigation
+    window.addEventListener('popstate', handleBackNavigation);
+    window.addEventListener('beforeunload', handleBackNavigation);
+  
+    // Push initial state to prevent direct back navigation
+    window.history.pushState(null, document.title, window.location.href);
+  
+    return () => {
+      // Clean up event listeners on component unmount
+      window.removeEventListener('popstate', handleBackNavigation);
+      window.removeEventListener('beforeunload', handleBackNavigation);
+    };
+  }, [notifyPeerDisconnection]);
+  
   const handleSwitchToVideo = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
