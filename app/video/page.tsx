@@ -615,45 +615,40 @@ export default function ChatPage() {
   }, []);
 
   return (
-    <div
-      className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black"
-      onClick={() => {}}
-      onKeyDown={() => {}}
-      onMouseMove={() => {}}
-    >
+    <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black">
       <Toaster position="bottom-center" />
-      <header className="bg-black/50 backdrop-blur-sm p-4 flex justify-between items-center z-50">
-        <div className="flex items-center space-x-4">
+      <header className="bg-black/50 backdrop-blur-sm p-2 sm:p-4 flex justify-between items-center z-50">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <button
             onClick={() => {
               if (roomRef.current) {
                 socketRef.current?.emit('leave', { room: roomRef.current });
-                //console.log(`Emitted "leave" event for room: ${roomRef.current}`);
               }
               window.location.href = '/';
             }}
             className="text-white hover:text-gray-300 transition-colors"
             aria-label="Go back"
           >
-            <ArrowLeft className="w-6 h-6" />
+            <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
-          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
+          <h1 className="text-lg sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
             Vimegle
           </h1>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1 sm:space-x-2">
           <Button
             onClick={toggleChat}
             variant="outline"
+            size="sm"
             className={`bg-white/10 hover:bg-white/20 text-white border-white/20 flex items-center justify-center ${
               chatState === 'connected' ? 'border-green-500' : ''
             }`}
             aria-label="Toggle chat"
           >
             {chatState === 'connecting' || chatState === 'searching' ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
             ) : (
-              <MessageCircle className="w-5 h-5" />
+              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
             )}
           </Button>
 
@@ -661,38 +656,45 @@ export default function ChatPage() {
             <Button
               onClick={handleCancelSearch}
               variant="outline"
+              size="sm"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
               aria-label="Cancel Search"
             >
-              Cancel Search
+              <span className="hidden sm:inline">Cancel Search</span>
+              <span className="sm:hidden">Cancel</span>
             </Button>
           ) : chatState === 'connected' ? (
             <Button
               onClick={handleNext}
               variant="outline"
+              size="sm"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
               aria-label="Next Chat"
             >
-              Next Chat
+              <span className="hidden sm:inline">Next Chat</span>
+              <span className="sm:hidden">Next</span>
             </Button>
           ) : chatState === 'idle' || chatState === 'disconnected' ? (
             <Button
               onClick={startSearch}
               variant="outline"
+              size="sm"
               className="bg-white/10 hover:bg-white/20 text-white border-white/20"
               aria-label="Find Match"
             >
-              Find Match
+              <span className="hidden sm:inline">Find Match</span>
+              <span className="sm:hidden">Find</span>
             </Button>
           ) : (
             <Button
               variant="outline"
+              size="sm"
               className="bg-white/10 text-white border-white/20"
               disabled
               aria-label="Connecting"
             >
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Connecting...
+              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin mr-2" />
+              <span className="hidden sm:inline">Connecting...</span>
             </Button>
           )}
         </div>
@@ -723,12 +725,13 @@ export default function ChatPage() {
       {noUsersOnline && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white p-4 z-50">
           <div className="text-center">
-            <p className="text-lg md:text-2xl font-bold mb-4">
+            <p className="text-base sm:text-lg md:text-xl font-bold mb-2 sm:mb-4">
               No other users online.
             </p>
             <Button
               onClick={startSearch}
-              className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded"
+              size="sm"
+              className="px-3 py-1 sm:px-4 sm:py-2 bg-pink-500 hover:bg-pink-600 rounded text-sm sm:text-base"
             >
               Retry Search
             </Button>
@@ -737,12 +740,13 @@ export default function ChatPage() {
       )}
       {chatState === 'disconnected' && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white p-4 z-50">
-          <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg w-full max-w-sm">
-            <h2 className="text-xl font-bold mb-2">Stranger Disconnected</h2>
-            <p className="mb-4">Your chat partner has left the chat.</p>
+          <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg w-full max-w-xs sm:max-w-sm">
+            <h2 className="text-lg sm:text-xl font-bold mb-2">Stranger Disconnected</h2>
+            <p className="text-sm sm:text-base mb-3 sm:mb-4">Your chat partner has left the chat.</p>
             <Button
               onClick={startSearch}
-              className="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded"
+              size="sm"
+              className="bg-pink-500 hover:bg-pink-600 text-white px-3 py-1 sm:px-4 sm:py-2 rounded text-sm sm:text-base"
             >
               Find New Match
             </Button>

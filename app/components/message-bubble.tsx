@@ -13,7 +13,7 @@ interface MessageBubbleProps {
   onReply: (message: Message) => void;
   darkMode: boolean;
   isSelf: boolean;
-  onInView: (messageId: string, inView: boolean) => void;
+  onInView: (messageId: string, inView: boolean) => void; // Add this
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -22,7 +22,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   onReply,
   darkMode,
   isSelf,
-  onInView,
+  onInView
 }) => {
   const swipeRef = useRef(null);
 
@@ -32,8 +32,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   });
 
   useEffect(() => {
-    if (!message.isSelf) {
-      onInView(message.id, inView); 
+    if (!message.isSelf && inView) {
+      onInView(message.id, inView);
     }
   }, [inView, message.id, message.isSelf, onInView]);
 
@@ -124,7 +124,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               darkMode ? 'text-gray-400' : 'text-gray-600'
             }`}
           >
-            
+            Seen
           </div>
         )}
       </div>

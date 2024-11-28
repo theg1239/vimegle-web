@@ -197,8 +197,6 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
   );
 };
 
-import { useInView } from 'react-intersection-observer';
-
 export default function TextChatPage() {
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -326,7 +324,7 @@ export default function TextChatPage() {
     setIsDisconnected(false);
     setShowIntroMessage(true);
     setReplyTo(null);
-    setMessages([]);
+    setMessages([]); // Clear messages when starting a new search
     setMatchedTags([]);
 
     const normalizedTags = tags.map((tag) => tag.trim().toLowerCase());
@@ -429,17 +427,39 @@ export default function TextChatPage() {
     },
     []
   );
+
   const handleInView = useCallback(
     (messageId: string, inView: boolean) => {
-      if (inView && !seenMessages.has(messageId)) {
-        setSeenMessages((prev) => new Set([...prev, messageId]));
-        textSocket.emit('messageSeen', { messageId, room: currentRoom });
-        console.log(`Message ${messageId} seen and notified to server.`);
-      }
+      if (!inView) return; // Skip if the message is not in view
+  
+      // Avoid unnecessary state updates
+      if (seenMessages.has(messageId)) return;
+  
+      setSeenMessages((prev) => new Set([...prev, messageId]));
+  
+      // Update the specific message as seen
+      setMessages((prevMessages) => {
+        const messageIndex = prevMessages.findIndex((msg) => msg.id === messageId && !msg.seen);
+        if (messageIndex === -1) return prevMessages; // No change needed
+  
+        const updatedMessages = [...prevMessages];
+        updatedMessages[messageIndex] = {
+          ...updatedMessages[messageIndex],
+          seen: true,
+        };
+        return updatedMessages;
+      });
+  
+      // Notify the server only for newly seen messages
+      textSocket.emit('messageSeen', { messageId, room: currentRoom });
+      console.log(`Message ${messageId} seen and notified to the server.`);
     },
-    [seenMessages, currentRoom]
+    [currentRoom, textSocket, seenMessages]
   );
   
+  
+
+  // Handle Text Message Event
   const handleTextMessage = useCallback(
     ({
       message,
@@ -467,27 +487,31 @@ export default function TextChatPage() {
         replyTo: replyToMessage || null,
         seen: false, // Default to unseen
       };
-  
+
       setMessages((prev) => {
         if (prev.find((msg) => msg.id === messageId)) {
-          return prev;
+          return prev; // Prevent duplicate messages
         }
-  
+
         return [...prev, newMessage];
       });
-  
+
       if (!isSelf) {
-        // Automatically mark the message as seen if it's in view
+        // Automatically mark the latest message as seen
         if (scrollAreaRef.current) {
           const messageElement = document.getElementById(messageId);
-          if (messageElement && messageElement.getBoundingClientRect().top < window.innerHeight) {
+          if (
+            messageElement &&
+            messageElement.getBoundingClientRect().top < window.innerHeight
+          ) {
             handleInView(messageId, true);
           }
         }
         playMessageSound();
       }
-  
-      setTimeout(scrollToBottom, 0);
+
+      // Scroll to bottom after adding a new message
+      setTimeout(scrollToBottom, 100);
     },
     [playMessageSound, messages, scrollToBottom, handleInView]
   );
@@ -520,6 +544,7 @@ export default function TextChatPage() {
     []
   );
 
+  // Handle Peer Message Seen
   const handlePeerMessageSeen = useCallback(
     ({ messageId }: { messageId: string }) => {
       setMessages((prevMessages) =>
@@ -531,17 +556,7 @@ export default function TextChatPage() {
     []
   );
 
-  useEffect(() => {
-    if (!textSocket) return;
-
-    textSocket.on('peerMessageSeen', handlePeerMessageSeen);
-
-    return () => {
-      textSocket.off('peerMessageSeen', handlePeerMessageSeen);
-    };
-  }, [handlePeerMessageSeen]);
-
-  // Handle Peer Searching
+  // Handle Peer Searching (Additional Handler)
   const handlePeerSearching = useCallback(
     ({ message }: { message: string }) => {
       setConnected(false);
@@ -594,22 +609,27 @@ export default function TextChatPage() {
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
-  // Handle Read Receipts
+  // Handle Read Receipts (Additional Handler)
   const handleMessageSeen = useCallback(
     ({ messageId }: { messageId: string }) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === messageId ? { ...msg, seen: true } : msg
-        )
-      );
+      const lastMessageIndex = messages.findIndex((msg) => msg.id === messageId);
+
+      if (lastMessageIndex !== -1) {
+        setMessages((prevMessages) =>
+          prevMessages.map((msg, index) =>
+            index <= lastMessageIndex ? { ...msg, seen: true } : msg
+          )
+        );
+      }
     },
-    []
+    [messages]
   );
 
-  // Handle Namespace Events
   useEffect(() => {
     if (!textSocket) return;
 
+    // Register Socket Event Handlers
+    textSocket.on('peerMessageSeen', handlePeerMessageSeen);
     textSocket.on('textMatch', handleTextMatch);
     textSocket.on('noTextMatch', handleNoTextMatch);
     textSocket.on('textMessage', handleTextMessage);
@@ -627,6 +647,8 @@ export default function TextChatPage() {
     textSocket.on('messageSeen', handleMessageSeen); // Listen for 'messageSeen' events
 
     return () => {
+      // Clean up Socket Event Handlers
+      textSocket.off('peerMessageSeen', handlePeerMessageSeen);
       textSocket.off('textMatch', handleTextMatch);
       textSocket.off('noTextMatch', handleNoTextMatch);
       textSocket.off('textMessage', handleTextMessage);
@@ -637,7 +659,7 @@ export default function TextChatPage() {
       textSocket.off('peerSearching', handlePeerSearching);
       textSocket.off('peerDisconnected', handlePeerDisconnected);
       textSocket.off('peerSearchingSelf');
-      textSocket.off('messageSeen', handleMessageSeen); // Clean up
+      textSocket.off('messageSeen', handleMessageSeen);
     };
   }, [
     handleTextMatch,
@@ -650,6 +672,7 @@ export default function TextChatPage() {
     handlePeerSearching,
     handlePeerDisconnected,
     handleMessageSeen,
+    handlePeerMessageSeen,
     textSocket,
   ]);
 
@@ -668,7 +691,7 @@ export default function TextChatPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('unload', handleBeforeUnload);
     };
-  }, [connected, currentRoom]);
+  }, [connected, currentRoom, textSocket]);
 
   // Available Tags
   const availableTags = useMemo(() => {
@@ -743,10 +766,8 @@ export default function TextChatPage() {
 
   // Scroll to Bottom on Messages Update
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   // Tooltip Handling
   useEffect(() => {
@@ -799,7 +820,7 @@ export default function TextChatPage() {
     } else {
       startSearch();
     }
-  }, [connected, currentRoom, startSearch]);
+  }, [connected, currentRoom, startSearch, textSocket]);
 
   // Chat State
   const [chatState, setChatState] = useState<string>('idle');
@@ -818,34 +839,36 @@ export default function TextChatPage() {
     setIsPeerSearching(false);
   }, []);
 
-  // Send Message Function
   const handleSendMessage = useCallback(() => {
     if (!inputMessage.trim()) return;
-
+  
     if (isProfane(inputMessage)) {
       toast.error('Please refrain from using profanity.');
       return;
     }
-
+  
     const sanitizedMessage = DOMPurify.sanitize(inputMessage, {
       ALLOWED_TAGS: [],
       ALLOWED_ATTR: [],
     });
-
+  
     const messageId = uuidv4();
-
+  
     const decodedMessage = sanitizedMessage
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&');
-
+  
     textSocket.emit('textMessage', {
       room: currentRoom,
       message: decodedMessage,
       messageId,
       replyTo: replyTo ? replyTo.id : undefined,
     });
-
+  
+    // Reset seen status for the peer
+    textSocket.emit('resetSeenStatus', { room: currentRoom });
+  
     const newMessage: Message = {
       id: messageId,
       text: decodedMessage,
@@ -854,21 +877,33 @@ export default function TextChatPage() {
       reactions: {},
       liked: false,
       replyTo: replyTo || null,
-      seen: false, // Self messages can be marked as seen immediately
+      seen: false, // Self messages are marked as unseen
     };
-
+  
+    setMessages((prev) =>
+      prev.map((msg) => ({ ...msg, seen: false })) // Reset seen status for all messages
+    );
+  
     setMessages((prev) => [...prev, newMessage]);
     setInputMessage('');
     setReplyTo(null);
-
+  
     setShowIntroMessage(false);
-
+  
     if (soundEnabledRef.current && hasInteractedRef.current) {
       playMessageSound();
     }
-
+  
     scrollToBottom();
-  }, [inputMessage, currentRoom, replyTo, playMessageSound]);
+  }, [
+    inputMessage,
+    currentRoom,
+    replyTo,
+    playMessageSound,
+    scrollToBottom,
+    textSocket,
+  ]);
+  
 
   const handleTypingDebounced = useDebounce(() => {
     if (connected && currentRoom) {
@@ -880,6 +915,22 @@ export default function TextChatPage() {
     setIsTyping(false);
     textSocket.emit('stopTyping', { room: currentRoom });
   }, 1000);
+
+  useEffect(() => {
+    if (!textSocket) return;
+
+    const handleResetSeenStatus = () => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) => ({ ...msg, seen: false }))
+      );
+    };
+
+    textSocket.on('resetSeenStatus', handleResetSeenStatus);
+
+    return () => {
+      textSocket.off('resetSeenStatus', handleResetSeenStatus);
+    };
+  }, [textSocket]);
 
   // Handle Emoji Click
   const handleEmojiClick = useCallback(
@@ -895,7 +946,7 @@ export default function TextChatPage() {
     if (textSocket && currentRoom) {
       textSocket.emit('peerDisconnected', { room: currentRoom });
     }
-  }, [currentRoom]);
+  }, [currentRoom, textSocket]);
 
   const handleBack = useCallback(() => {
     const confirmed = window.confirm(
@@ -1208,8 +1259,6 @@ export default function TextChatPage() {
                   placeholder="Add custom tag (max 6 letters)"
                   maxLength={6}
                   className="mb-2"
-                  // Enable input regardless of the presence of a custom tag
-                  disabled={false}
                   aria-label="Custom Tag Input"
                 />
                 <Button
@@ -1300,20 +1349,24 @@ export default function TextChatPage() {
             <ScrollArea
               className="flex-grow overflow-y-auto px-4 pt-4 pb-2"
               ref={scrollAreaRef}
+              // Ensuring the ScrollArea takes up remaining space without overlapping footer
+              style={{ maxHeight: 'calc(100vh - 200px)' }} // Adjust the value as needed
             >
               <div className="flex flex-col gap-2">
-                <AnimatePresence>
-                {messages.map((msg) => (
-  <MessageBubble
-    key={msg.id}
-    message={msg}
-    onDoubleTap={handleDoubleTap}
-    onReply={handleReply}
-    darkMode={darkMode}
-    isSelf={msg.isSelf}
-    onInView={(messageId, inView) => handleInView(messageId, inView)} // Correctly passing two arguments
-  />
-))}
+                <AnimatePresence initial={false}>
+                  {messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      onDoubleTap={handleDoubleTap}
+                      onReply={handleReply}
+                      darkMode={darkMode}
+                      isSelf={msg.isSelf}
+                      onInView={(messageId, inView) =>
+                        handleInView(messageId, inView)
+                      }
+                    />
+                  ))}
                   {showIntroMessage && (
                     <motion.div
                       key="intro-message"
