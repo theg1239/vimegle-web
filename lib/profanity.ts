@@ -54,7 +54,10 @@ const profaneWords = [
   'sheik_hussainb33vi',
   'sheik__hussainbeevi',
   '_sheik_hussainbeevi_',
-  'sheik@hussain@beevi'
+  'sheik@hussain@beevi',
+  '22BEC0956',
+  'sheikhussain.beevia2022@vitstudent.ac.in',
+  'sheikhussain.beevia2022'
 ];
 
 const leetspeakMap: Record<string, string[]> = {
