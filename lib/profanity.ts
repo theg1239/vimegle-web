@@ -59,7 +59,7 @@ const profaneWords = [
   'sheikhussain.beevia2022@vitstudent.ac.in',
   'sheikhussain.beevia2022'
 ];
-
+// Normalize leetspeak and homoglyphs
 const leetspeakMap: Record<string, string[]> = {
   a: ['4', '@', 'á', 'à', 'ä', 'â', 'ã'],
   b: ['8', 'ß'],
@@ -88,27 +88,36 @@ function normalizeLeetspeak(text: string): string {
   return normalizedText;
 }
 
-const profaneRegex = new RegExp(
-  profaneWords
-    .map((word) =>
-      word
-        .trim()
-        .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') 
-        .replace(/\s+/g, '\\s*') 
-        .split('')
-        .join('[^a-z0-9]*') 
-    )
-    .join('|'),
-  'i'
-);
+// Split profane words into manageable chunks
+function createProfaneRegexChunks(words: string[], chunkSize: number): RegExp[] {
+  const chunks = [];
+  for (let i = 0; i < words.length; i += chunkSize) {
+    const chunk = words.slice(i, i + chunkSize)
+      .map((word) =>
+        word
+          .trim()
+          .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') // Escape regex special characters
+          .replace(/\s+/g, '\\s*') // Handle spacing variations
+          .split('')
+          .join('[^a-z0-9]*') // Allow random characters between letters
+      )
+      .join('|');
+    chunks.push(new RegExp(chunk, 'i')); // Case-insensitive
+  }
+  return chunks;
+}
 
+// Generate regexes from profane words
+const profaneRegexChunks = createProfaneRegexChunks(profaneWords, 100); // Split into chunks of 100 words
+
+// Function to check for profanity
 export function isProfane(text: string): boolean {
   const normalizedText = normalizeLeetspeak(
     text
       .toLowerCase()
-      .replace(/[^a-z0-9\s]/gi, '') 
+      .replace(/[^a-z0-9\s]/gi, '') // Remove non-alphanumeric characters
       .trim()
   );
 
-  return profaneRegex.test(normalizedText);
+  return profaneRegexChunks.some((regex) => regex.test(normalizedText));
 }
