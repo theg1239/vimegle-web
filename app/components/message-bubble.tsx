@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Twemoji } from 'react-emoji-render';
 import { Heart, MessageCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Message } from '@/types/messageTypes';
-  
+import { useGesture } from 'react-use-gesture';
+
 interface MessageBubbleProps {
   message: Message;
   onDoubleTap: (messageId: string, isSelf: boolean) => void;
@@ -20,8 +21,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   darkMode,
   isSelf,
 }) => {
+  const swipeRef = useRef(null);
+
+  const bind = useGesture(
+    {
+      onDrag: ({ down, movement: [mx], direction: [xDir], velocity }) => {
+        const trigger = velocity > 0.2 && Math.abs(mx) > 50;
+        if (trigger && xDir > 0) {
+          // Swipe Right to Reply
+          onReply(message);
+        }
+      },
+    },
+    { drag: { filterTaps: true } }
+  );
+
   return (
     <motion.div
+      {...bind()}
+      ref={swipeRef}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -47,7 +65,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             ? 'bg-gray-700'
             : 'bg-gray-300'
         }`}
-        onClick={() => onDoubleTap(message.id, isSelf)}
+        onDoubleClick={() => onDoubleTap(message.id, isSelf)} // Changed to onDoubleClick
       >
         {message.replyTo && (
           <div

@@ -1,3 +1,5 @@
+// page.tsx
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -42,25 +44,36 @@ export default function ChatPage() {
   const signalQueueRef = useRef<any[]>([]);
   const processedSignals = useRef<Set<string>>(new Set());
 
+  // Update roomRef whenever room state changes
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
 
+  // Update isDebouncingRef whenever isDebouncing state changes
   useEffect(() => {
     isDebouncingRef.current = isDebouncing;
   }, [isDebouncing]);
 
+  // Update localStreamRef whenever localStream state changes
   useEffect(() => {
     localStreamRef.current = localStream;
   }, [localStream]);
 
+  // Toggle chat visibility
   const toggleChat = useCallback(() => {
     setIsChatOpen((prev) => !prev);
   }, []);
 
+  // Handle incoming 'signal' events
   const handleSignal = useCallback(
-    (data: any) => {
-      //console.log('Received "signal" event from socket:', data);
+    ({ room: signalRoom, data }: { room: string; data: any }) => {
+      console.log('Received "signal" event from socket:', { room: signalRoom, data });
+
+      // Ensure the signal is for the current active room
+      if (signalRoom !== roomRef.current) {
+        console.warn(`Received signal for room ${signalRoom}, but current room is ${roomRef.current}. Ignoring.`);
+        return;
+      }
 
       if (!data) {
         console.warn('Invalid signaling data received:', data);
@@ -76,7 +89,7 @@ export default function ChatPage() {
       processedSignals.current.add(signalId);
 
       if (!peerRef.current) {
-        //console.log('Peer instance not ready. Queuing signal.');
+        console.log('Peer instance not ready. Queuing signal.');
         signalQueueRef.current.push(data);
         return;
       }
@@ -89,7 +102,7 @@ export default function ChatPage() {
 
       try {
         peerRef.current.signal(data);
-        //console.log('Signaled Peer with data:', data);
+        console.log('Signaled Peer with data:', data);
       } catch (error) {
         console.error('Error signaling peer:', error);
         toast.error('Error establishing connection.', { id: 'signal-error-toast' });
@@ -98,8 +111,9 @@ export default function ChatPage() {
     []
   );
 
+  // Handle 'leave' events
   const handleLeave = useCallback(() => {
-    //console.log('Received "leave" event from socket.');
+    console.log('Received "leave" event from socket.');
     setConnected(false);
     setRemoteStream(null);
     setMessages([]);
@@ -117,27 +131,37 @@ export default function ChatPage() {
       peerRef.current = null;
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
-      //console.log('Destroyed Peer instance due to partner leaving and removed event listeners.');
+      console.log('Destroyed Peer instance due to partner leaving and removed event listeners.');
     }
   }, [handleSignal]);
 
+  // Process queued signaling data once connection is established
   const processSignalQueue = useCallback(() => {
     while (signalQueueRef.current.length > 0) {
       const signalData = signalQueueRef.current.shift();
       try {
         peerRef.current?.signal(signalData);
-        //console.log('Processed queued signal:', signalData);
+        console.log('Processed queued signal:', signalData);
       } catch (error) {
         console.error('Error processing queued signal:', error);
       }
     }
   }, []);
 
-  const startSearch = useCallback(() => {
+  // Start searching for a match
+  const startSearch = useCallback(async () => {
     if (isDebouncingRef.current) {
-      //console.log('Debouncing active. Search request ignored.');
+      console.log('Debouncing active. Search request ignored.');
       return;
     }
+
+    // Check camera and microphone permissions
+    if (!localStreamRef.current) {
+      toast.error('Camera and microphone access is required to start a chat.', { id: 'permission-error-toast' });
+      console.error('Local stream not available. Cannot start search.');
+      return;
+    }
+
     setChatState('searching');
     setIsSearching(true);
     setSearchCancelled(false);
@@ -148,18 +172,26 @@ export default function ChatPage() {
 
     if (socketRef.current && socketRef.current.connected) {
       socketRef.current.emit('find');
-      //console.log('Emitted "find" event to server.');
+      console.log('Emitted "find" event to server.');
     } else {
       socketRef.current?.once('connect', () => {
         socketRef.current?.emit('find');
-        //console.log('Emitted "find" event after socket connection established.');
+        console.log('Emitted "find" event after socket connection established.');
       });
     }
+
+    // Implement debouncing
+    setIsDebouncing(true);
+    setTimeout(() => {
+      setIsDebouncing(false);
+      console.log('Debouncing reset.');
+    }, 2000); // Adjust debounce duration as needed
   }, []);
 
+  // Handle moving to the next chat
   const handleNext = useCallback(() => {
     if (isDebouncingRef.current) {
-      //console.log('Debouncing active. Next chat request ignored.');
+      console.log('Debouncing active. Next chat request ignored.');
       return;
     }
 
@@ -169,7 +201,7 @@ export default function ChatPage() {
       peerRef.current = null;
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
-      //console.log('Destroyed existing Peer instance for next chat and removed event listeners.');
+      console.log('Destroyed existing Peer instance for next chat and removed event listeners.');
     }
     setConnected(false);
     setRemoteStream(null);
@@ -182,8 +214,8 @@ export default function ChatPage() {
     setChatState('searching');
 
     if (roomRef.current) {
-      socketRef.current?.emit('next', { room: roomRef.current });
-      //console.log(`Emitted "next" event for room: ${roomRef.current}`);
+      socketRef.current?.emit('leave', { room: roomRef.current });
+      console.log(`Emitted "leave" event for room: ${roomRef.current}`);
       setRoom(null);
     }
 
@@ -192,10 +224,11 @@ export default function ChatPage() {
     setIsDebouncing(true);
     setTimeout(() => {
       setIsDebouncing(false);
-      //console.log('Debouncing reset.');
+      console.log('Debouncing reset.');
     }, 2000);
   }, [startSearch, handleSignal, handleLeave]);
 
+  // Handle 'match' events
   const handleMatch = useCallback(
     ({
       initiator,
@@ -204,7 +237,14 @@ export default function ChatPage() {
       initiator: boolean;
       room: string;
     }) => {
-      //console.log(`Received "match" event for room: ${room} as initiator: ${initiator}`);
+      console.log(`Received "match" event for room: ${room} as initiator: ${initiator}`);
+
+      // Prevent handling multiple matches for the same room
+      if (roomRef.current === room) {
+        console.warn(`Already connected to room ${room}. Ignoring duplicate match.`);
+        return;
+      }
+
       setIsSearching(false);
       setConnected(true);
       setRoom(room);
@@ -221,12 +261,16 @@ export default function ChatPage() {
         return;
       }
 
+      // Clear previous processed signals and signal queue
+      processedSignals.current.clear();
+      signalQueueRef.current = [];
+
       if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
         socketRef.current?.off('signal', handleSignal);
         socketRef.current?.off('leave', handleLeave);
-        //console.log('Destroyed existing Peer instance before creating a new one and removed event listeners.');
+        console.log('Destroyed existing Peer instance before creating a new one and removed event listeners.');
       }
 
       const newPeer = new Peer({
@@ -242,21 +286,25 @@ export default function ChatPage() {
       });
 
       peerRef.current = newPeer;
-      //console.log('Created new Peer instance.');
+      console.log('Created new Peer instance.');
 
       newPeer.on('signal', (data) => {
-        //console.log('Peer signaling data:', data);
+        if (!room) {
+          console.warn('Cannot emit "signal" event without a room.');
+          return;
+        }
+        console.log('Peer signaling data:', data);
         socketRef.current?.emit('signal', { room, data });
-        //console.log('Emitted "signal" event to server with data:', data);
+        console.log('Emitted "signal" event to server with data:', data);
       });
 
       newPeer.on('stream', (stream) => {
-        //console.log('Received remote stream.');
+        console.log('Received remote stream.');
         setRemoteStream(stream);
       });
 
       newPeer.on('connect', () => {
-        //console.log('Peer connection established.');
+        console.log('Peer connection established.');
         setConnected(true);
         setIsDisconnected(false);
         setChatState('connected');
@@ -278,7 +326,7 @@ export default function ChatPage() {
               ...prev,
               { text: parsedData.message, isSelf: false },
             ]);
-            //console.log('Received message:', parsedData.message);
+            console.log('Received message:', parsedData.message);
           }
         } catch (err) {
           console.error('Error parsing data from peer:', err);
@@ -286,7 +334,7 @@ export default function ChatPage() {
       });
 
       newPeer.on('close', () => {
-        //console.log('Peer connection closed.');
+        console.log('Peer connection closed.');
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
           setChatState('disconnected');
@@ -298,12 +346,12 @@ export default function ChatPage() {
           peerRef.current = null;
           socketRef.current?.off('signal', handleSignal);
           socketRef.current?.off('leave', handleLeave);
-          //console.log('Destroyed Peer instance on connection close and removed event listeners.');
+          console.log('Destroyed Peer instance on connection close and removed event listeners.');
         }
       });
 
       newPeer.on('destroy', () => {
-        //console.log('Peer connection destroyed.');
+        console.log('Peer connection destroyed.');
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
           setChatState('disconnected');
@@ -315,37 +363,41 @@ export default function ChatPage() {
           peerRef.current = null;
           socketRef.current?.off('signal', handleSignal);
           socketRef.current?.off('leave', handleLeave);
-          //console.log('Destroyed Peer instance on connection destroy and removed event listeners.');
+          console.log('Destroyed Peer instance on connection destroy and removed event listeners.');
         }
       });
 
+      // Ensure no duplicate listeners
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
       socketRef.current?.on('signal', handleSignal);
       socketRef.current?.on('leave', handleLeave);
-      //console.log('Registered "signal" and "leave" event listeners on socket.');
+      console.log('Registered "signal" and "leave" event listeners on socket.');
     },
     [handleLeave, handleSignal, handleNext, processSignalQueue]
   );
 
+  // Handle 'no_match' events
   const handleNoMatch = useCallback(({ message }: { message: string }) => {
-    //console.log(`Received "no_match" event: ${message}`);
+    console.log(`Received "no_match" event: ${message}`);
     setIsSearching(false);
     setSearchCancelled(false);
     toast.error(message, { id: 'no-match-toast' });
     setChatState('idle');
   }, []);
 
+  // Handle 'search_cancelled' events
   const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
-    //console.log(`Received "search_cancelled" event: ${message}`);
+    console.log(`Received "search_cancelled" event: ${message}`);
     setIsSearching(false);
     setSearchCancelled(true);
     infoToast(message);
     setChatState('idle');
   }, []);
 
+  // Handle 'no_users_online' events
   const handleNoUsersOnline = useCallback(({ message }: { message: string }) => {
-    //console.log(`Received "no_users_online" event: ${message}`);
+    console.log(`Received "no_users_online" event: ${message}`);
     setIsSearching(false);
     setSearchCancelled(false);
     setNoUsersOnline(true);
@@ -353,41 +405,47 @@ export default function ChatPage() {
     setChatState('idle');
   }, []);
 
+  // Register Socket.io event listeners
   useEffect(() => {
     if (!socketRef.current) return;
 
+    // Register event listeners
     socketRef.current.on('match', handleMatch);
     socketRef.current.on('no_match', handleNoMatch);
     socketRef.current.on('search_cancelled', handleSearchCancelled);
     socketRef.current.on('no_users_online', handleNoUsersOnline);
+    socketRef.current.on('signal', handleSignal); // Ensure 'signal' listener is registered
 
-    //console.log('Registered "match", "no_match", "search_cancelled", "no_users_online" event listeners on socket.');
+    console.log('Registered "match", "no_match", "search_cancelled", "no_users_online", "signal" event listeners on socket.');
 
     return () => {
+      // Clean up event listeners
       socketRef.current?.off('match', handleMatch);
       socketRef.current?.off('no_match', handleNoMatch);
       socketRef.current?.off('search_cancelled', handleSearchCancelled);
       socketRef.current?.off('no_users_online', handleNoUsersOnline);
-      //console.log('Cleaned up socket event listeners on unmount.');
+      socketRef.current?.off('signal', handleSignal); // Remove 'signal' listener
+      console.log('Cleaned up socket event listeners on unmount.');
 
       if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
         socketRef.current?.off('signal', handleSignal);
         socketRef.current?.off('leave', handleLeave);
-        //console.log('Destroyed Peer instance on unmount and removed event listeners.');
+        console.log('Destroyed Peer instance on unmount and removed event listeners.');
       }
     };
   }, [handleMatch, handleNoMatch, handleSearchCancelled, handleNoUsersOnline, handleSignal, handleLeave]);
 
+  // Cancel search
   const handleCancelSearch = useCallback(() => {
     if (isDebouncingRef.current) {
-      //console.log('Debouncing active. Cancel search request ignored.');
+      console.log('Debouncing active. Cancel search request ignored.');
       return;
     }
 
     socketRef.current?.emit('cancel_search');
-    //console.log('Emitted "cancel_search" event.');
+    console.log('Emitted "cancel_search" event.');
     setIsSearching(false);
     setChatState('idle');
     setSearchCancelled(true);
@@ -399,10 +457,11 @@ export default function ChatPage() {
     setIsDebouncing(true);
     setTimeout(() => {
       setIsDebouncing(false);
-      //console.log('Debouncing reset after canceling search.');
+      console.log('Debouncing reset after canceling search.');
     }, 2000);
   }, []);
 
+  // Send message to peer
   const handleSendMessage = useCallback(
     (message: string) => {
       if (peerRef.current && chatState === 'connected' && roomRef.current) {
@@ -410,7 +469,7 @@ export default function ChatPage() {
         if (dataChannel && dataChannel.readyState === 'open') {
           peerRef.current.send(JSON.stringify({ type: 'chat', message }));
           setMessages((prev) => [...prev, { text: message, isSelf: true }]);
-          //console.log('Sent message:', message);
+          console.log('Sent message:', message);
         } else {
           toast.error('Unable to send message. Connection is not open.', { id: 'send-error-toast' });
           console.error('Data channel not open. Cannot send message.');
@@ -423,29 +482,30 @@ export default function ChatPage() {
     [chatState]
   );
 
+  // Handle page unload to clean up connections
   useEffect(() => {
     const handleBeforeUnload = () => {
-      //console.log('Page unloading. Notifying server of disconnection.');
+      console.log('Page unloading. Notifying server of disconnection.');
       if (roomRef.current) {
         socketRef.current?.emit('leave', { room: roomRef.current });
-        //console.log(`Emitted "leave" event for room: ${roomRef.current}`);
+        console.log(`Emitted "leave" event for room: ${roomRef.current}`);
       }
       if (peerRef.current) {
         peerRef.current.destroy();
         socketRef.current?.off('signal', handleSignal);
         socketRef.current?.off('leave', handleLeave);
-        //console.log('Destroyed Peer instance on page unload and removed event listeners.');
+        console.log('Destroyed Peer instance on page unload and removed event listeners.');
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('unload', handleBeforeUnload);
-    //console.log('Added window "beforeunload" and "unload" event listeners.');
+    console.log('Added window "beforeunload" and "unload" event listeners.');
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('unload', handleBeforeUnload);
-      //console.log('Removed window "beforeunload" and "unload" event listeners.');
+      console.log('Removed window "beforeunload" and "unload" event listeners.');
     };
   }, [handleSignal, handleLeave]);
 
@@ -460,47 +520,60 @@ export default function ChatPage() {
           width: { ideal: 1280 },
           height: { ideal: 720 },
         };
-
+  
         if (connection) {
           if (connection.downlink < 1) {
             videoConstraints = {
               width: { ideal: 640 },
               height: { ideal: 480 },
             };
-            //console.log('Adjusted video constraints based on network downlink.');
+            console.log('Adjusted video constraints based on network downlink.');
           }
         }
-
+  
+        // Attempt to get audio and video
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
           video: videoConstraints,
         });
         setLocalStream(stream);
-        //console.log('Local media stream acquired.');
-      } catch (err) {
-        console.error('Error accessing media devices:', err);
-        toast.error('Failed to access microphone and camera.', { id: 'media-error-toast' });
-        setHasCameraError(true);
-        setChatState('idle');
+        console.log('Local media stream acquired.');
+      } catch (videoError) {
+        console.warn('Video access failed, falling back to audio only:', videoError);
+        try {
+          // Attempt to get only audio
+          const audioStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: false,
+          });
+          setLocalStream(audioStream);
+          console.log('Audio-only media stream acquired.');
+        } catch (audioError) {
+          console.error('Audio access also failed:', audioError);
+          toast.error('Failed to access microphone and camera.', { id: 'media-error-toast' });
+          setHasCameraError(true);
+          setChatState('idle');
+        }
       }
     };
-
+  
     if (socketRef.current && socketRef.current.connected) {
       getMedia();
     } else {
       const handleConnect = () => {
         getMedia();
       };
-
+  
       socketRef.current?.on('connect', handleConnect);
-      //console.log('Listening for socket "connect" event.');
-
+      console.log('Listening for socket "connect" event.');
+  
       return () => {
         socketRef.current?.off('connect', handleConnect);
-        //console.log('Stopped listening for socket "connect" event.');
+        console.log('Stopped listening for socket "connect" event.');
       };
     }
   }, []);
+  
 
   return (
     <div
@@ -516,7 +589,7 @@ export default function ChatPage() {
             onClick={() => {
               if (roomRef.current) {
                 socketRef.current?.emit('leave', { room: roomRef.current });
-                //console.log(`Emitted "leave" event for room: ${roomRef.current}`);
+                console.log(`Emitted "leave" event for room: ${roomRef.current}`);
               }
               window.location.href = '/';
             }}
