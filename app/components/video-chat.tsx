@@ -29,6 +29,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
   const [isBlocked, setIsBlocked] = useState(false);
   const [model, setModel] = useState<nsfwjs.NSFWJS | null>(null);
   const [frameScores, setFrameScores] = useState<number[]>([]);
+  const [nsfwDetectionEnabled, setNSFWDetectionEnabled] = useState(true); // Track NSFW detection status
 
   const WEIGHTS = {
     Porn: 1.0, // Increased weight for explicit content
@@ -59,30 +60,30 @@ const VideoChat: React.FC<VideoChatProps> = ({
   }, []);
 
   const analyzeFrame = useCallback(async () => {
-    if (!model || !canvasRef.current || !remoteVideoRef.current || isBlocked)
+    if (!model || !canvasRef.current || !remoteVideoRef.current || isBlocked || !nsfwDetectionEnabled)
       return;
-  
+
     const canvas = canvasRef.current;
     const video = remoteVideoRef.current;
     const context = canvas.getContext('2d');
     if (!context) return;
-  
+
     if (video.videoWidth === 0 || video.videoHeight === 0) {
       console.warn('Video dimensions are not ready.');
       return;
     }
-  
+
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-  
+
     try {
       const predictions = await model.classify(canvas);
       const weightedScore = predictions.reduce((sum, prediction) => {
         const weight = WEIGHTS[prediction.className] || 0;
         return sum + prediction.probability * weight;
       }, 0);
-  
+
       setFrameScores((prevScores) => {
         const newScores = [...prevScores, weightedScore];
         if (newScores.length > FRAME_BUFFER_SIZE) newScores.shift();
@@ -91,7 +92,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     } catch (error) {
       console.error('Error analyzing frame with NSFW.js:', error);
     }
-  }, [model, remoteVideoRef, isBlocked, WEIGHTS, FRAME_BUFFER_SIZE]);
+  }, [model, remoteVideoRef, isBlocked, nsfwDetectionEnabled, WEIGHTS, FRAME_BUFFER_SIZE]);
 
   useEffect(() => {
     if (!connected || !remoteStream || !model) return;
@@ -106,9 +107,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
   useEffect(() => {
     if (remoteVideoRef.current) {
       const video = remoteVideoRef.current;
-  
+
       video.onloadedmetadata = () => {
-        video.play().catch(console.error); 
+        video.play().catch(console.error);
       };
     }
   }, [remoteVideoRef]);
@@ -132,8 +133,14 @@ const VideoChat: React.FC<VideoChatProps> = ({
       setIsBlocked(false);
       setIsNSFW(false);
       setFrameScores([]);
+      setNSFWDetectionEnabled(true); // Re-enable NSFW detection for new sessions
     }
   }, [chatState]);
+
+  const handleShowAnyway = () => {
+    setNSFWDetectionEnabled(false); // Disable NSFW detection for the current session
+    setIsBlocked(false); // Unblock the video feed
+  };
 
   return (
     <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30">
@@ -150,7 +157,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       <canvas ref={canvasRef} className="hidden" />
 
       {/* NSFW Warning */}
-      {(isNSFW || isBlocked) && (
+      {(isNSFW || isBlocked) && nsfwDetectionEnabled && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10">
           <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse" />
           <p className="text-white text-2xl font-bold mt-4">
@@ -160,6 +167,12 @@ const VideoChat: React.FC<VideoChatProps> = ({
             This video contains potentially inappropriate content and has been
             blurred for your safety.
           </p>
+          <button
+            onClick={handleShowAnyway}
+            className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md transition-all duration-300"
+          >
+            Show Anyway
+          </button>
         </div>
       )}
 
