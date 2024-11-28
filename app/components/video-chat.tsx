@@ -26,6 +26,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isNSFW, setIsNSFW] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [model, setModel] = useState<nsfwjs.NSFWJS | null>(null);
 
   useEffect(() => {
@@ -39,19 +40,17 @@ const VideoChat: React.FC<VideoChatProps> = ({
           //console.log('Using WebGL backend for TensorFlow.js.');
         }
         await tf.ready();
-
         const nsfwModel = await nsfwjs.load('/models/mobilenet_v2/');
         setModel(nsfwModel);
-        //console.log('NSFW.js model loaded.');
       } catch (error) {
-        //console.error('Error loading NSFW.js model or TensorFlow backend:', error);
+        console.error('Error loading NSFW.js model:', error);
       }
     };
     loadModel();
   }, []);
 
   const analyzeFrame = useCallback(async () => {
-    if (!model || !canvasRef.current || !remoteVideoRef.current) return;
+    if (!model || !canvasRef.current || !remoteVideoRef.current || isBlocked) return;
 
     const canvas = canvasRef.current;
     const video = remoteVideoRef.current;
@@ -60,7 +59,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
@@ -68,26 +66,25 @@ const VideoChat: React.FC<VideoChatProps> = ({
       const nsfwDetected = predictions.some(
         (prediction) =>
           ['Porn', 'Sexy', 'Hentai'].includes(prediction.className) &&
-          prediction.probability > 0.6
+          prediction.probability > 0.8
       );
 
       if (nsfwDetected) {
-        console.warn('NSFW content detected by NSFW.js.');
+        console.warn('NSFW content detected.');
         setIsNSFW(true);
-      } else {
-        setIsNSFW(false);
+        setIsBlocked(true);
       }
     } catch (error) {
-      console.error('Error analyzing video frame with NSFW.js:', error);
+      console.error('Error analyzing frame with NSFW.js:', error);
     }
-  }, [model, remoteVideoRef]);
+  }, [model, remoteVideoRef, isBlocked]);
 
   useEffect(() => {
     if (!connected || !remoteStream || !model) return;
 
     const interval = setInterval(() => {
       analyzeFrame();
-    }, 500); 
+    }, 500);
 
     return () => clearInterval(interval);
   }, [connected, remoteStream, model, analyzeFrame]);
@@ -95,31 +92,35 @@ const VideoChat: React.FC<VideoChatProps> = ({
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
-
       remoteVideoRef.current.onloadedmetadata = () => {
         remoteVideoRef.current?.play().catch(console.error);
-      };
-
-      remoteVideoRef.current.onerror = (e) => {
-        console.error('Video error:', e);
       };
     }
   }, [remoteStream, remoteVideoRef]);
 
+  useEffect(() => {
+    if (chatState === 'searching' || chatState === 'idle') {
+      setIsBlocked(false);
+      setIsNSFW(false);
+    }
+  }, [chatState]);
+
   return (
     <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30">
+      {/* Video Feed */}
       <video
         ref={remoteVideoRef}
         autoPlay
         playsInline
         className={`w-full h-full object-cover transform scale-x-[-1] ${
-          isNSFW ? 'blur-lg grayscale' : ''
+          isBlocked ? 'blur-lg grayscale' : ''
         }`}
         aria-label="Remote Video"
       />
       <canvas ref={canvasRef} className="hidden" />
 
-      {isNSFW && (
+      {/* NSFW Warning */}
+      {(isNSFW || isBlocked) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10">
           <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse" />
           <p className="text-white text-2xl font-bold mt-4">NSFW Content Detected</p>
@@ -129,6 +130,18 @@ const VideoChat: React.FC<VideoChatProps> = ({
         </div>
       )}
 
+{chatState === 'idle' && (
+  <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 text-white z-10">
+    <span
+      className="text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600 leading-none"
+      style={{ lineHeight: '1.2', paddingBottom: '0.2em' }} // Ensures descenders are visible
+    >
+      Vimegle
+    </span>
+    <p className="text-lg mt-6 text-gray-300">Click "Find Match" to start chatting.</p>
+  </div>
+)}
+      {/* Status Overlays */}
       {(!connected || !remoteStream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
           {isConnecting ? (
@@ -143,7 +156,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
             </div>
           ) : chatState === 'idle' ? (
             <div className="text-center">
-              <p className="text-lg">Click "Find Match" to start chatting.</p>
+              {/* <p className="text-lg">Click "Find Match" to start chatting.</p> */}
             </div>
           ) : searchCancelled ? (
             <div className="text-center">

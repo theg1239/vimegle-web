@@ -93,7 +93,7 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
         autoPlay
         playsInline
         muted
-        className={`w-full h-full object-cover ${isMinimized ? 'hidden' : ''}`}
+        className={`w-full h-full object-cover transform scale-x-[-1] ${isMinimized ? 'hidden' : ''}`} 
       />
       <button
         onClick={toggleMinimize}
