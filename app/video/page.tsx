@@ -281,7 +281,10 @@ export default function ChatPage() {
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun.relay.metered.ca:80' },
+            { urls: 'stun:stun.2.google.com:19302' },
+            { urls: 'stun:stun.3.google.com:19302' },
+            { urls: 'stun:stun.4.google.com:19302' },
+            { urls: 'stun:stun.5.google.com:19302' },
           ],
         },
       });

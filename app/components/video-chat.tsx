@@ -113,7 +113,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
         </div>
       )}
 
-      <AnimatePresence>
+      {/* <AnimatePresence>
         {!isSearching && !connected && !searchCancelled && (
           <motion.div
             initial="hidden"
@@ -135,7 +135,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
             </div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence> */}
     </div>
   );
 };
