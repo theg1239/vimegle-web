@@ -1,5 +1,5 @@
 import XRegExp from 'xregexp';
-import { chunk } from 'lodash';
+import chunk from 'lodash.chunk';
 
 export const profaneWords: string[] = [
   'nigger',
