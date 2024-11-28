@@ -24,6 +24,7 @@
     "@types/xregexp": "^4.4.0",
     "@vercel/analytics": "^1.4.1",
     "@vercel/functions": "^1.5.0",
+    "@vercel/speed-insights": "^1.1.0",
     "class-variance-authority": "^0.7.0",
     "dompurify": "^3.2.1",
     "emoji-picker-react": "^4.12.0",

@@ -64,6 +64,33 @@ export default function ChatPage() {
     localStreamRef.current = localStream;
   }, [localStream]);
 
+  useEffect(() => {
+    if (!socketRef.current) return;
+  
+    // Listener for broadcast toast notifications
+    const handleToastNotification = ({ message }: { message: string }) => {
+      toast.success(message, { id: 'broadcast-toast' });
+      //console.log('Broadcast toast received:', message);
+    };
+  
+    // Listener for error messages
+    const handleError = ({ message }: { message: string }) => {
+      toast.error(message, { id: 'broadcast-error-toast' });
+      console.error('Broadcast error received:', message);
+    };
+  
+    // Register event listeners
+    socketRef.current.on('toastNotification', handleToastNotification);
+    socketRef.current.on('error', handleError);
+  
+    // Clean up listeners on unmount
+    return () => {
+      socketRef.current?.off('toastNotification', handleToastNotification);
+      socketRef.current?.off('error', handleError);
+    };
+  }, []);
+  
+
   // Toggle chat visibility
   const toggleChat = useCallback(() => {
     setIsChatOpen((prev) => !prev);
@@ -120,29 +147,40 @@ export default function ChatPage() {
 
   // Handle 'leave' events
   const handleLeave = useCallback(() => {
-    //console.log('Received "leave" event from socket.');
+    // Reset state for the disconnection
     setConnected(false);
     setRemoteStream(null);
     setMessages([]);
     setRoom(null);
     setIsSearching(false);
     setSearchCancelled(false);
-    if (!isSelfInitiatedDisconnectRef.current) {
+  
+    if (isSelfInitiatedDisconnectRef.current) {
+      // Show a specific toast for user-initiated disconnection
+      toast.success('You have left the chat.', {
+        id: 'user-disconnect-toast',
+      });
+    } else {
+      // Show a toast for partner or error-related disconnection
       setIsDisconnected(true);
       setChatState('disconnected');
       toast.error('Your chat partner has disconnected.', {
-        id: 'disconnected-toast',
+        id: 'partner-disconnect-toast',
       });
     }
+  
+    // Reset the self-initiated disconnect flag
     isSelfInitiatedDisconnectRef.current = false;
+  
+    // Clean up the peer instance and related event listeners
     if (peerRef.current) {
       peerRef.current.destroy();
       peerRef.current = null;
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
-      //console.log('Destroyed Peer instance due to partner leaving and removed event listeners.');
     }
   }, [handleSignal]);
+  
 
   // Process queued signaling data once connection is established
   const processSignalQueue = useCallback(() => {
@@ -199,21 +237,21 @@ export default function ChatPage() {
     }, 2000); // Adjust debounce duration as needed
   }, []);
 
-  // Handle moving to the next chat
   const handleNext = useCallback(() => {
     if (isDebouncingRef.current) {
-      //console.log('Debouncing active. Next chat request ignored.');
       return;
     }
-
+  
+    // Mark this as a self-initiated disconnect
     isSelfInitiatedDisconnectRef.current = true;
+  
     if (peerRef.current) {
       peerRef.current.destroy();
       peerRef.current = null;
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
-      //console.log('Destroyed existing Peer instance for next chat and removed event listeners.');
     }
+  
     setConnected(false);
     setRemoteStream(null);
     setMessages([]);
@@ -223,21 +261,20 @@ export default function ChatPage() {
     setIsDisconnected(false);
     setHasCameraError(false);
     setChatState('searching');
-
+  
     if (roomRef.current) {
       socketRef.current?.emit('leave', { room: roomRef.current });
-      //console.log(`Emitted "leave" event for room: ${roomRef.current}`);
       setRoom(null);
     }
-
+  
     startSearch();
-
+  
     setIsDebouncing(true);
     setTimeout(() => {
       setIsDebouncing(false);
-      //console.log('Debouncing reset.');
     }, 2000);
   }, [startSearch, handleSignal, handleLeave]);
+  
 
   // Handle 'match' events
   const handleMatch = useCallback(

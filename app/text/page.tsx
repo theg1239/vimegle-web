@@ -493,7 +493,7 @@ export default function TextChatPage() {
 
       // Notify the server only for newly seen messages
       textSocket.emit('messageSeen', { messageId, room: currentRoom });
-      console.log(`Message ${messageId} seen and notified to the server.`);
+      //console.log(`Message ${messageId} seen and notified to the server.`);
     },
     [currentRoom, textSocket, seenMessages]
   );

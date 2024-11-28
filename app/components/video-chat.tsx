@@ -53,9 +53,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
         await tf.ready();
         const nsfwModel = await nsfwjs.load('/models/mobilenet_v2/');
         setModel(nsfwModel);
-        console.log('NSFW.js model loaded.');
+        //console.log('NSFW.js model loaded.');
       } catch (error) {
-        console.error('Error loading NSFW.js model:', error);
+        //console.error('Error loading NSFW.js model:', error);
       }
     };
     loadModel();
@@ -96,7 +96,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
     try {
       const predictions = await model.classify(canvas);
-      console.log('NSFW Predictions:', predictions); // Debugging
+      //console.log('NSFW Predictions:', predictions); // Debugging
 
       const pornScore =
         predictions.find((p) => p.className === 'Porn')?.probability || 0;
@@ -116,7 +116,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
         return newScores;
       });
     } catch (error) {
-      console.error('Error analyzing frame with NSFW.js:', error);
+      //console.error('Error analyzing frame with NSFW.js:', error);
     }
   }, [model, remoteVideoRef, isBlocked, nsfwDetectionEnabled]);
 
@@ -153,7 +153,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     if (frameScores.length === FRAME_BUFFER_SIZE) {
       const averageScore =
         frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
-      console.log('Average NSFW Score:', averageScore); // Debugging
+      //console.log('Average NSFW Score:', averageScore); // Debugging
       if (averageScore > AVERAGE_THRESHOLD) {
         setIsNSFW(true);
         setIsBlocked(true);
