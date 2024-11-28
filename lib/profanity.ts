@@ -37,27 +37,25 @@ const profaneWords = [
   'M?',
   'F?',
   'weed',
-  'drugs'
+  'drugs',
 ];
 
 const profaneRegex = new RegExp(
-  `\\b(${profaneWords
+  profaneWords
     .map((word) =>
       word
-        .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-        .replace(
-          /\bm\s*\/\s*f\b|\bf\s*\/\s*m\b|\bm\s*or\s*f\b|\bf\s*or\s*m\b/gi,
-          'm[\\s\\/-]?f|f[\\s\\/-]?m'
-        )
+        .trim()
+        .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') 
+        .replace(/\s+/g, '\\s*') 
     )
-    .join('|')})\\b`,
+    .join('|'),
   'i'
 );
 
 export function isProfane(text: string): boolean {
   const normalizedText = text
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/gi, '')
+    .replace(/[^a-z0-9\s]/gi, '') 
     .trim();
 
   return profaneRegex.test(normalizedText);

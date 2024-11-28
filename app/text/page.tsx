@@ -123,6 +123,7 @@ const PeerSearchingModal: FC<{
   </motion.div>
 );
 
+
 const PeerDisconnectedModal: FC<{
   onStartNewChat: () => void;
   darkMode: boolean;
@@ -504,22 +505,19 @@ export default function TextChatPage() {
         setIsUserInitiatedDisconnect(false);
         return;
       }
-
+  
       setConnected(false);
       setMessages([]);
       setCurrentRoom('');
-      setIsDisconnected(true);
-      setIsSearching(false);
-      setNoUsersOnline(false);
       setReplyTo(null);
       setMatchedTags([]);
-
+      setChatState('idle'); // Reset to home screen
+  
       const toastId = 'peer-disconnected';
       toast.dismiss(toastId);
       toast.error(message || 'Your chat partner has disconnected.', { id: toastId });
-
-      if (soundEnabledRef.current && hasInteractedRef.current)
-        playDisconnectSound();
+  
+      if (soundEnabledRef.current && hasInteractedRef.current) playDisconnectSound();
     },
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
@@ -705,13 +703,19 @@ export default function TextChatPage() {
       startSearch();
     }
   }, [connected, currentRoom, startSearch]);
+  
+  const [chatState, setChatState] = useState<string>('idle');
 
   const handleReturnToSearch = useCallback(() => {
     setIsPeerSearching(false);
-    setShowTagMenu(true);
-    startSearch();
-  }, [startSearch]);
-
+    setConnected(false);
+    setMessages([]);
+    setCurrentRoom('');
+    setReplyTo(null);
+    setMatchedTags([]);
+    setChatState('idle'); 
+  }, []);
+  
   const handleCancelPeerSearching = useCallback(() => {
     setIsPeerSearching(false);
   }, []);
@@ -802,14 +806,18 @@ export default function TextChatPage() {
       onKeyDown={handleUserInteraction}
       onMouseMove={handleUserInteraction}
     >
-      <Toaster position="top-center" />
+      {/* Configure Toaster with bottom-center position */}
+      <Toaster position="bottom-center" />
 
+      {/* Background Watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span className="text-4xl font-bold opacity-5">Vimegle</span>
+        <span className="text-4xl font-bold opacity-5 select-none">Vimegle</span>
       </div>
 
+      {/* Tooltip */}
       <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence>
 
+      {/* Peer Searching Modal */}
       <AnimatePresence>
         {isPeerSearching && (
           <PeerSearchingModal
@@ -819,6 +827,7 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
+      {/* Searching Modal */}
       <AnimatePresence>
         {isSearching && (
           <motion.div
@@ -826,21 +835,21 @@ export default function TextChatPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-40"
+            className="fixed inset-0 flex items-center justify-center bg-black/75 z-40 p-4"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-80 sm:w-96`}
+              className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
             >
               <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
-              <p className="text-xl font-bold text-gray-700 dark:text-gray-200">
+              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
                 Searching for a match...
               </p>
               {tags.length > 0 && (
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
                   Based on your tags: <strong>{tags.join(', ')}</strong>
                 </p>
               )}
@@ -865,6 +874,7 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
+      {/* No Users Online Modal */}
       <AnimatePresence>
         {noUsersOnline && (
           <motion.div
@@ -872,7 +882,7 @@ export default function TextChatPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
+            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50 p-4"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -881,7 +891,7 @@ export default function TextChatPage() {
               transition={{ duration: 0.3 }}
               className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
             >
-              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4">
+              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
                 No Users Found
               </p>
               <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
@@ -902,6 +912,7 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
+      {/* Disconnected Modal */}
       <AnimatePresence>
         {isDisconnected && (
           <PeerDisconnectedModal
@@ -911,6 +922,7 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
+      {/* Header */}
       <header
         className={`${
           darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
@@ -949,73 +961,72 @@ export default function TextChatPage() {
             <PopoverContent
               align="end"
               sideOffset={5}
-              className="w-72 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
+              className="w-full max-w-xs p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
             >
-<h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">
-  Select Tags
-</h3>
-<div className="flex flex-wrap gap-2">
-  {availableTags.map((tag) => (
-    <div key={tag} className="relative inline-block">
-      <Button
-        variant={tags.includes(tag) ? 'default' : 'outline'}
-        className={`${
-          tags.includes(tag)
-            ? 'bg-blue-500 text-white hover:bg-blue-600'
-            : darkMode
-            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-            : 'border-gray-300 text-gray-700 hover:bg-gray-200'
-        } rounded-full px-2 py-1 text-xs`}
-        onClick={() => toggleTag(tag)}
-      >
-        {tag}
-      </Button>
-      {customTag === tag && (
-        <button
-          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
-          onClick={() => {
-            setCustomTag(null); // Clear the custom tag
-            setTags((prevTags) => prevTags.filter((t) => t !== tag)); // Remove it from selected tags
-          }}
-          aria-label={`Remove ${tag}`}
-        >
-          ×
-        </button>
-      )}
-    </div>
-  ))}
-</div>
-<div className="mt-4">
-  <Input
-    value={customTagInput}
-    onChange={(e) => setCustomTagInput(e.target.value)}
-    placeholder="Add custom tag (max 6 letters)"
-    maxLength={6}
-    className="mb-2"
-    // Enable input regardless of the presence of a custom tag
-    disabled={false}
-    aria-label="Custom Tag Input"
-  />
-  <Button
-    onClick={handleAddCustomTag}
-    className="w-full"
-    // Allow adding new custom tags even if a custom tag exists
-    aria-label="Add Custom Tag"
-  >
-    Add Custom Tag
-  </Button>
-</div>
-<Button
-  onClick={() => {
-    setShowTagMenu(false);
-    startSearch();
-  }}
-  className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white"
-  aria-label="Search with Tags"
->
-  Search with Tags
-</Button>
-
+              <h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">
+                Select Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => (
+                  <div key={tag} className="relative inline-block">
+                    <Button
+                      variant={tags.includes(tag) ? 'default' : 'outline'}
+                      className={`${
+                        tags.includes(tag)
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : darkMode
+                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                          : 'border-gray-300 text-gray-700 hover:bg-gray-200'
+                      } rounded-full px-2 py-1 text-xs`}
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </Button>
+                    {customTag === tag && (
+                      <button
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                        onClick={() => {
+                          setCustomTag(null); // Clear the custom tag
+                          setTags((prevTags) => prevTags.filter((t) => t !== tag));
+                        }}
+                        aria-label={`Remove ${tag}`}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <Input
+                  value={customTagInput}
+                  onChange={(e) => setCustomTagInput(e.target.value)}
+                  placeholder="Add custom tag (max 6 letters)"
+                  maxLength={6}
+                  className="mb-2"
+                  // Enable input regardless of the presence of a custom tag
+                  disabled={false}
+                  aria-label="Custom Tag Input"
+                />
+                <Button
+                  onClick={handleAddCustomTag}
+                  className="w-full"
+                  // Allow adding new custom tags even if a custom tag exists
+                  aria-label="Add Custom Tag"
+                >
+                  Add Custom Tag
+                </Button>
+              </div>
+              <Button
+                onClick={() => {
+                  setShowTagMenu(false);
+                  startSearch();
+                }}
+                className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white"
+                aria-label="Search with Tags"
+              >
+                Search with Tags
+              </Button>
             </PopoverContent>
           </Popover>
 
@@ -1060,6 +1071,7 @@ export default function TextChatPage() {
         </div>
       </header>
 
+      {/* Main Content */}
       <main
         className={`flex-grow flex flex-col overflow-hidden ${
           darkMode
@@ -1069,10 +1081,10 @@ export default function TextChatPage() {
       >
         {connected && (
           <ScrollArea
-            className="flex-grow"
+            className="flex-grow p-2"
             ref={scrollAreaRef}
           >
-            <div className="flex flex-col gap-2 p-2">
+            <div className="flex flex-col gap-2">
               <AnimatePresence>
                 {messages.map((msg) => (
                   <MessageBubble
@@ -1194,6 +1206,7 @@ export default function TextChatPage() {
         )}
       </main>
 
+      {/* Footer */}
       <footer
         className={`${
           darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
@@ -1208,10 +1221,10 @@ export default function TextChatPage() {
                 darkMode
                   ? 'text-white hover:bg-gray-800'
                   : 'text-black hover:bg-gray-200'
-              }`}
+              } flex items-center space-x-1`}
               aria-label="Switch to Video Chat"
             >
-              <Video className="w-4 h-4 mr-1" />
+              <Video className="w-4 h-4" />
               <span className="text-xs hidden sm:inline">Video</span>
             </Button>
           </Link>
@@ -1224,7 +1237,7 @@ export default function TextChatPage() {
                   darkMode
                     ? 'text-white hover:bg-gray-800'
                     : 'text-black hover:bg-gray-200'
-                }`}
+                } rounded-full p-1`}
                 aria-label="Open Settings"
               >
                 <Settings className="w-4 h-4" />

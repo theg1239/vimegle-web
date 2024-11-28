@@ -584,7 +584,7 @@ export default function ChatPage() {
       onKeyDown={() => {}}
       onMouseMove={() => {}}
     >
-      <Toaster position="top-center" />
+      <Toaster position="bottom-center" />
       <header className="bg-black/50 backdrop-blur-sm p-4 flex justify-between items-center z-50">
         <div className="flex items-center space-x-4">
           <button

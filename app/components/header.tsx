@@ -14,7 +14,7 @@ const Header: React.FC = () => {
       </div>
 
       <nav className="flex-1 flex justify-center space-x-4">
-        <Link href="/video">
+        {/* <Link href="/video">
         <button className="px-3 py-1.5 text-sm font-medium text-white hover:text-purple-300 bg-transparent hover:bg-purple-500/20 rounded-full transition-colors">
         Video
           </button>
@@ -23,7 +23,7 @@ const Header: React.FC = () => {
         <button className="px-3 py-1.5 text-sm font-medium text-white hover:text-purple-300 bg-transparent hover:bg-purple-500/20 rounded-full transition-colors">
         Text
           </button>
-        </Link>
+        </Link> */}
         <Link href="/guidelines">
         <button className="px-3 py-1.5 text-sm font-medium text-white hover:text-purple-300 bg-transparent hover:bg-purple-500/20 rounded-full transition-colors">
         Guidelines

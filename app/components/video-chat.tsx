@@ -31,21 +31,22 @@ const VideoChat: React.FC<VideoChatProps> = ({
   const [frameScores, setFrameScores] = useState<number[]>([]);
 
   const WEIGHTS = {
-    Porn: 0.9,
-    Sexy: 0.8,
-    Hentai: 1.1,
-    Neutral: 0.2,
-    Drawing: 0.1,
+    Porn: 1.0,       // Increased weight for explicit content
+    Sexy: 0.5,       // Reduced weight for less explicit content
+    Hentai: 1.2,     // Increased weight for explicit content
+    Neutral: 0.0,    // Ignored benign content
+    Drawing: 0.0,    // Ignored benign content
   };
-  const AVERAGE_THRESHOLD = 0.85; // Adjust this for sensitivity
-  const FRAME_BUFFER_SIZE = 10; // Number of frames to average
+
+  const AVERAGE_THRESHOLD = 0.9; 
+  const FRAME_BUFFER_SIZE = 15;   
 
   useEffect(() => {
     const loadModel = async () => {
       try {
         const backend = tf.getBackend();
         if (backend !== 'webgl') {
-          await tf.setBackend('cpu');
+          await tf.setBackend('webgl');
         }
         await tf.ready();
         const nsfwModel = await nsfwjs.load('/models/mobilenet_v2/');
@@ -73,7 +74,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       const predictions = await model.classify(canvas);
       const weightedScore = predictions.reduce((sum, prediction) => {
         const weight = WEIGHTS[prediction.className] || 0;
-        return sum + prediction.probability * weight;
+        return sum + (prediction.probability * weight);
       }, 0);
 
       setFrameScores((prevScores) => {
@@ -84,14 +85,14 @@ const VideoChat: React.FC<VideoChatProps> = ({
     } catch (error) {
       console.error('Error analyzing frame with NSFW.js:', error);
     }
-  }, [model, remoteVideoRef, isBlocked]);
+  }, [model, remoteVideoRef, isBlocked, WEIGHTS, FRAME_BUFFER_SIZE]);
 
   useEffect(() => {
     if (!connected || !remoteStream || !model) return;
 
     const interval = setInterval(() => {
       analyzeFrame();
-    }, 500); // Check every 500ms
+    }, 500); 
 
     return () => clearInterval(interval);
   }, [connected, remoteStream, model, analyzeFrame]);
@@ -106,13 +107,17 @@ const VideoChat: React.FC<VideoChatProps> = ({
   }, [remoteStream, remoteVideoRef]);
 
   useEffect(() => {
-    const averageScore =
-      frameScores.length > 0 ? frameScores.reduce((a, b) => a + b, 0) / frameScores.length : 0;
-    if (averageScore > AVERAGE_THRESHOLD) {
-      setIsNSFW(true);
-      setIsBlocked(true);
+    if (frameScores.length === FRAME_BUFFER_SIZE) {
+      const averageScore = frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
+      if (averageScore > AVERAGE_THRESHOLD) {
+        setIsNSFW(true);
+        setIsBlocked(true);
+      } else {
+        setIsNSFW(false);
+        setIsBlocked(false);
+      }
     }
-  }, [frameScores]);
+  }, [frameScores, AVERAGE_THRESHOLD, FRAME_BUFFER_SIZE]);
 
   useEffect(() => {
     if (chatState === 'searching' || chatState === 'idle') {
@@ -174,12 +179,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
               <Loader2 className="w-12 h-12 animate-spin text-pink-500 mx-auto mb-4" />
               <p className="text-lg">Searching for a match...</p>
             </div>
-          ) : searchCancelled ? (
-            <div className="text-center">
-              <p className="text-lg">Search cancelled. Click "Find Match" to start chatting.</p>
-            </div>
           ) : hasCameraError ? (
             <div className="text-center">
+              <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
               <p className="text-lg">Camera access denied. Check your permissions.</p>
             </div>
           ) : null}
