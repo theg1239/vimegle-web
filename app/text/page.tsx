@@ -220,7 +220,9 @@ export default function TextChatPage() {
   const [searchCancelled, setSearchCancelled] = useState<boolean>(false);
   const [customTagInput, setCustomTagInput] = useState<string>('');
   const [customTag, setCustomTag] = useState<string | null>(null);
-  const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false);
+  const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false)
+  const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSelfTyping, setIsSelfTyping] = useState(false);;
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
@@ -236,6 +238,44 @@ export default function TextChatPage() {
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
+
+  const handleTypingFromPeer = useCallback(() => {
+    setIsTyping(true);
+  
+    // Clear existing timeout to prevent premature hiding
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+  
+    // Set a new timeout to hide the typing indicator after a delay
+    peerTypingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      peerTypingTimeoutRef.current = null;
+    }, 3000); // Adjust the delay as needed
+  }, []);
+
+  
+const handleStopTypingFromPeer = useCallback(() => {
+  if (peerTypingTimeoutRef.current) {
+    clearTimeout(peerTypingTimeoutRef.current);
+  }
+  setIsTyping(false);
+}, []);
+
+// Self Typing Event Handlers
+const handleTyping = useDebounce(() => {
+  if (connected && currentRoom) {
+    setIsSelfTyping(true);
+    textSocket.emit('typing', { room: currentRoom });
+  }
+}, 300);
+
+const handleStopTyping = useDebounce(() => {
+  if (connected && currentRoom) {
+    setIsSelfTyping(false);
+    textSocket.emit('stopTyping', { room: currentRoom });
+  }
+}, 2000);
 
   const defaultTags = useMemo(
     () => [
@@ -518,12 +558,6 @@ export default function TextChatPage() {
     [playMessageSound, messages, scrollToBottom, handleInView]
   );
 
-  // Handle Typing from Peer
-  const handleTypingFromPeer = useCallback(() => {
-    setIsTyping(true);
-    setTimeout(() => setIsTyping(false), 3000);
-  }, []);
-
   // Handle Reaction Updates
   const handleReactionUpdate = useCallback(
     ({ messageId, liked }: { messageId: string; liked: boolean }) => {
@@ -641,6 +675,7 @@ export default function TextChatPage() {
     textSocket.on('toastNotification', handleToastNotification);
     textSocket.on('peerSearching', handlePeerSearching);
     textSocket.on('peerDisconnected', handlePeerDisconnected);
+    textSocket.on('stopTyping', handleStopTypingFromPeer);
     textSocket.on('peerSearchingSelf', ({ message }: { message: string }) => {
       const toastId = 'peer-searching-self';
       toast.dismiss(toastId);
@@ -661,6 +696,7 @@ export default function TextChatPage() {
       textSocket.off('peerSearching', handlePeerSearching);
       textSocket.off('peerDisconnected', handlePeerDisconnected);
       textSocket.off('peerSearchingSelf');
+      textSocket.off('stopTyping', handleStopTypingFromPeer);
       textSocket.off('messageSeen', handleMessageSeen);
     };
   }, [
@@ -675,10 +711,9 @@ export default function TextChatPage() {
     handlePeerDisconnected,
     handleMessageSeen,
     handlePeerMessageSeen,
+    handleStopTypingFromPeer,
     textSocket,
   ]);
-
-  
   // Handle Before Unload (User leaves the page)
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -704,6 +739,12 @@ export default function TextChatPage() {
     }
     return defaultTags;
   }, [customTag, defaultTags]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputMessage(e.target.value);
+    handleTyping(); // Trigger typing status
+    handleStopTyping(); // Ensure typing stops after a delay
+  };
 
   // Toggle Tag Selection
   const toggleTag = (tag: string) => {
@@ -907,18 +948,12 @@ export default function TextChatPage() {
     scrollToBottom,
     textSocket,
   ]);
-  
 
   const handleTypingDebounced = useDebounce(() => {
     if (connected && currentRoom) {
       textSocket.emit('typing', { room: currentRoom });
     }
   }, 300);
-
-  const handleStopTyping = useDebounce(() => {
-    setIsTyping(false);
-    textSocket.emit('stopTyping', { room: currentRoom });
-  }, 1000);
 
   useEffect(() => {
     if (!textSocket) return;
@@ -1448,27 +1483,48 @@ export default function TextChatPage() {
               </div>
             </ScrollArea>
 
-            {/* Reply Preview */}
-            {replyTo && (
-              <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
-            )}
+{/* Input Box */}
+<div
+  className={`px-4 py-2 ${
+    darkMode ? 'bg-gray-800' : 'bg-gray-100'
+  }`}
+>
 
-            {/* Input Box */}
-            <div
-              className={`px-4 py-2 ${
-                darkMode ? 'bg-gray-800' : 'bg-gray-100'
-              }`}
-            >
-              <div className="relative">
-                <Input
+{replyTo && (
+    <ReplyPreview
+      originalMessage={replyTo}
+      onCancelReply={cancelReply}
+    />
+  )}
+  <div className="relative">
+ {/* Typing Indicator */}
+ {isTyping && !isSelfTyping && !replyTo && ( // Hide if replyTo is active
+  <div
+    className="absolute bottom-[72px] left-4 text-sm text-gray-500 dark:text-gray-300 flex items-center space-x-2"
+  >
+    <span>Stranger is typing</span>
+    <div className="flex space-x-1">
+      <div
+        className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+        style={{ animationDelay: '0s' }}
+      ></div>
+      <div
+        className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+        style={{ animationDelay: '0.2s' }}
+      ></div>
+      <div
+        className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+        style={{ animationDelay: '0.4s' }}
+      ></div>
+    </div>
+  </div>
+)}
+
+        <Input
                   id="message-input"
                   type="text"
                   value={inputMessage}
-                  onChange={(e) => {
-                    setInputMessage(e.target.value);
-                    handleTypingDebounced();
-                    handleStopTyping();
-                  }}
+                  onChange={handleInputChange}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleSendMessage();
                   }}

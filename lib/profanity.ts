@@ -63,6 +63,7 @@ export const profaneWords: string[] = [
   'sheik    hussain   beevi,',
   'ShEiK_HuSsAiNbEeVi',
   'sh3ik_hu$$ainb33v1',
+  'M ?'
 ];
 
 const profaneRegex = new RegExp(

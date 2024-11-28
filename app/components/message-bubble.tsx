@@ -91,18 +91,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.replyTo.text.length > 20 ? '...' : ''}
             </div>
           )}
-          <span
-            className={`${
-              isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
-            } break-words`}
-          >
-            <Twemoji
-              text={message.text}
-              options={{
-                className: 'inline-block align-middle',
-              }}
-            />
-          </span>
+<span
+  className={`${
+    isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
+  } break-words`}
+  style={{
+    wordBreak: 'break-word', // Ensures long unbroken text wraps correctly
+    whiteSpace: 'pre-wrap', // Keeps line breaks in the message
+    overflowWrap: 'break-word', // Handles long words gracefully
+  }}
+>
+  <Twemoji
+    text={message.text}
+    options={{
+      className: 'inline-block align-middle',
+    }}
+  />
+</span>
           <span
             className={`text-xs ${
               isSelf
