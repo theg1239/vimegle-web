@@ -61,7 +61,14 @@ const VideoChat: React.FC<VideoChatProps> = ({
   }, []);
 
   const analyzeFrame = useCallback(async () => {
-    if (!model || !canvasRef.current || !remoteVideoRef.current || isBlocked || !nsfwDetectionEnabled) return;
+    if (
+      !model ||
+      !canvasRef.current ||
+      !remoteVideoRef.current ||
+      isBlocked ||
+      !nsfwDetectionEnabled
+    )
+      return;
 
     const canvas = canvasRef.current;
     const video = remoteVideoRef.current;
@@ -81,17 +88,21 @@ const VideoChat: React.FC<VideoChatProps> = ({
       const predictions = await model.classify(canvas);
       console.log('NSFW Predictions:', predictions); // Debugging
 
-      const pornScore = predictions.find(p => p.className === 'Porn')?.probability || 0;
-      const hentaiScore = predictions.find(p => p.className === 'Hentai')?.probability || 0;
-      const combinedScore = pornScore * WEIGHTS.Porn + hentaiScore * WEIGHTS.Hentai;
+      const pornScore =
+        predictions.find((p) => p.className === 'Porn')?.probability || 0;
+      const hentaiScore =
+        predictions.find((p) => p.className === 'Hentai')?.probability || 0;
+      const combinedScore =
+        pornScore * WEIGHTS.Porn + hentaiScore * WEIGHTS.Hentai;
 
       // Immediate blocking on high confidence
-      if (combinedScore > 0.8) { // High confidence threshold
+      if (combinedScore > 0.8) {
+        // High confidence threshold
         setIsNSFW(true);
         setIsBlocked(true);
       }
 
-      setFrameScores(prevScores => {
+      setFrameScores((prevScores) => {
         const newScores = [...prevScores, combinedScore];
         if (newScores.length > FRAME_BUFFER_SIZE) newScores.shift();
         return newScores;
@@ -116,7 +127,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
       remoteVideoRef.current.srcObject = remoteStream;
 
       remoteVideoRef.current.onloadedmetadata = () => {
-        remoteVideoRef.current?.play().catch((e) => console.error('Error playing remote video:', e));
+        remoteVideoRef.current
+          ?.play()
+          .catch((e) => console.error('Error playing remote video:', e));
       };
 
       remoteVideoRef.current.onerror = (e) => {
@@ -127,7 +140,8 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
   useEffect(() => {
     if (frameScores.length === FRAME_BUFFER_SIZE) {
-      const averageScore = frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
+      const averageScore =
+        frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
       console.log('Average NSFW Score:', averageScore); // Debugging
       if (averageScore > AVERAGE_THRESHOLD) {
         setIsNSFW(true);
@@ -200,7 +214,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
           ) : hasCameraError ? (
             <div className="text-center">
               <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <p className="text-lg">Camera access denied. Check your permissions.</p>
+              <p className="text-lg">
+                Camera access denied. Check your permissions.
+              </p>
             </div>
           ) : null}
         </div>

@@ -741,8 +741,12 @@ export default function ChatPage() {
       {chatState === 'disconnected' && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white p-4 z-50">
           <div className="text-center p-4 bg-white dark:bg-gray-800 rounded shadow-lg w-full max-w-xs sm:max-w-sm">
-            <h2 className="text-lg sm:text-xl font-bold mb-2">Stranger Disconnected</h2>
-            <p className="text-sm sm:text-base mb-3 sm:mb-4">Your chat partner has left the chat.</p>
+            <h2 className="text-lg sm:text-xl font-bold mb-2">
+              Stranger Disconnected
+            </h2>
+            <p className="text-sm sm:text-base mb-3 sm:mb-4">
+              Your chat partner has left the chat.
+            </p>
             <Button
               onClick={startSearch}
               size="sm"

@@ -220,9 +220,9 @@ export default function TextChatPage() {
   const [searchCancelled, setSearchCancelled] = useState<boolean>(false);
   const [customTagInput, setCustomTagInput] = useState<string>('');
   const [customTag, setCustomTag] = useState<string | null>(null);
-  const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false)
+  const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false);
   const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSelfTyping, setIsSelfTyping] = useState(false);;
+  const [isSelfTyping, setIsSelfTyping] = useState(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
@@ -241,12 +241,12 @@ export default function TextChatPage() {
 
   const handleTypingFromPeer = useCallback(() => {
     setIsTyping(true);
-  
+
     // Clear existing timeout to prevent premature hiding
     if (peerTypingTimeoutRef.current) {
       clearTimeout(peerTypingTimeoutRef.current);
     }
-  
+
     // Set a new timeout to hide the typing indicator after a delay
     peerTypingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
@@ -254,28 +254,27 @@ export default function TextChatPage() {
     }, 3000); // Adjust the delay as needed
   }, []);
 
-  
-const handleStopTypingFromPeer = useCallback(() => {
-  if (peerTypingTimeoutRef.current) {
-    clearTimeout(peerTypingTimeoutRef.current);
-  }
-  setIsTyping(false);
-}, []);
+  const handleStopTypingFromPeer = useCallback(() => {
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+    setIsTyping(false);
+  }, []);
 
-// Self Typing Event Handlers
-const handleTyping = useDebounce(() => {
-  if (connected && currentRoom) {
-    setIsSelfTyping(true);
-    textSocket.emit('typing', { room: currentRoom });
-  }
-}, 300);
+  // Self Typing Event Handlers
+  const handleTyping = useDebounce(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(true);
+      textSocket.emit('typing', { room: currentRoom });
+    }
+  }, 300);
 
-const handleStopTyping = useDebounce(() => {
-  if (connected && currentRoom) {
-    setIsSelfTyping(false);
-    textSocket.emit('stopTyping', { room: currentRoom });
-  }
-}, 2000);
+  const handleStopTyping = useDebounce(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(false);
+      textSocket.emit('stopTyping', { room: currentRoom });
+    }
+  }, 2000);
 
   const defaultTags = useMemo(
     () => [
@@ -309,7 +308,6 @@ const handleStopTyping = useDebounce(() => {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
-  
   // Sound Effects
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
@@ -379,7 +377,6 @@ const handleStopTyping = useDebounce(() => {
     }
   }, [tags]);
 
-  
   // Reply Handling
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
@@ -473,17 +470,19 @@ const handleStopTyping = useDebounce(() => {
   const handleInView = useCallback(
     (messageId: string, inView: boolean) => {
       if (!inView) return; // Skip if the message is not in view
-  
+
       // Avoid unnecessary state updates
       if (seenMessages.has(messageId)) return;
-  
+
       setSeenMessages((prev) => new Set([...prev, messageId]));
-  
+
       // Update the specific message as seen
       setMessages((prevMessages) => {
-        const messageIndex = prevMessages.findIndex((msg) => msg.id === messageId && !msg.seen);
+        const messageIndex = prevMessages.findIndex(
+          (msg) => msg.id === messageId && !msg.seen
+        );
         if (messageIndex === -1) return prevMessages; // No change needed
-  
+
         const updatedMessages = [...prevMessages];
         updatedMessages[messageIndex] = {
           ...updatedMessages[messageIndex],
@@ -491,15 +490,13 @@ const handleStopTyping = useDebounce(() => {
         };
         return updatedMessages;
       });
-  
+
       // Notify the server only for newly seen messages
       textSocket.emit('messageSeen', { messageId, room: currentRoom });
       console.log(`Message ${messageId} seen and notified to the server.`);
     },
     [currentRoom, textSocket, seenMessages]
   );
-  
-  
 
   // Handle Text Message Event
   const handleTextMessage = useCallback(
@@ -648,7 +645,9 @@ const handleStopTyping = useDebounce(() => {
   // Handle Read Receipts (Additional Handler)
   const handleMessageSeen = useCallback(
     ({ messageId }: { messageId: string }) => {
-      const lastMessageIndex = messages.findIndex((msg) => msg.id === messageId);
+      const lastMessageIndex = messages.findIndex(
+        (msg) => msg.id === messageId
+      );
 
       if (lastMessageIndex !== -1) {
         setMessages((prevMessages) =>
@@ -724,7 +723,6 @@ const handleStopTyping = useDebounce(() => {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('unload', handleBeforeUnload);
-    
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
@@ -886,34 +884,34 @@ const handleStopTyping = useDebounce(() => {
 
   const handleSendMessage = useCallback(() => {
     if (!inputMessage.trim()) return;
-  
+
     if (isProfane(inputMessage)) {
       toast.error('Please refrain from using profanity.');
       return;
     }
-  
+
     const sanitizedMessage = DOMPurify.sanitize(inputMessage, {
       ALLOWED_TAGS: [],
       ALLOWED_ATTR: [],
     });
-  
+
     const messageId = uuidv4();
-  
+
     const decodedMessage = sanitizedMessage
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&');
-  
+
     textSocket.emit('textMessage', {
       room: currentRoom,
       message: decodedMessage,
       messageId,
       replyTo: replyTo ? replyTo.id : undefined,
     });
-  
+
     // Reset seen status for the peer
     textSocket.emit('resetSeenStatus', { room: currentRoom });
-  
+
     const newMessage: Message = {
       id: messageId,
       text: decodedMessage,
@@ -924,21 +922,21 @@ const handleStopTyping = useDebounce(() => {
       replyTo: replyTo || null,
       seen: false, // Self messages are marked as unseen
     };
-  
-    setMessages((prev) =>
-      prev.map((msg) => ({ ...msg, seen: false })) // Reset seen status for all messages
+
+    setMessages(
+      (prev) => prev.map((msg) => ({ ...msg, seen: false })) // Reset seen status for all messages
     );
-  
+
     setMessages((prev) => [...prev, newMessage]);
     setInputMessage('');
     setReplyTo(null);
-  
+
     setShowIntroMessage(false);
-  
+
     if (soundEnabledRef.current && hasInteractedRef.current) {
       playMessageSound();
     }
-  
+
     scrollToBottom();
   }, [
     inputMessage,
@@ -1045,21 +1043,21 @@ const handleStopTyping = useDebounce(() => {
         setChatState('idle');
       }
     };
-  
+
     // Add event listeners for back navigation
     window.addEventListener('popstate', handleBackNavigation);
     window.addEventListener('beforeunload', handleBackNavigation);
-  
+
     // Push initial state to prevent direct back navigation
     window.history.pushState(null, document.title, window.location.href);
-  
+
     return () => {
       // Clean up event listeners on component unmount
       window.removeEventListener('popstate', handleBackNavigation);
       window.removeEventListener('beforeunload', handleBackNavigation);
     };
   }, [notifyPeerDisconnection]);
-  
+
   const handleSwitchToVideo = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
@@ -1124,9 +1122,7 @@ const handleStopTyping = useDebounce(() => {
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <span
           className={`text-4xl font-bold select-none transition-opacity duration-300 ${
-            darkMode
-              ? 'opacity-5 text-white'
-              : 'opacity-10 text-gray-500'
+            darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
           }`}
         >
           Vimegle
@@ -1303,8 +1299,8 @@ const handleStopTyping = useDebounce(() => {
                         tags.includes(tag)
                           ? 'bg-blue-500 text-white hover:bg-blue-600'
                           : darkMode
-                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-200'
+                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-200'
                       } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
                       onClick={() => toggleTag(tag)}
                     >
@@ -1457,8 +1453,8 @@ const handleStopTyping = useDebounce(() => {
                         Welcome to Vimegle Text Chat!
                       </h3>
                       <p className="text-gray-700 dark:text-gray-300">
-                        You're now connected with a random stranger. Say hello and
-                        start chatting!
+                        You're now connected with a random stranger. Say hello
+                        and start chatting!
                       </p>
                       {matchedTags.length > 0 && (
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
@@ -1483,44 +1479,43 @@ const handleStopTyping = useDebounce(() => {
               </div>
             </ScrollArea>
 
-{/* Input Box */}
-<div
-  className={`px-4 py-2 ${
-    darkMode ? 'bg-gray-800' : 'bg-gray-100'
-  }`}
->
+            {/* Input Box */}
+            <div
+              className={`px-4 py-2 ${
+                darkMode ? 'bg-gray-800' : 'bg-gray-100'
+              }`}
+            >
+              {replyTo && (
+                <ReplyPreview
+                  originalMessage={replyTo}
+                  onCancelReply={cancelReply}
+                />
+              )}
+              <div className="relative">
+                {/* Typing Indicator */}
+                {isTyping &&
+                  !isSelfTyping &&
+                  !replyTo && ( // Hide if replyTo is active
+                    <div className="absolute bottom-[72px] left-4 text-sm text-gray-500 dark:text-gray-300 flex items-center space-x-2">
+                      <span>Stranger is typing</span>
+                      <div className="flex space-x-1">
+                        <div
+                          className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+                          style={{ animationDelay: '0s' }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+                          style={{ animationDelay: '0.2s' }}
+                        ></div>
+                        <div
+                          className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+                          style={{ animationDelay: '0.4s' }}
+                        ></div>
+                      </div>
+                    </div>
+                  )}
 
-{replyTo && (
-    <ReplyPreview
-      originalMessage={replyTo}
-      onCancelReply={cancelReply}
-    />
-  )}
-  <div className="relative">
- {/* Typing Indicator */}
- {isTyping && !isSelfTyping && !replyTo && ( // Hide if replyTo is active
-  <div
-    className="absolute bottom-[72px] left-4 text-sm text-gray-500 dark:text-gray-300 flex items-center space-x-2"
-  >
-    <span>Stranger is typing</span>
-    <div className="flex space-x-1">
-      <div
-        className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-        style={{ animationDelay: '0s' }}
-      ></div>
-      <div
-        className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-        style={{ animationDelay: '0.2s' }}
-      ></div>
-      <div
-        className="w-2 h-2 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-        style={{ animationDelay: '0.4s' }}
-      ></div>
-    </div>
-  </div>
-)}
-
-        <Input
+                <Input
                   id="message-input"
                   type="text"
                   value={inputMessage}
