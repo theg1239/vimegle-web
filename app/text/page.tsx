@@ -74,12 +74,12 @@ const Tooltip: FC = () => (
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: 20 }}
     transition={{ duration: 0.5 }}
-    className="fixed bottom-5 right-5 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50 max-w-xs"
+    className="fixed bottom-5 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
   >
     <p>We value your feedback!</p>
     <Link
       href="/feedback"
-      className="underline"
+      className="underline text-sm"
       target="_blank"
       rel="noopener noreferrer"
     >
@@ -97,7 +97,7 @@ const PeerSearchingModal: FC<{
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 flex items-center justify-center bg-black/75 z-50 p-4"
+    className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
   >
     <motion.div
       initial={{ scale: 0.8, opacity: 0 }}
@@ -116,7 +116,7 @@ const PeerSearchingModal: FC<{
             darkMode
               ? 'bg-blue-500 hover:bg-blue-600 text-white'
               : 'bg-blue-500 hover:bg-blue-600 text-white'
-          } rounded`}
+          } rounded-full shadow-md transition-colors duration-300`}
           aria-label="Return to Search"
         >
           Return to Search
@@ -134,7 +134,7 @@ const PeerDisconnectedModal: FC<{
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
     exit={{ opacity: 0 }}
-    className="fixed inset-0 flex items-center justify-center bg-black/75 z-50 p-4"
+    className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
   >
     <motion.div
       initial={{ scale: 0.8, opacity: 0 }}
@@ -155,7 +155,7 @@ const PeerDisconnectedModal: FC<{
           darkMode
             ? 'bg-blue-500 hover:bg-blue-600 text-white'
             : 'bg-blue-500 hover:bg-blue-600 text-white'
-        } rounded w-full`}
+        } rounded-full shadow-md transition-colors duration-300 w-full`}
         aria-label="Start New Chat"
       >
         Start New Chat
@@ -175,7 +175,7 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
   onCancelReply,
 }) => {
   return (
-    <div className="flex items-center space-x-2 mb-2 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg">
+    <div className="flex items-center space-x-2 mb-2 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-sm">
       <div className="flex-1 truncate">
         <span className="text-sm font-semibold">
           {originalMessage.isSelf ? 'You' : 'Stranger'}
@@ -945,14 +945,11 @@ export default function TextChatPage() {
   const handleInView = useCallback(
     (messageId: string) => {
       if (!hideSeenForMessageIds.has(messageId)) {
-        setMessages((prevMessages) => {
-          const message = prevMessages.find((msg) => msg.id === messageId);
-          if (message?.seen) return prevMessages;
-
-          return prevMessages.map((msg) =>
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
             msg.id === messageId ? { ...msg, seen: true } : msg
-          );
-        });
+          )
+        );
 
         setHideSeenForMessageIds((prev) => new Set([...prev, messageId]));
 
@@ -985,7 +982,7 @@ export default function TextChatPage() {
   return (
     <div
       className={`flex flex-col h-screen relative ${
-        darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'
+        darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
       }`}
       onClick={handleUserInteraction}
       onKeyDown={handleUserInteraction}
@@ -996,7 +993,13 @@ export default function TextChatPage() {
 
       {/* Background Watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span className="text-4xl font-bold opacity-5 select-none">
+        <span
+          className={`text-4xl font-bold select-none transition-opacity duration-300 ${
+            darkMode
+              ? 'opacity-5 text-white'
+              : 'opacity-10 text-gray-500'
+          }`}
+        >
           Vimegle
         </span>
       </div>
@@ -1022,7 +1025,7 @@ export default function TextChatPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-40 p-4"
+            className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -1051,7 +1054,7 @@ export default function TextChatPage() {
                 }}
                 variant="outline"
                 size="sm"
-                className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20`}
+                className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
                 aria-label="Cancel Search"
               >
                 Cancel
@@ -1069,7 +1072,7 @@ export default function TextChatPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50 p-4"
+            className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -1090,7 +1093,7 @@ export default function TextChatPage() {
                   setNoUsersOnline(false);
                   startSearch();
                 }}
-                className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded w-full"
+                className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
               >
                 Retry Search
               </Button>
@@ -1112,47 +1115,47 @@ export default function TextChatPage() {
       {/* Header */}
       <header
         className={`${
-          darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-        } border-b p-2 flex justify-between items-center`}
+          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        } border-b p-4 flex justify-between items-center shadow-sm`}
       >
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
           <button
             onClick={handleBack} // Handle back action
             className={`${
               darkMode
                 ? 'text-white hover:text-gray-300'
-                : 'text-black hover:text-gray-600'
+                : 'text-gray-700 hover:text-gray-500'
             } transition-colors`}
+            aria-label="Go Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
             Vimegle
           </h1>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-4">
           <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
             <PopoverTrigger asChild>
-            <Button
-  variant="ghost"
-  className={`${
-    darkMode
-      ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
-      : 'text-black bg-gray-200 hover:bg-gray-300 shadow-md'
-  } rounded-full p-3 sm:p-2 transition-all duration-300`}
-  aria-label="Advanced Search"
-  style={{
-    fontSize: '1rem', // Increase font size for better visibility
-    width: '48px', // Larger tap target
-    height: '48px',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-  }}
->
-  <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
-</Button>
-
+              <Button
+                variant="ghost"
+                className={`${
+                  darkMode
+                    ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
+                    : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
+                } rounded-full p-3 sm:p-2 transition-all duration-300`}
+                aria-label="Advanced Search"
+                style={{
+                  fontSize: '1rem', // Increase font size for better visibility
+                  width: '48px', // Larger tap target
+                  height: '48px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+              </Button>
             </PopoverTrigger>
             <PopoverContent
               align="end"
@@ -1173,14 +1176,14 @@ export default function TextChatPage() {
                           : darkMode
                           ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
                           : 'border-gray-300 text-gray-700 hover:bg-gray-200'
-                      } rounded-full px-2 py-1 text-xs`}
+                      } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
                       onClick={() => toggleTag(tag)}
                     >
                       {tag}
                     </Button>
                     {customTag === tag && (
                       <button
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md transition-colors duration-300"
                         onClick={() => {
                           setCustomTag(null); // Clear the custom tag
                           setTags((prevTags) =>
@@ -1208,8 +1211,7 @@ export default function TextChatPage() {
                 />
                 <Button
                   onClick={handleAddCustomTag}
-                  className="w-full"
-                  // Allow adding new custom tags even if a custom tag exists
+                  className="w-full bg-green-500 hover:bg-green-600 text-white rounded-full shadow-sm transition-colors duration-300"
                   aria-label="Add Custom Tag"
                 >
                   Add Custom Tag
@@ -1220,7 +1222,7 @@ export default function TextChatPage() {
                   setShowTagMenu(false);
                   startSearch();
                 }}
-                className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white"
+                className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-sm transition-colors duration-300"
                 aria-label="Search with Tags"
               >
                 Search with Tags
@@ -1242,9 +1244,9 @@ export default function TextChatPage() {
               size="sm"
               className={`${
                 darkMode
-                  ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-                  : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
-              }`}
+                  ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                  : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
               aria-label="Cancel Search"
             >
               Cancel
@@ -1256,9 +1258,9 @@ export default function TextChatPage() {
               size="sm"
               className={`${
                 darkMode
-                  ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-                  : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
-              }`}
+                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
               aria-label="Next Match"
             >
               Next
@@ -1270,9 +1272,9 @@ export default function TextChatPage() {
               size="sm"
               className={`${
                 darkMode
-                  ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-                  : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
-              }`}
+                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
               aria-label="Find Match"
             >
               Find Match
@@ -1318,28 +1320,28 @@ export default function TextChatPage() {
                       transition={{ duration: 0.3 }}
                       className={`p-4 rounded-lg ${
                         darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-                      }`}
+                      } shadow-inner`}
                     >
-                      <h3 className="font-bold mb-2">
+                      <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
                         Welcome to Vimegle Text Chat!
                       </h3>
-                      <p>
+                      <p className="text-gray-700 dark:text-gray-300">
                         You're now connected with a random stranger. Say hello and
                         start chatting!
                       </p>
                       {matchedTags.length > 0 && (
-                        <p className="mt-2 text-sm">
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                           Connected based on tags:{' '}
                           <strong>{matchedTags.join(', ')}</strong>
                         </p>
                       )}
                       {!matchedTags.length && (
-                        <p className="mt-2 text-sm">
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                           Connected to a stranger! Feel free to start the
                           conversation.
                         </p>
                       )}
-                      <p className="mt-2 text-sm">
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                         Remember to be respectful and follow our community
                         guidelines.
                       </p>
@@ -1379,12 +1381,12 @@ export default function TextChatPage() {
                   autoComplete="off"
                   className={`w-full ${
                     darkMode
-                      ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-                      : 'bg-white border-gray-300 text-black placeholder-gray-500'
-                  } pr-20 rounded-full text-sm`}
+                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                      : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+                  } pr-20 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   aria-label="Message Input"
                 />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
                   <Button
                     size="icon"
                     variant="ghost"
@@ -1392,11 +1394,11 @@ export default function TextChatPage() {
                     className={`${
                       darkMode
                         ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                        : 'text-gray-600 hover:text-black hover:bg-gray-200'
-                    } rounded-full w-8 h-8`}
+                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+                    } rounded-full w-10 h-10 transition-colors duration-300`}
                     aria-label="Toggle Emoji Picker"
                   >
-                    <Smile className="w-4 h-4" />
+                    <Smile className="w-5 h-5" />
                   </Button>
 
                   <Button
@@ -1407,15 +1409,19 @@ export default function TextChatPage() {
                       darkMode
                         ? 'bg-blue-600 hover:bg-blue-700'
                         : 'bg-blue-500 hover:bg-blue-600'
-                    } text-white rounded-full w-8 h-8`}
+                    } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
+                      !connected || !inputMessage.trim()
+                        ? 'opacity-50 cursor-not-allowed'
+                        : ''
+                    }`}
                     aria-label="Send Message"
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-5 h-5" />
                   </Button>
                 </div>
 
                 {showEmojiPicker && (
-                  <div className="absolute bottom-12 right-2 z-30">
+                  <div className="absolute bottom-14 right-2 z-30">
                     <EmojiPicker
                       onEmojiClick={handleEmojiClick}
                       theme={darkMode ? Theme.DARK : Theme.LIGHT}
@@ -1433,30 +1439,29 @@ export default function TextChatPage() {
       {/* Footer */}
       <footer
         className={`${
-          darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-        } border-t p-2 flex justify-between items-center`}
-        style={{ height: '56px' }} // Fixed footer height
+          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        } border-t p-4 flex justify-between items-center shadow-sm`}
       >
         {/* Left-aligned Content */}
-        <div className="flex space-x-2">
+        <div className="flex space-x-4">
           <Button
             onClick={handleSwitchToVideo}
             variant="ghost"
             size="sm"
             className={`${
               darkMode
-                ? 'text-white hover:bg-gray-800'
-                : 'text-black hover:bg-gray-200'
-            } flex items-center space-x-1`}
+                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+            } flex items-center space-x-2 rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
             aria-label="Switch to Video Chat"
           >
-            <Video className="w-4 h-4" />
-            <span className="text-xs hidden sm:inline">Video</span>
+            <Video className="w-5 h-5" />
+            <span className="text-sm hidden sm:inline">Video</span>
           </Button>
         </div>
 
         {/* Right-aligned Content */}
-        <div className="flex space-x-2">
+        <div className="flex space-x-4">
           {/* Settings Popover */}
           <Popover>
             <PopoverTrigger asChild>
@@ -1465,12 +1470,12 @@ export default function TextChatPage() {
                 size="sm"
                 className={`${
                   darkMode
-                    ? 'text-white hover:bg-gray-800'
-                    : 'text-black hover:bg-gray-200'
-                } rounded-full p-1`}
+                    ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                    : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                } rounded-full p-2 shadow-sm transition-colors duration-300`}
                 aria-label="Open Settings"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-5 h-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -1533,31 +1538,32 @@ export default function TextChatPage() {
           </Popover>
 
           {/* Flag and Alert Buttons */}
+          {/* Uncomment and style these buttons if needed in the future */}
           {/* <Button
             variant="ghost"
             size="sm"
             className={`${
               darkMode
-                ? 'text-white hover:bg-gray-800'
-                : 'text-black hover:bg-gray-200'
-            }`}
+                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+            } rounded-full p-2 shadow-sm transition-colors duration-300`}
             onClick={() => toast('Feature not implemented yet')}
             aria-label="Flag"
           >
-            <Flag className="w-4 h-4" />
+            <Flag className="w-5 h-5" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
             className={`${
               darkMode
-                ? 'text-white hover:bg-gray-800'
-                : 'text-black hover:bg-gray-200'
-            }`}
+                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+            } rounded-full p-2 shadow-sm transition-colors duration-300`}
             onClick={() => toast('Feature not implemented yet')}
             aria-label="Alert"
           >
-            <AlertTriangle className="w-4 h-4" />
+            <AlertTriangle className="w-5 h-5" />
           </Button> */}
         </div>
       </footer>
