@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2 } from 'lucide-react';
 
 interface VideoChatProps {
@@ -12,6 +13,11 @@ interface VideoChatProps {
   chatState: string;
 }
 
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+};
+
 const VideoChat: React.FC<VideoChatProps> = ({
   remoteVideoRef,
   connected,
@@ -24,10 +30,11 @@ const VideoChat: React.FC<VideoChatProps> = ({
 }) => {
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
+      console.log('Assigning remote stream to video element.');
       remoteVideoRef.current.srcObject = remoteStream;
 
       remoteStream.getTracks().forEach((track) => {
-        ////console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
+        console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
       });
 
       remoteVideoRef.current.onloadedmetadata = () => {
@@ -47,16 +54,17 @@ const VideoChat: React.FC<VideoChatProps> = ({
   }, [remoteStream, remoteVideoRef]);
 
   return (
-    <div className="relative w-full h-full rounded-lg overflow-hidden bg-black">
-      {connected && remoteStream ? (
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+    <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30 backdrop-blur-sm">
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        className="w-full h-full object-cover transform scale-x-[-1]"
+        aria-label="Remote Video"
+      />
+
+      {(!connected || !remoteStream) && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
           {isConnecting ? (
             <div className="text-center">
               <Loader2 className="w-12 h-12 animate-spin text-pink-500 mx-auto mb-4" />
@@ -104,6 +112,30 @@ const VideoChat: React.FC<VideoChatProps> = ({
           )}
         </div>
       )}
+
+      <AnimatePresence>
+        {!isSearching && !connected && !searchCancelled && (
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            variants={overlayVariants}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="absolute inset-0 flex items-center justify-center bg-black/75 text-white"
+          >
+            <div className="text-center">
+              <p className="text-2xl font-bold mb-4">
+                Waiting for connection...
+              </p>
+              <div className="inline-flex space-x-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-200"></div>
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-400"></div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
