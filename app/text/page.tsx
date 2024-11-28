@@ -346,6 +346,7 @@ export default function TextChatPage() {
     setReplyTo(null);
   }, []);
 
+  
   // Scroll to Bottom
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -427,6 +428,7 @@ export default function TextChatPage() {
     []
   );
 
+  
   // Handle Incoming Text Messages
   const handleTextMessage = useCallback(
     ({
@@ -859,6 +861,28 @@ export default function TextChatPage() {
     [handleTypingDebounced]
   );
 
+  const notifyPeerDisconnection = useCallback(() => {
+    if (textSocket && currentRoom) {
+      textSocket.emit('peerDisconnected', { room: currentRoom });
+    }
+  }, [currentRoom]);
+
+  const handleBack = useCallback(() => {
+    const confirmed = window.confirm(
+      'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
+    );
+    if (confirmed) {
+      notifyPeerDisconnection();
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setReplyTo(null);
+      setMatchedTags([]);
+      setChatState('idle'); 
+      window.history.back();
+    }
+  }, [notifyPeerDisconnection]);
+
   // Handle Double Tap for Reactions
   const handleDoubleTap = useCallback(
     (messageId: string, isSelf: boolean) => {
@@ -875,6 +899,27 @@ export default function TextChatPage() {
     },
     [textSocket, currentRoom, messages]
   );
+
+  const handleSwitchToVideo = useCallback(() => {
+    const confirmed = window.confirm(
+      'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
+    );
+  
+    if (!confirmed) {
+      return; // Exit early if the user cancels
+    }
+  
+    // If confirmed, proceed with the action
+    notifyPeerDisconnection();
+    setConnected(false);
+    setMessages([]);
+    setCurrentRoom('');
+    setReplyTo(null);
+    setMatchedTags([]);
+    setChatState('idle'); 
+    window.location.href = '/video'; // Redirect to video chat
+  }, [notifyPeerDisconnection, setConnected, setMessages, setCurrentRoom, setReplyTo, setMatchedTags, setChatState]);
+  
 
   const handleInView = useCallback(
     (messageId: string) => {
@@ -899,6 +944,23 @@ export default function TextChatPage() {
     const handleNewMessageFromRecipient = useCallback((messageId: string) => {
     setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
   }, []);
+
+  const handleNextChat = useCallback(() => {
+    const confirmed = window.confirm(
+      'Are you sure you want to move to the next chat? This will disconnect your current chat partner.'
+    );
+    if (confirmed) {
+      notifyPeerDisconnection();
+      setIsUserInitiatedDisconnect(true);
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setReplyTo(null);
+      setMatchedTags([]);
+      startSearch(); 
+    }
+  }, [notifyPeerDisconnection, startSearch]);
+
 
   return (
     <div
@@ -1032,8 +1094,8 @@ export default function TextChatPage() {
         } border-b p-2 flex justify-between items-center`}
       >
         <div className="flex items-center space-x-2">
-          <Link
-            href="/"
+          <button
+            onClick={handleBack} // Handle back action
             className={`${
               darkMode
                 ? 'text-white hover:text-gray-300'
@@ -1041,7 +1103,7 @@ export default function TextChatPage() {
             } transition-colors`}
           >
             <ArrowLeft className="w-5 h-5" />
-          </Link>
+          </button>
           <h1 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
             Vimegle
           </h1>
@@ -1152,7 +1214,7 @@ export default function TextChatPage() {
             </Button>
           ) : connected ? (
             <Button
-              onClick={handleNext}
+              onClick={handleNextChat}
               variant="outline"
               size="sm"
               className={`bg-white/10 hover:bg-white/20 text-white border-white/20`}
@@ -1337,21 +1399,20 @@ export default function TextChatPage() {
 >
   {/* Left-aligned Content */}
   <div className="flex space-x-2">
-    <Link href="/video">
-      <Button
-        variant="ghost"
-        size="sm"
-        className={`${
-          darkMode
-            ? 'text-white hover:bg-gray-800'
-            : 'text-black hover:bg-gray-200'
-        } flex items-center space-x-1`}
-        aria-label="Switch to Video Chat"
-      >
+    <Button
+            onClick={handleSwitchToVideo}
+            variant="ghost"
+            size="sm"
+            className={`${
+              darkMode
+                ? 'text-white hover:bg-gray-800'
+                : 'text-black hover:bg-gray-200'
+            } flex items-center space-x-1`}
+            aria-label="Switch to Video Chat"
+          >
         <Video className="w-4 h-4" />
         <span className="text-xs hidden sm:inline">Video</span>
       </Button>
-    </Link>
   </div>
 
   {/* Right-aligned Content */}
@@ -1375,7 +1436,7 @@ export default function TextChatPage() {
       <PopoverContent
         className={`w-72 p-4 rounded-lg shadow-lg ${
           darkMode
-            ? 'bg-gray-700 text-gray-100'
+            ? 'bg-gray-800 text-gray-100'
             : 'bg-gray-50 text-gray-800'
         }`}
       >
