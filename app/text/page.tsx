@@ -1186,7 +1186,7 @@ export default function TextChatPage() {
       : 'bg-gradient-to-b from-gray-100 to-white'
   }`}
   style={{
-    height: 'calc(100vh - 56px)',
+    height: 'calc(100vh - 112px)',
     overflow: 'auto',
   }}
 >
@@ -1252,84 +1252,88 @@ export default function TextChatPage() {
           <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
         )}
 
-        {connected && (
-          <div className="relative mt-2 p-2">
-            <Input
-              id="message-input"
-              type="text"
-              value={inputMessage}
-              onChange={(e) => {
-                setInputMessage(e.target.value);
-                handleTypingDebounced();
-                handleStopTyping();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSendMessage();
-              }}
-              placeholder="Type a message..."
-              disabled={!connected}
-              className={`w-full ${
-                darkMode
-                  ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-                  : 'bg-white border-gray-300 text-black placeholder-gray-500'
-              } pr-20 rounded-full text-sm`}
-              aria-label="Message Input"
-            />
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setShowEmojiPicker((prev) => !prev)}
-                className={`${
-                  darkMode
-                    ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                    : 'text-gray-600 hover:text-black hover:bg-gray-200'
-                } rounded-full w-8 h-8`}
-                aria-label="Toggle Emoji Picker"
-              >
-                <Smile className="w-4 h-4" />
-              </Button>
+{connected && (
+  <div
+    className={`fixed bottom-14 left-0 right-0 z-20 px-4 py-2 ${
+      darkMode ? 'bg-gray-800' : 'bg-gray-100'
+    }`}
+    style={{ height: '56px' }} // Ensure consistent height
+  >
+    <div className="relative">
+      <Input
+        id="message-input"
+        type="text"
+        value={inputMessage}
+        onChange={(e) => {
+          setInputMessage(e.target.value);
+          handleTypingDebounced();
+          handleStopTyping();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSendMessage();
+        }}
+        placeholder="Type a message..."
+        disabled={!connected}
+        autoComplete='off'
+        className={`w-full ${
+          darkMode
+            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
+            : 'bg-white border-gray-300 text-black placeholder-gray-500'
+        } pr-20 rounded-full text-sm`}
+        aria-label="Message Input"
+      />
+      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={() => setShowEmojiPicker((prev) => !prev)}
+          className={`${
+            darkMode
+              ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+              : 'text-gray-600 hover:text-black hover:bg-gray-200'
+          } rounded-full w-8 h-8`}
+          aria-label="Toggle Emoji Picker"
+        >
+          <Smile className="w-4 h-4" />
+        </Button>
 
-              <Button
-                onClick={handleSendMessage}
-                disabled={!connected || !inputMessage.trim()}
-                size="icon"
-                className={`${
-                  darkMode
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-blue-500 hover:bg-blue-600'
-                } text-white rounded-full w-8 h-8`}
-                aria-label="Send Message"
-              >
-                <Send className="w-4 h-4" />
-              </Button>
-            </div>
+        <Button
+          onClick={handleSendMessage}
+          disabled={!connected || !inputMessage.trim()}
+          size="icon"
+          className={`${
+            darkMode
+              ? 'bg-blue-600 hover:bg-blue-700'
+              : 'bg-blue-500 hover:bg-blue-600'
+          } text-white rounded-full w-8 h-8`}
+          aria-label="Send Message"
+        >
+          <Send className="w-4 h-4" />
+        </Button>
+      </div>
 
-            {showEmojiPicker && (
-              <div className="absolute bottom-12 right-2 z-10">
-                <EmojiPicker
-                  onEmojiClick={handleEmojiClick}
-                  theme={darkMode ? Theme.DARK : Theme.LIGHT}
-                  width={280}
-                  height={350}
-                />
-              </div>
-            )}
+      {showEmojiPicker && (
+        <div className="absolute bottom-12 right-2 z-30">
+          <EmojiPicker
+            onEmojiClick={handleEmojiClick}
+            theme={darkMode ? Theme.DARK : Theme.LIGHT}
+            width={280}
+            height={350}
+          />
+        </div>
+      )}
+    </div>
+  </div>
+  
+)}
+</main>
 
-            {/* Typing Indicator */}
-            {isTyping && (
-              <div className="absolute left-4 bottom-12 text-sm text-gray-500 dark:text-gray-400">
-                Stranger is typing...
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-      <footer
+{/* Footer */}
+<footer
   className={`${
     darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
   } border-t p-2 flex justify-between items-center fixed bottom-0 left-0 right-0 z-10`}
-  style={{ minHeight: '56px' }} // Ensure consistent height across devices
+  style={{ height: '56px' }} // Fixed footer height
 >
   {/* Left-aligned Content */}
   <div className="flex space-x-2">
