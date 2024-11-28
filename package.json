@@ -21,12 +21,14 @@
     "@shadcn/ui": "^0.0.4",
     "@socket.io/redis-adapter": "^8.3.0",
     "@tensorflow/tfjs": "^4.22.0",
+    "@types/xregexp": "^4.4.0",
     "@vercel/analytics": "^1.4.1",
     "@vercel/functions": "^1.5.0",
     "class-variance-authority": "^0.7.0",
     "dompurify": "^3.2.1",
     "emoji-picker-react": "^4.12.0",
     "framer-motion": "^11.11.17",
+    "iodash": "^0.0.1-security",
     "lucide-react": "^0.460.0",
     "next": "15.0.3",
     "next-themes": "^0.4.3",
@@ -43,10 +45,12 @@
     "simple-peer": "^9.11.1",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^2.5.4",
-    "uuid": "^11.0.3"
+    "uuid": "^11.0.3",
+    "xregexp": "^5.1.1"
   },
   "devDependencies": {
     "@types/bad-words": "^3.0.3",
+    "@types/lodash": "^4.17.13",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

@@ -1,6 +1,6 @@
-import Link from 'next/link'
-import { Button } from "@/app/components/ui/button"
-import Header from '@/app/components/header'
+import Link from 'next/link';
+import { Button } from '@/app/components/ui/button';
+import Header from '@/app/components/header';
 
 export default function TermsAndPrivacyPage() {
   return (
@@ -14,15 +14,19 @@ export default function TermsAndPrivacyPage() {
               Guidelines
             </h2>
             <p className="mt-4 text-lg text-gray-400 leading-relaxed max-w-md mx-auto">
-              Our commitment to transparency and user protection. Review our terms and privacy policy.
+              Our commitment to transparency and user protection. Review our
+              terms and privacy policy.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-12">
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-gray-200">Terms of Service</h3>
+              <h3 className="text-xl font-semibold text-gray-200">
+                Terms of Service
+              </h3>
               <p className="text-gray-400">
-                By using our service, you agree to abide by these terms. Our service is provided "as is" without warranties of any kind.
+                By using our service, you agree to abide by these terms. Our
+                service is provided "as is" without warranties of any kind.
               </p>
               <Button
                 asChild
@@ -33,9 +37,12 @@ export default function TermsAndPrivacyPage() {
               </Button>
             </div>
             <div className="space-y-4">
-              <h3 className="text-xl font-semibold text-gray-200">Privacy Policy</h3>
+              <h3 className="text-xl font-semibold text-gray-200">
+                Privacy Policy
+              </h3>
               <p className="text-gray-400">
-                We collect and use your data to provide and improve our service. Your privacy is important to us.
+                We collect and use your data to provide and improve our service.
+                Your privacy is important to us.
               </p>
               <Button
                 asChild
@@ -49,11 +56,12 @@ export default function TermsAndPrivacyPage() {
 
           <div className="text-center">
             <p className="text-sm text-gray-400 max-w-sm mx-auto">
-              For any questions regarding our terms or privacy policy, please contact our support team.
+              For any questions regarding our terms or privacy policy, please
+              contact our support team.
             </p>
           </div>
         </div>
       </section>
     </div>
-  )
+  );
 }

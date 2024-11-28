@@ -24,7 +24,7 @@ import {
   Loader2,
   SparklesIcon,
   X as CloseIcon,
-  Check
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { textSocket } from '@/lib/socket';
@@ -42,6 +42,7 @@ import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
+import { chunk } from 'lodash';
 
 // Custom hook for debouncing
 function useDebounce(callback: Function, delay: number) {
@@ -224,9 +225,12 @@ export default function TextChatPage() {
   const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] = useState<boolean>(false);
+  const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
+    useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
-  const [hideSeenForMessageIds, setHideSeenForMessageIds] = useState<Set<string>>(new Set());
+  const [hideSeenForMessageIds, setHideSeenForMessageIds] = useState<
+    Set<string>
+  >(new Set());
 
   // Refs for sound and interaction
   const soundEnabledRef = useRef<boolean>(soundEnabled);
@@ -346,7 +350,6 @@ export default function TextChatPage() {
     setReplyTo(null);
   }, []);
 
-  
   // Scroll to Bottom
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
@@ -370,7 +373,7 @@ export default function TextChatPage() {
       if (Array.isArray(matchedTags)) {
         tagsArray = matchedTags;
       } else if (typeof matchedTags === 'string' && matchedTags.trim() !== '') {
-        tagsArray = matchedTags.split(',').filter(tag => tag.trim() !== '');
+        tagsArray = matchedTags.split(',').filter((tag) => tag.trim() !== '');
       }
 
       setMatchedTags(tagsArray);
@@ -403,17 +406,16 @@ export default function TextChatPage() {
   );
 
   // Handle No Text Match
-  const handleNoTextMatch = useCallback(
-    ({ message }: { message: string }) => {
-      setIsSearching(false);
-      setNoUsersOnline(true);
+  const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
+    setIsSearching(false);
+    setNoUsersOnline(true);
 
-      const toastId = 'no-text-match';
-      toast.dismiss(toastId);
-      toast.error(message || 'No users found with matching tags.', { id: toastId });
-    },
-    []
-  );
+    const toastId = 'no-text-match';
+    toast.dismiss(toastId);
+    toast.error(message || 'No users found with matching tags.', {
+      id: toastId,
+    });
+  }, []);
 
   // Handle Search Cancelled
   const handleSearchCancelled = useCallback(
@@ -428,7 +430,6 @@ export default function TextChatPage() {
     []
   );
 
-  
   // Handle Incoming Text Messages
   const handleTextMessage = useCallback(
     ({
@@ -509,12 +510,12 @@ export default function TextChatPage() {
     },
     []
   );
-  
+
   useEffect(() => {
     if (!textSocket) return;
-  
+
     textSocket.on('peerMessageSeen', handlePeerMessageSeen);
-  
+
     return () => {
       textSocket.off('peerMessageSeen', handlePeerMessageSeen);
     };
@@ -535,7 +536,10 @@ export default function TextChatPage() {
 
       const toastId = 'peer-searching';
       toast.dismiss(toastId);
-      toast.error(message || 'Your chat partner is searching for a new match.', { id: toastId });
+      toast.error(
+        message || 'Your chat partner is searching for a new match.',
+        { id: toastId }
+      );
 
       if (soundEnabledRef.current && hasInteractedRef.current)
         playDisconnectSound();
@@ -560,9 +564,12 @@ export default function TextChatPage() {
 
       const toastId = 'peer-disconnected';
       toast.dismiss(toastId);
-      toast.error(message || 'Your chat partner has disconnected.', { id: toastId });
+      toast.error(message || 'Your chat partner has disconnected.', {
+        id: toastId,
+      });
 
-      if (soundEnabledRef.current && hasInteractedRef.current) playDisconnectSound();
+      if (soundEnabledRef.current && hasInteractedRef.current)
+        playDisconnectSound();
     },
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
@@ -796,7 +803,7 @@ export default function TextChatPage() {
     if (!inputMessage.trim()) return;
 
     if (isProfane(inputMessage)) {
-      toast.error("Please refrain from using profanity.");
+      toast.error('Please refrain from using profanity.');
       return;
     }
 
@@ -807,7 +814,10 @@ export default function TextChatPage() {
 
     const messageId = uuidv4();
 
-    const decodedMessage = sanitizedMessage.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    const decodedMessage = sanitizedMessage
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
 
     textSocket.emit('textMessage', {
       room: currentRoom,
@@ -840,17 +850,17 @@ export default function TextChatPage() {
     scrollToBottom();
   }, [inputMessage, currentRoom, replyTo, playMessageSound]);
 
-    const handleTypingDebounced = useDebounce(() => {
-      if (connected && currentRoom) {
-        textSocket.emit('typing', { room: currentRoom });
-      }
-    }, 300);
+  const handleTypingDebounced = useDebounce(() => {
+    if (connected && currentRoom) {
+      textSocket.emit('typing', { room: currentRoom });
+    }
+  }, 300);
 
-    const handleStopTyping = useDebounce(() => {
-      setIsTyping(false);
-      textSocket.emit('stopTyping', { room: currentRoom });
-    }, 1000);
-  
+  const handleStopTyping = useDebounce(() => {
+    setIsTyping(false);
+    textSocket.emit('stopTyping', { room: currentRoom });
+  }, 1000);
+
   // Handle Emoji Click
   const handleEmojiClick = useCallback(
     (emojiData: EmojiClickData, event: MouseEvent) => {
@@ -878,7 +888,7 @@ export default function TextChatPage() {
       setCurrentRoom('');
       setReplyTo(null);
       setMatchedTags([]);
-      setChatState('idle'); 
+      setChatState('idle');
       window.history.back();
     }
   }, [notifyPeerDisconnection]);
@@ -894,7 +904,11 @@ export default function TextChatPage() {
 
       const message = messages.find((msg) => msg.id === messageId);
       if (message) {
-        textSocket.emit('reaction', { room: currentRoom, messageId, liked: !message.liked });
+        textSocket.emit('reaction', {
+          room: currentRoom,
+          messageId,
+          liked: !message.liked,
+        });
       }
     },
     [textSocket, currentRoom, messages]
@@ -904,11 +918,11 @@ export default function TextChatPage() {
     const confirmed = window.confirm(
       'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
     );
-  
+
     if (!confirmed) {
       return; // Exit early if the user cancels
     }
-  
+
     // If confirmed, proceed with the action
     notifyPeerDisconnection();
     setConnected(false);
@@ -916,10 +930,17 @@ export default function TextChatPage() {
     setCurrentRoom('');
     setReplyTo(null);
     setMatchedTags([]);
-    setChatState('idle'); 
+    setChatState('idle');
     window.location.href = '/video'; // Redirect to video chat
-  }, [notifyPeerDisconnection, setConnected, setMessages, setCurrentRoom, setReplyTo, setMatchedTags, setChatState]);
-  
+  }, [
+    notifyPeerDisconnection,
+    setConnected,
+    setMessages,
+    setCurrentRoom,
+    setReplyTo,
+    setMatchedTags,
+    setChatState,
+  ]);
 
   const handleInView = useCallback(
     (messageId: string) => {
@@ -927,21 +948,21 @@ export default function TextChatPage() {
         setMessages((prevMessages) => {
           const message = prevMessages.find((msg) => msg.id === messageId);
           if (message?.seen) return prevMessages;
-  
+
           return prevMessages.map((msg) =>
             msg.id === messageId ? { ...msg, seen: true } : msg
           );
         });
-  
+
         setHideSeenForMessageIds((prev) => new Set([...prev, messageId]));
-  
+
         textSocket.emit('messageSeen', { messageId, room: currentRoom });
       }
     },
     [hideSeenForMessageIds, currentRoom]
   );
-  
-    const handleNewMessageFromRecipient = useCallback((messageId: string) => {
+
+  const handleNewMessageFromRecipient = useCallback((messageId: string) => {
     setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
   }, []);
 
@@ -957,10 +978,9 @@ export default function TextChatPage() {
       setCurrentRoom('');
       setReplyTo(null);
       setMatchedTags([]);
-      startSearch(); 
+      startSearch();
     }
   }, [notifyPeerDisconnection, startSearch]);
-
 
   return (
     <div
@@ -976,7 +996,9 @@ export default function TextChatPage() {
 
       {/* Background Watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span className="text-4xl font-bold opacity-5 select-none">Vimegle</span>
+        <span className="text-4xl font-bold opacity-5 select-none">
+          Vimegle
+        </span>
       </div>
 
       {/* Tooltip */}
@@ -1140,8 +1162,8 @@ export default function TextChatPage() {
                         tags.includes(tag)
                           ? 'bg-blue-500 text-white hover:bg-blue-600'
                           : darkMode
-                          ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-200'
+                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-200'
                       } rounded-full px-2 py-1 text-xs`}
                       onClick={() => toggleTag(tag)}
                     >
@@ -1152,7 +1174,9 @@ export default function TextChatPage() {
                         className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs"
                         onClick={() => {
                           setCustomTag(null); // Clear the custom tag
-                          setTags((prevTags) => prevTags.filter((t) => t !== tag));
+                          setTags((prevTags) =>
+                            prevTags.filter((t) => t !== tag)
+                          );
                         }}
                         aria-label={`Remove ${tag}`}
                       >
@@ -1223,40 +1247,41 @@ export default function TextChatPage() {
               Next
             </Button>
           ) : (
-<Button
-  onClick={startSearch}
-  variant="outline"
-  size="sm"
-  className={`${
-    darkMode
-      ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
-      : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
-  }`}
-  aria-label="Find Match"
->
-  Find Match
-</Button>
-
+            <Button
+              onClick={startSearch}
+              variant="outline"
+              size="sm"
+              className={`${
+                darkMode
+                  ? 'bg-white/10 hover:bg-white/20 text-white border-white/20'
+                  : 'bg-gray-100 hover:bg-gray-200 text-black border-gray-300'
+              }`}
+              aria-label="Find Match"
+            >
+              Find Match
+            </Button>
           )}
         </div>
       </header>
 
       <main
-  className={`flex-grow flex flex-col overflow-hidden ${
-    darkMode
-      ? 'bg-gradient-to-b from-gray-800 to-gray-900'
-      : 'bg-gradient-to-b from-gray-100 to-white'
-  }`}
-  style={{
-    height: '100vh',
-  }}
->    {connected && (
-    <ScrollArea
-      className="flex-grow overflow-y-auto px-4 pt-4 pb-2"  
-      style={{
-        height: 'calc(100vh - 112px)', // Subtract combined height of header and footer
-        paddingBottom: '1rem',
-      }} // Add spacing for a better view
+        className={`flex-grow flex flex-col overflow-hidden ${
+          darkMode
+            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+            : 'bg-gradient-to-b from-gray-100 to-white'
+        }`}
+        style={{
+          height: '100vh',
+        }}
+      >
+        {' '}
+        {connected && (
+          <ScrollArea
+            className="flex-grow overflow-y-auto px-4 pt-4 pb-2"
+            style={{
+              height: 'calc(100vh - 112px)', // Subtract combined height of header and footer
+              paddingBottom: '1rem',
+            }} // Add spacing for a better view
             ref={scrollAreaRef}
           >
             <div className="flex flex-col gap-2">
@@ -1298,11 +1323,13 @@ export default function TextChatPage() {
                     )}
                     {!matchedTags.length && (
                       <p className="mt-2 text-sm">
-                        Connected to a stranger! Feel free to start the conversation.
+                        Connected to a stranger! Feel free to start the
+                        conversation.
                       </p>
                     )}
                     <p className="mt-2 text-sm">
-                      Remember to be respectful and follow our community guidelines.
+                      Remember to be respectful and follow our community
+                      guidelines.
                     </p>
                   </motion.div>
                 )}
@@ -1311,97 +1338,94 @@ export default function TextChatPage() {
             </div>
           </ScrollArea>
         )}
-
         {replyTo && (
           <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
         )}
+        {connected && (
+          <div
+            className={`fixed bottom-14 left-0 right-0 z-20 px-4 py-2 ${
+              darkMode ? 'bg-gray-800' : 'bg-gray-100'
+            }`}
+            style={{ height: '56px' }} // Ensure consistent height
+          >
+            <div className="relative">
+              <Input
+                id="message-input"
+                type="text"
+                value={inputMessage}
+                onChange={(e) => {
+                  setInputMessage(e.target.value);
+                  handleTypingDebounced();
+                  handleStopTyping();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleSendMessage();
+                }}
+                placeholder="Type a message..."
+                disabled={!connected}
+                autoComplete="off"
+                className={`w-full ${
+                  darkMode
+                    ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
+                    : 'bg-white border-gray-300 text-black placeholder-gray-500'
+                } pr-20 rounded-full text-sm`}
+                aria-label="Message Input"
+              />
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setShowEmojiPicker((prev) => !prev)}
+                  className={`${
+                    darkMode
+                      ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                      : 'text-gray-600 hover:text-black hover:bg-gray-200'
+                  } rounded-full w-8 h-8`}
+                  aria-label="Toggle Emoji Picker"
+                >
+                  <Smile className="w-4 h-4" />
+                </Button>
 
-{connected && (
-  <div
-    className={`fixed bottom-14 left-0 right-0 z-20 px-4 py-2 ${
-      darkMode ? 'bg-gray-800' : 'bg-gray-100'
-    }`}
-    style={{ height: '56px' }} // Ensure consistent height
-  >
-    <div className="relative">
-      <Input
-        id="message-input"
-        type="text"
-        value={inputMessage}
-        onChange={(e) => {
-          setInputMessage(e.target.value);
-          handleTypingDebounced();
-          handleStopTyping();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') handleSendMessage();
-        }}
-        placeholder="Type a message..."
-        disabled={!connected}
-        autoComplete='off'
-        className={`w-full ${
-          darkMode
-            ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-            : 'bg-white border-gray-300 text-black placeholder-gray-500'
-        } pr-20 rounded-full text-sm`}
-        aria-label="Message Input"
-      />
-      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => setShowEmojiPicker((prev) => !prev)}
-          className={`${
-            darkMode
-              ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-              : 'text-gray-600 hover:text-black hover:bg-gray-200'
-          } rounded-full w-8 h-8`}
-          aria-label="Toggle Emoji Picker"
-        >
-          <Smile className="w-4 h-4" />
-        </Button>
+                <Button
+                  onClick={handleSendMessage}
+                  disabled={!connected || !inputMessage.trim()}
+                  size="icon"
+                  className={`${
+                    darkMode
+                      ? 'bg-blue-600 hover:bg-blue-700'
+                      : 'bg-blue-500 hover:bg-blue-600'
+                  } text-white rounded-full w-8 h-8`}
+                  aria-label="Send Message"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
 
-        <Button
-          onClick={handleSendMessage}
-          disabled={!connected || !inputMessage.trim()}
-          size="icon"
-          className={`${
-            darkMode
-              ? 'bg-blue-600 hover:bg-blue-700'
-              : 'bg-blue-500 hover:bg-blue-600'
-          } text-white rounded-full w-8 h-8`}
-          aria-label="Send Message"
-        >
-          <Send className="w-4 h-4" />
-        </Button>
-      </div>
+              {showEmojiPicker && (
+                <div className="absolute bottom-12 right-2 z-30">
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiClick}
+                    theme={darkMode ? Theme.DARK : Theme.LIGHT}
+                    width={280}
+                    height={350}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
 
-      {showEmojiPicker && (
-        <div className="absolute bottom-12 right-2 z-30">
-          <EmojiPicker
-            onEmojiClick={handleEmojiClick}
-            theme={darkMode ? Theme.DARK : Theme.LIGHT}
-            width={280}
-            height={350}
-          />
-        </div>
-      )}
-    </div>
-  </div>
-  
-)}
-</main>
-
-{/* Footer */}
-<footer
-  className={`${
-    darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-  } border-t p-2 flex justify-between items-center fixed bottom-0 left-0 right-0 z-10`}
-  style={{ height: '56px' }} // Fixed footer height
->
-  {/* Left-aligned Content */}
-  <div className="flex space-x-2">
-    <Button
+      {/* Footer */}
+      <footer
+        className={`${
+          darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
+        } border-t p-2 flex justify-between items-center fixed bottom-0 left-0 right-0 z-10`}
+        style={{ height: '56px' }} // Fixed footer height
+      >
+        {/* Left-aligned Content */}
+        <div className="flex space-x-2">
+          <Button
             onClick={handleSwitchToVideo}
             variant="ghost"
             size="sm"
@@ -1412,90 +1436,90 @@ export default function TextChatPage() {
             } flex items-center space-x-1`}
             aria-label="Switch to Video Chat"
           >
-        <Video className="w-4 h-4" />
-        <span className="text-xs hidden sm:inline">Video</span>
-      </Button>
-  </div>
-
-  {/* Right-aligned Content */}
-  <div className="flex space-x-2">
-    {/* Settings Popover */}
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`${
-            darkMode
-              ? 'text-white hover:bg-gray-800'
-              : 'text-black hover:bg-gray-200'
-          } rounded-full p-1`}
-          aria-label="Open Settings"
-        >
-          <Settings className="w-4 h-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className={`w-72 p-4 rounded-lg shadow-lg ${
-          darkMode
-            ? 'bg-gray-800 text-gray-100'
-            : 'bg-gray-50 text-gray-800'
-        }`}
-      >
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <h4 className="font-medium leading-none">Settings</h4>
-            <p className="text-xs text-gray-400">
-              Customize your chat experience
-            </p>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <Label
-              htmlFor="dark-mode"
-              className={`${
-                darkMode ? 'text-gray-200' : 'text-gray-700'
-              } text-sm`}
-            >
-              Dark Mode
-            </Label>
-            <Switch
-              id="dark-mode"
-              checked={darkMode}
-              onCheckedChange={setDarkMode}
-              className={`${
-                darkMode
-                  ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                  : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-              }`}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label
-              htmlFor="sound"
-              className={`${
-                darkMode ? 'text-gray-200' : 'text-gray-700'
-              } text-sm`}
-            >
-              Sound
-            </Label>
-            <Switch
-              id="sound"
-              checked={soundEnabled}
-              onCheckedChange={setSoundEnabled}
-              className={`${
-                darkMode
-                  ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                  : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-              }`}
-            />
-          </div>
+            <Video className="w-4 h-4" />
+            <span className="text-xs hidden sm:inline">Video</span>
+          </Button>
         </div>
-      </PopoverContent>
-    </Popover>
 
-    {/* Flag and Alert Buttons */}
-    {/* <Button
+        {/* Right-aligned Content */}
+        <div className="flex space-x-2">
+          {/* Settings Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`${
+                  darkMode
+                    ? 'text-white hover:bg-gray-800'
+                    : 'text-black hover:bg-gray-200'
+                } rounded-full p-1`}
+                aria-label="Open Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className={`w-72 p-4 rounded-lg shadow-lg ${
+                darkMode
+                  ? 'bg-gray-800 text-gray-100'
+                  : 'bg-gray-50 text-gray-800'
+              }`}
+            >
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Settings</h4>
+                  <p className="text-xs text-gray-400">
+                    Customize your chat experience
+                  </p>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="dark-mode"
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
+                  >
+                    Dark Mode
+                  </Label>
+                  <Switch
+                    id="dark-mode"
+                    checked={darkMode}
+                    onCheckedChange={setDarkMode}
+                    className={`${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="sound"
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
+                  >
+                    Sound
+                  </Label>
+                  <Switch
+                    id="sound"
+                    checked={soundEnabled}
+                    onCheckedChange={setSoundEnabled}
+                    className={`${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Flag and Alert Buttons */}
+          {/* <Button
       variant="ghost"
       size="sm"
       className={`${
@@ -1521,10 +1545,8 @@ export default function TextChatPage() {
     >
       <AlertTriangle className="w-4 h-4" />
     </Button> */}
-  </div>
-</footer>
-
-
+        </div>
+      </footer>
     </div>
   );
 }

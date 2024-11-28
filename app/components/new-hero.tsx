@@ -9,9 +9,7 @@ export function HeroSection() {
   return (
     <div className="min-h-screen flex flex-col md:flex-row overflow-hidden">
       {/* Video Chat Section */}
-      <div
-        className="flex-1 bg-gradient-to-br from-purple-900 to-indigo-900 flex flex-col items-center justify-center text-white p-6 md:p-12"
-      >
+      <div className="flex-1 bg-gradient-to-br from-purple-900 to-indigo-900 flex flex-col items-center justify-center text-white p-6 md:p-12">
         <Video className="w-12 h-12 md:w-16 md:h-16 mb-4 md:mb-6 text-purple-300" />
         <h2 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4 text-center">
           Video Chat
@@ -30,9 +28,7 @@ export function HeroSection() {
         </Link>
       </div>
       {/* Text Chat Section */}
-      <div
-        className="flex-1 bg-gradient-to-bl from-indigo-900 to-purple-900 flex flex-col items-center justify-center text-white p-6 md:p-12"
-      >
+      <div className="flex-1 bg-gradient-to-bl from-indigo-900 to-purple-900 flex flex-col items-center justify-center text-white p-6 md:p-12">
         <MessageSquare className="w-12 h-12 md:w-16 md:h-16 mb-4 md:mb-6 text-indigo-300" />
         <h2 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4 text-center">
           Text Chat

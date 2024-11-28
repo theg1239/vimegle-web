@@ -13,7 +13,9 @@ const MIN_HEIGHT = MIN_WIDTH / ASPECT_RATIO;
 const MAX_WIDTH = 640; // Example maximum width
 const MAX_HEIGHT = MAX_WIDTH / ASPECT_RATIO;
 
-export default function DraggableLocalVideo({ localStream }: DraggableLocalVideoProps) {
+export default function DraggableLocalVideo({
+  localStream,
+}: DraggableLocalVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeHandleRef = useRef<HTMLDivElement>(null);
@@ -21,10 +23,18 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
-  
+
   const dragStartRef = useRef({ x: 0, y: 0 });
-  const resizeStartRef = useRef({ width: 160, height: 90, pointerX: 0, pointerY: 0 });
-  const positionRef = useRef({ x: window.innerWidth - 160, y: window.innerHeight / 2 - 48 });
+  const resizeStartRef = useRef({
+    width: 160,
+    height: 90,
+    pointerX: 0,
+    pointerY: 0,
+  });
+  const positionRef = useRef({
+    x: window.innerWidth - 160,
+    y: window.innerHeight / 2 - 48,
+  });
   const [renderPosition, setRenderPosition] = useState(positionRef.current);
   const [size, setSize] = useState({ width: 160, height: 90 }); // Initial size
 
@@ -36,55 +46,64 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
   }, [localStream]);
 
   // Handle dragging
-  const handleDragPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    if (isResizing) return; // Prevent dragging when resizing
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX - positionRef.current.x,
-      y: e.clientY - positionRef.current.y,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, [isResizing]);
+  const handleDragPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (isResizing) return; // Prevent dragging when resizing
+      setIsDragging(true);
+      dragStartRef.current = {
+        x: e.clientX - positionRef.current.x,
+        y: e.clientY - positionRef.current.y,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    [isResizing]
+  );
 
   // Handle resizing
-  const handleResizePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    setIsResizing(true);
-    resizeStartRef.current = {
-      width: size.width,
-      height: size.height,
-      pointerX: e.clientX,
-      pointerY: e.clientY,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-    e.stopPropagation(); // Prevent triggering drag
-  }, [size.width, size.height]);
+  const handleResizePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      setIsResizing(true);
+      resizeStartRef.current = {
+        width: size.width,
+        height: size.height,
+        pointerX: e.clientX,
+        pointerY: e.clientY,
+      };
+      e.currentTarget.setPointerCapture(e.pointerId);
+      e.stopPropagation(); // Prevent triggering drag
+    },
+    [size.width, size.height]
+  );
 
   // Handle pointer move
-  const handlePointerMove = useCallback((e: PointerEvent) => {
-    if (isDragging) {
-      let newX = e.clientX - dragStartRef.current.x;
-      let newY = e.clientY - dragStartRef.current.y;
+  const handlePointerMove = useCallback(
+    (e: PointerEvent) => {
+      if (isDragging) {
+        let newX = e.clientX - dragStartRef.current.x;
+        let newY = e.clientY - dragStartRef.current.y;
 
-      // Clamp position within viewport
-      newX = Math.max(0, Math.min(newX, window.innerWidth - size.width));
-      newY = Math.max(0, Math.min(newY, window.innerHeight - size.height));
+        // Clamp position within viewport
+        newX = Math.max(0, Math.min(newX, window.innerWidth - size.width));
+        newY = Math.max(0, Math.min(newY, window.innerHeight - size.height));
 
-      positionRef.current = { x: newX, y: newY };
-      requestAnimationFrame(() => {
-        setRenderPosition({ ...positionRef.current });
-      });
-    } else if (isResizing) {
-      const deltaX = e.clientX - resizeStartRef.current.pointerX;
-      const newWidth = resizeStartRef.current.width + deltaX;
-      const clampedWidth = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
-      const newHeight = clampedWidth / ASPECT_RATIO;
+        positionRef.current = { x: newX, y: newY };
+        requestAnimationFrame(() => {
+          setRenderPosition({ ...positionRef.current });
+        });
+      } else if (isResizing) {
+        const deltaX = e.clientX - resizeStartRef.current.pointerX;
+        const newWidth = resizeStartRef.current.width + deltaX;
+        const clampedWidth = Math.max(MIN_WIDTH, Math.min(newWidth, MAX_WIDTH));
+        const newHeight = clampedWidth / ASPECT_RATIO;
 
-      // Ensure height doesn't exceed maximum
-      const clampedHeight = Math.min(newHeight, MAX_HEIGHT);
+        // Ensure height doesn't exceed maximum
+        const clampedHeight = Math.min(newHeight, MAX_HEIGHT);
 
-      setSize({ width: clampedWidth, height: clampedHeight });
-    }
-  }, [isDragging, isResizing, size.width, size.height]);
+        setSize({ width: clampedWidth, height: clampedHeight });
+      }
+    },
+    [isDragging, isResizing, size.width, size.height]
+  );
 
   // Handle pointer up
   const handlePointerUp = useCallback(() => {
@@ -112,10 +131,13 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
   }, [isDragging, isResizing, handlePointerMove, handlePointerUp]);
 
   // Toggle minimize
-  const toggleMinimize = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    e.stopPropagation(); // Prevent triggering drag
-    setIsMinimized(prev => !prev);
-  }, []);
+  const toggleMinimize = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      e.stopPropagation(); // Prevent triggering drag
+      setIsMinimized((prev) => !prev);
+    },
+    []
+  );
 
   return (
     <div

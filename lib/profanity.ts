@@ -1,4 +1,5 @@
-// profanity.ts
+import XRegExp from 'xregexp';
+import { chunk } from 'lodash';
 
 export const profaneWords: string[] = [
   'nigger',
@@ -61,7 +62,7 @@ export const profaneWords: string[] = [
   's-h-e-i-k_h-u-s-s-a-i-n-b-e-e-v-i',
   'sheik    hussain   beevi,',
   'ShEiK_HuSsAiNbEeVi',
-  'sh3ik_hu$$ainb33v1'
+  'sh3ik_hu$$ainb33v1',
 ];
 
 const leetspeakMap: Record<string, string[]> = {
@@ -78,82 +79,51 @@ const leetspeakMap: Record<string, string[]> = {
   s: ['$', '5', '§', 'š'],
   t: ['7', '+'],
   u: ['ü', 'ú', 'ù', 'û'],
-  z: ['2', 'ž']
+  z: ['2', 'ž'],
 };
 
-/**
- * Function to normalize leetspeak and homoglyphs in the input text.
- * @param text The input string to normalize.
- * @returns The normalized string.
- */
 function normalizeLeetspeak(text: string): string {
-  let normalizedText = text;
-
-  for (const [char, replacements] of Object.entries(leetspeakMap)) {
-    const regex = new RegExp(`[${replacements.join('')}]`, 'gi');
-    normalizedText = normalizedText.replace(regex, char);
-  }
-
-  return normalizedText;
+  return Object.entries(leetspeakMap).reduce((acc, [char, replacements]) => {
+    const regex = XRegExp(`[${XRegExp.escape(replacements.join(''))}]`, 'gi');
+    return acc.replace(regex, char);
+  }, text);
 }
 
 function escapeRegex(pattern: string): string {
-  return pattern.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  return XRegExp.escape(pattern);
 }
 
-function createProfaneRegexChunks(words: string[], chunkSize: number): RegExp[] {
-  const chunks: RegExp[] = [];
-
-  for (let i = 0; i < words.length; i += chunkSize) {
-    const chunk = words.slice(i, i + chunkSize)
-      .map((word) => {
-        const escapedWord = escapeRegex(word.trim());
-
-        // Replace spaces with \s* to allow for spacing variations
-        const spacedWord = escapedWord.replace(/\s+/g, '\\s*');
-
-        let regexPattern = '';
-        let prevWasEscape = false;
-
-        for (let j = 0; j < spacedWord.length; j++) {
-          const char = spacedWord[j];
-          regexPattern += char;
-
-          if (prevWasEscape) {
-            // Skip adding '[^a-z0-9]*' after an escaped character
-            prevWasEscape = false;
-            continue;
-          }
-
-          if (char === '\\') {
-            // Next character is escaped; set flag to skip
-            prevWasEscape = true;
-          } else {
-            // Insert '[^a-z0-9]*' between characters to allow random non-alphanumerics
-            regexPattern += '[^a-z0-9]*';
-          }
-        }
-
-        // Remove trailing '[^a-z0-9]*' if present
-        if (regexPattern.endsWith('[^a-z0-9]*')) {
-          regexPattern = regexPattern.slice(0, -'[a-z0-9]*'.length);
-        }
-
-        return regexPattern;
-      })
-      .join('|'); // Join all words with OR operator
-
-    try {
-      // Create a case-insensitive regex
-      chunks.push(new RegExp(chunk, 'i'));
-    } catch (error) {
-      console.error(`Failed to create regex chunk: ${chunk}`);
-      throw error;
-    }
-  }
-
-  return chunks;
+function createProfaneRegexChunks(
+  words: string[],
+  chunkSize: number
+): RegExp[] {
+  return chunk(words, chunkSize)
+    .map((chunkedWords: string[]) => {
+      const combinedPattern = chunkedWords
+        .map((word: string) => {
+          const escapedWord = escapeRegex(word.trim());
+          return escapedWord
+            .replace(/\s+/g, '\\s*')
+            .replace(/./g, (char) =>
+              char === '\\' ? '\\' : `${char}[^a-z0-9]*`
+            );
+        })
+        .join('|');
+      try {
+        return new RegExp(`(${combinedPattern})`, 'i');
+      } catch (error) {
+        console.error(
+          `Failed to create regex chunk: ${combinedPattern}`,
+          error
+        );
+        return null as unknown as RegExp;
+      }
+    })
+    .filter(Boolean);
 }
+
+// Generate regex chunks globally
+const profaneRegexChunks: RegExp[] = createProfaneRegexChunks(profaneWords, 5);
 
 export function isProfane(text: string): boolean {
   const normalizedText = normalizeLeetspeak(
@@ -163,8 +133,5 @@ export function isProfane(text: string): boolean {
       .trim()
   );
 
-  return profaneRegexChunks.some((regex) => regex.test(normalizedText));
+  return profaneRegexChunks.some((regex: RegExp) => regex.test(normalizedText));
 }
-
-// Generate regexes from profane words with a safer chunk size
-const profaneRegexChunks: RegExp[] = createProfaneRegexChunks(profaneWords, 10); // Reduced chunk size to 10

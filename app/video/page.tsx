@@ -13,13 +13,20 @@ import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
 import DraggableLocalVideo from '@/app/components/draggable-local-video';
 import LocalVideo from '@/app/components/local-video';
 
-type ChatState = 'idle' | 'searching' | 'connecting' | 'connected' | 'disconnected';
+type ChatState =
+  | 'idle'
+  | 'searching'
+  | 'connecting'
+  | 'connected'
+  | 'disconnected';
 
 export default function ChatPage() {
   const [chatState, setChatState] = useState<ChatState>('idle');
   const [connected, setConnected] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>([]);
+  const [messages, setMessages] = useState<{ text: string; isSelf: boolean }[]>(
+    []
+  );
   const [isSearching, setIsSearching] = useState(false);
   const [room, setRoom] = useState<string | null>(null);
   const [isDebouncing, setIsDebouncing] = useState(false);
@@ -65,50 +72,51 @@ export default function ChatPage() {
   const handleSignal = useCallback(
     ({ room: signalRoom, data }: { room: string; data: any }) => {
       //console.log('Received "signal" event from socket:', { room: signalRoom, data });
-  
+
       if (!signalRoom) {
         console.error('Signal received without a room. Ignoring.');
         return;
       }
-  
+
       // Ensure the signal is for the current active room
       if (signalRoom !== roomRef.current) {
         console.warn(
-          `Received signal for room ${signalRoom}, but current room is ${roomRef.current}. Ignoring.`,
+          `Received signal for room ${signalRoom}, but current room is ${roomRef.current}. Ignoring.`
         );
         return;
       }
-  
+
       if (!data) {
         console.warn('Invalid signaling data received:', data);
         return;
       }
-  
+
       const signalId = JSON.stringify(data);
       if (processedSignals.current.has(signalId)) {
         console.warn('Duplicate signaling data received and ignored:', data);
         return;
       }
-  
+
       processedSignals.current.add(signalId);
-  
+
       if (!peerRef.current) {
         //console.log('Peer instance not ready. Queuing signal.');
         signalQueueRef.current.push(data);
         return;
       }
-  
+
       try {
         peerRef.current.signal(data);
         //console.log('Signaled Peer with data:', data);
       } catch (error) {
         console.error('Error signaling peer:', error);
-        toast.error('Error establishing connection.', { id: 'signal-error-toast' });
+        toast.error('Error establishing connection.', {
+          id: 'signal-error-toast',
+        });
       }
     },
     []
   );
-  
 
   // Handle 'leave' events
   const handleLeave = useCallback(() => {
@@ -122,7 +130,9 @@ export default function ChatPage() {
     if (!isSelfInitiatedDisconnectRef.current) {
       setIsDisconnected(true);
       setChatState('disconnected');
-      toast.error('Your chat partner has disconnected.', { id: 'disconnected-toast' });
+      toast.error('Your chat partner has disconnected.', {
+        id: 'disconnected-toast',
+      });
     }
     isSelfInitiatedDisconnectRef.current = false;
     if (peerRef.current) {
@@ -156,7 +166,9 @@ export default function ChatPage() {
 
     // Check camera and microphone permissions
     if (!localStreamRef.current) {
-      toast.error('Camera and microphone access is required to start a chat.', { id: 'permission-error-toast' });
+      toast.error('Camera and microphone access is required to start a chat.', {
+        id: 'permission-error-toast',
+      });
       console.error('Local stream not available. Cannot start search.');
       return;
     }
@@ -229,18 +241,14 @@ export default function ChatPage() {
 
   // Handle 'match' events
   const handleMatch = useCallback(
-    ({
-      initiator,
-      room,
-    }: {
-      initiator: boolean;
-      room: string;
-    }) => {
+    ({ initiator, room }: { initiator: boolean; room: string }) => {
       //console.log(`Received "match" event for room: ${room} as initiator: ${initiator}`);
 
       // Prevent handling multiple matches for the same room
       if (roomRef.current === room) {
-        console.warn(`Already connected to room ${room}. Ignoring duplicate match.`);
+        console.warn(
+          `Already connected to room ${room}. Ignoring duplicate match.`
+        );
         return;
       }
 
@@ -255,7 +263,9 @@ export default function ChatPage() {
       toast.success('Match found! Connecting...', { id: 'match-toast' });
 
       if (!localStreamRef.current) {
-        toast.error('Failed to get local media stream.', { id: 'media-error-toast' });
+        toast.error('Failed to get local media stream.', {
+          id: 'media-error-toast',
+        });
         setChatState('idle');
         return;
       }
@@ -298,7 +308,7 @@ export default function ChatPage() {
         //console.log('Peer signaling data:', data);
         socketRef.current?.emit('signal', { room: roomRef.current, data });
         //console.log('Emitted "signal" event to server with data:', data);
-      });      
+      });
 
       newPeer.on('stream', (stream) => {
         //console.log('Received remote stream.');
@@ -310,13 +320,17 @@ export default function ChatPage() {
         setConnected(true);
         setIsDisconnected(false);
         setChatState('connected');
-        toast.success('Connected to your chat partner!', { id: 'connected-toast' });
+        toast.success('Connected to your chat partner!', {
+          id: 'connected-toast',
+        });
         processSignalQueue();
       });
 
       newPeer.on('error', (err) => {
         console.error('Peer error:', err);
-        toast.error('Connection error. Attempting to find a new match...', { id: 'peer-error-toast' });
+        toast.error('Connection error. Attempting to find a new match...', {
+          id: 'peer-error-toast',
+        });
         handleNext();
       });
 
@@ -389,23 +403,29 @@ export default function ChatPage() {
   }, []);
 
   // Handle 'search_cancelled' events
-  const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
-    //console.log(`Received "search_cancelled" event: ${message}`);
-    setIsSearching(false);
-    setSearchCancelled(true);
-    infoToast(message);
-    setChatState('idle');
-  }, []);
+  const handleSearchCancelled = useCallback(
+    ({ message }: { message: string }) => {
+      //console.log(`Received "search_cancelled" event: ${message}`);
+      setIsSearching(false);
+      setSearchCancelled(true);
+      infoToast(message);
+      setChatState('idle');
+    },
+    []
+  );
 
   // Handle 'no_users_online' events
-  const handleNoUsersOnline = useCallback(({ message }: { message: string }) => {
-    //console.log(`Received "no_users_online" event: ${message}`);
-    setIsSearching(false);
-    setSearchCancelled(false);
-    setNoUsersOnline(true);
-    toast.error(message, { id: 'no-users-toast' });
-    setChatState('idle');
-  }, []);
+  const handleNoUsersOnline = useCallback(
+    ({ message }: { message: string }) => {
+      //console.log(`Received "no_users_online" event: ${message}`);
+      setIsSearching(false);
+      setSearchCancelled(false);
+      setNoUsersOnline(true);
+      toast.error(message, { id: 'no-users-toast' });
+      setChatState('idle');
+    },
+    []
+  );
 
   // Register Socket.io event listeners
   useEffect(() => {
@@ -437,7 +457,14 @@ export default function ChatPage() {
         //console.log('Destroyed Peer instance on unmount and removed event listeners.');
       }
     };
-  }, [handleMatch, handleNoMatch, handleSearchCancelled, handleNoUsersOnline, handleSignal, handleLeave]);
+  }, [
+    handleMatch,
+    handleNoMatch,
+    handleSearchCancelled,
+    handleNoUsersOnline,
+    handleSignal,
+    handleLeave,
+  ]);
 
   // Cancel search
   const handleCancelSearch = useCallback(() => {
@@ -473,12 +500,18 @@ export default function ChatPage() {
           setMessages((prev) => [...prev, { text: message, isSelf: true }]);
           //console.log('Sent message:', message);
         } else {
-          toast.error('Unable to send message. Connection is not open.', { id: 'send-error-toast' });
+          toast.error('Unable to send message. Connection is not open.', {
+            id: 'send-error-toast',
+          });
           console.error('Data channel not open. Cannot send message.');
         }
       } else {
-        toast.error('Unable to send message. You are not connected.', { id: 'not-connected-toast' });
-        console.error('Peer not connected or room not set. Cannot send message.');
+        toast.error('Unable to send message. You are not connected.', {
+          id: 'not-connected-toast',
+        });
+        console.error(
+          'Peer not connected or room not set. Cannot send message.'
+        );
       }
     },
     [chatState]
@@ -522,7 +555,7 @@ export default function ChatPage() {
           width: { ideal: 1280 },
           height: { ideal: 720 },
         };
-  
+
         if (connection) {
           if (connection.downlink < 1) {
             videoConstraints = {
@@ -532,7 +565,7 @@ export default function ChatPage() {
             //console.log('Adjusted video constraints based on network downlink.');
           }
         }
-  
+
         // Attempt to get audio and video
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
@@ -541,7 +574,10 @@ export default function ChatPage() {
         setLocalStream(stream);
         //console.log('Local media stream acquired.');
       } catch (videoError) {
-        console.warn('Video access failed, falling back to audio only:', videoError);
+        console.warn(
+          'Video access failed, falling back to audio only:',
+          videoError
+        );
         try {
           // Attempt to get only audio
           const audioStream = await navigator.mediaDevices.getUserMedia({
@@ -552,30 +588,31 @@ export default function ChatPage() {
           //console.log('Audio-only media stream acquired.');
         } catch (audioError) {
           console.error('Audio access also failed:', audioError);
-          toast.error('Failed to access microphone and camera.', { id: 'media-error-toast' });
+          toast.error('Failed to access microphone and camera.', {
+            id: 'media-error-toast',
+          });
           setHasCameraError(true);
           setChatState('idle');
         }
       }
     };
-  
+
     if (socketRef.current && socketRef.current.connected) {
       getMedia();
     } else {
       const handleConnect = () => {
         getMedia();
       };
-  
+
       socketRef.current?.on('connect', handleConnect);
       //console.log('Listening for socket "connect" event.');
-  
+
       return () => {
         socketRef.current?.off('connect', handleConnect);
         //console.log('Stopped listening for socket "connect" event.');
       };
     }
   }, []);
-  
 
   return (
     <div
@@ -686,7 +723,9 @@ export default function ChatPage() {
       {noUsersOnline && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/80 text-white p-4 z-50">
           <div className="text-center">
-            <p className="text-lg md:text-2xl font-bold mb-4">No other users online.</p>
+            <p className="text-lg md:text-2xl font-bold mb-4">
+              No other users online.
+            </p>
             <Button
               onClick={startSearch}
               className="px-4 py-2 bg-pink-500 hover:bg-pink-600 rounded"

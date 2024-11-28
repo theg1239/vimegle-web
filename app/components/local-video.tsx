@@ -22,12 +22,19 @@ export default function LocalVideo({ localStream }: LocalVideoProps) {
       if (isDragging && containerRef.current) {
         const dx = e.clientX - dragStart.x;
         const dy = e.clientY - dragStart.y;
-        const parentRect = containerRef.current.parentElement?.getBoundingClientRect();
+        const parentRect =
+          containerRef.current.parentElement?.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
 
         if (parentRect) {
-          const newX = Math.max(0, Math.min(position.x + dx, parentRect.width - containerRect.width));
-          const newY = Math.max(0, Math.min(position.y + dy, parentRect.height - containerRect.height));
+          const newX = Math.max(
+            0,
+            Math.min(position.x + dx, parentRect.width - containerRect.width)
+          );
+          const newY = Math.max(
+            0,
+            Math.min(position.y + dy, parentRect.height - containerRect.height)
+          );
           setPosition({ x: newX, y: newY });
         }
 
@@ -75,12 +82,22 @@ export default function LocalVideo({ localStream }: LocalVideoProps) {
           const touch = e.touches[0];
           const dx = touch.clientX - dragStart.x;
           const dy = touch.clientY - dragStart.y;
-          const parentRect = containerRef.current.parentElement?.getBoundingClientRect();
+          const parentRect =
+            containerRef.current.parentElement?.getBoundingClientRect();
           const containerRect = containerRef.current.getBoundingClientRect();
 
           if (parentRect) {
-            const newX = Math.max(0, Math.min(position.x + dx, parentRect.width - containerRect.width));
-            const newY = Math.max(0, Math.min(position.y + dy, parentRect.height - containerRect.height));
+            const newX = Math.max(
+              0,
+              Math.min(position.x + dx, parentRect.width - containerRect.width)
+            );
+            const newY = Math.max(
+              0,
+              Math.min(
+                position.y + dy,
+                parentRect.height - containerRect.height
+              )
+            );
             setPosition({ x: newX, y: newY });
           }
 
@@ -102,4 +119,3 @@ export default function LocalVideo({ localStream }: LocalVideoProps) {
     </div>
   );
 }
-

@@ -76,8 +76,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 ? 'bg-blue-600'
                 : 'bg-blue-500'
               : darkMode
-              ? 'bg-gray-700'
-              : 'bg-gray-300'
+                ? 'bg-gray-700'
+                : 'bg-gray-300'
           }`}
           onDoubleClick={() => onDoubleTap(message.id, isSelf)}
         >
@@ -93,11 +93,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           )}
           <span
             className={`${
-              isSelf
-                ? 'text-white'
-                : darkMode
-                ? 'text-white'
-                : 'text-black'
+              isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
             } break-words`}
           >
             <Twemoji
@@ -112,8 +108,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               isSelf
                 ? 'text-gray-300'
                 : darkMode
-                ? 'text-gray-400'
-                : 'text-gray-600'
+                  ? 'text-gray-400'
+                  : 'text-gray-600'
             } mt-1 block`}
           >
             {message.timestamp.toLocaleTimeString([], {

@@ -31,15 +31,15 @@ const VideoChat: React.FC<VideoChatProps> = ({
   const [frameScores, setFrameScores] = useState<number[]>([]);
 
   const WEIGHTS = {
-    Porn: 1.0,       // Increased weight for explicit content
-    Sexy: 0.5,       // Reduced weight for less explicit content
-    Hentai: 1.2,     // Increased weight for explicit content
-    Neutral: 0.0,    // Ignored benign content
-    Drawing: 0.0,    // Ignored benign content
+    Porn: 1.0, // Increased weight for explicit content
+    Sexy: 0.5, // Reduced weight for less explicit content
+    Hentai: 1.2, // Increased weight for explicit content
+    Neutral: 0.0, // Ignored benign content
+    Drawing: 0.0, // Ignored benign content
   };
 
-  const AVERAGE_THRESHOLD = 0.9; 
-  const FRAME_BUFFER_SIZE = 15;   
+  const AVERAGE_THRESHOLD = 0.9;
+  const FRAME_BUFFER_SIZE = 15;
 
   useEffect(() => {
     const loadModel = async () => {
@@ -59,7 +59,8 @@ const VideoChat: React.FC<VideoChatProps> = ({
   }, []);
 
   const analyzeFrame = useCallback(async () => {
-    if (!model || !canvasRef.current || !remoteVideoRef.current || isBlocked) return;
+    if (!model || !canvasRef.current || !remoteVideoRef.current || isBlocked)
+      return;
 
     const canvas = canvasRef.current;
     const video = remoteVideoRef.current;
@@ -74,7 +75,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       const predictions = await model.classify(canvas);
       const weightedScore = predictions.reduce((sum, prediction) => {
         const weight = WEIGHTS[prediction.className] || 0;
-        return sum + (prediction.probability * weight);
+        return sum + prediction.probability * weight;
       }, 0);
 
       setFrameScores((prevScores) => {
@@ -92,7 +93,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
     const interval = setInterval(() => {
       analyzeFrame();
-    }, 500); 
+    }, 500);
 
     return () => clearInterval(interval);
   }, [connected, remoteStream, model, analyzeFrame]);
@@ -108,7 +109,8 @@ const VideoChat: React.FC<VideoChatProps> = ({
 
   useEffect(() => {
     if (frameScores.length === FRAME_BUFFER_SIZE) {
-      const averageScore = frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
+      const averageScore =
+        frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
       if (averageScore > AVERAGE_THRESHOLD) {
         setIsNSFW(true);
         setIsBlocked(true);
@@ -145,10 +147,12 @@ const VideoChat: React.FC<VideoChatProps> = ({
       {(isNSFW || isBlocked) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10">
           <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse" />
-          <p className="text-white text-2xl font-bold mt-4">NSFW Content Detected</p>
+          <p className="text-white text-2xl font-bold mt-4">
+            NSFW Content Detected
+          </p>
           <p className="text-gray-300 mt-2 text-center">
-            This video contains potentially inappropriate content and has been blurred for your
-            safety.
+            This video contains potentially inappropriate content and has been
+            blurred for your safety.
           </p>
         </div>
       )}
@@ -162,7 +166,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
           >
             Vimegle
           </span>
-          <p className="text-lg mt-6 text-gray-300">Click "Find Match" to start chatting.</p>
+          <p className="text-lg mt-6 text-gray-300">
+            Click "Find Match" to start chatting.
+          </p>
         </div>
       )}
 
@@ -182,7 +188,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
           ) : hasCameraError ? (
             <div className="text-center">
               <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <p className="text-lg">Camera access denied. Check your permissions.</p>
+              <p className="text-lg">
+                Camera access denied. Check your permissions.
+              </p>
             </div>
           ) : null}
         </div>

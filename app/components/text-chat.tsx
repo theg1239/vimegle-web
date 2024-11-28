@@ -10,7 +10,12 @@ interface TextChatProps {
   onClose: () => void;
 }
 
-export default function TextChat({ messages, onSendMessage, connected, onClose }: TextChatProps) {
+export default function TextChat({
+  messages,
+  onSendMessage,
+  connected,
+  onClose,
+}: TextChatProps) {
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -41,24 +46,25 @@ export default function TextChat({ messages, onSendMessage, connected, onClose }
       </div>
       <div className="flex-grow overflow-y-auto p-4 flex flex-col-reverse">
         <div ref={messagesEndRef} />
-        {messages.slice().reverse().map((message, index) => (
-          <div
-            key={index}
-            className={`mb-2 ${
-              message.isSelf ? 'text-right' : 'text-left'
-            }`}
-          >
-            <span
-              className={`inline-block p-2 rounded-lg ${
-                message.isSelf
-                  ? 'bg-pink-500 text-white'
-                  : 'bg-gray-700 text-white'
-              }`}
+        {messages
+          .slice()
+          .reverse()
+          .map((message, index) => (
+            <div
+              key={index}
+              className={`mb-2 ${message.isSelf ? 'text-right' : 'text-left'}`}
             >
-              {message.text}
-            </span>
-          </div>
-        ))}
+              <span
+                className={`inline-block p-2 rounded-lg ${
+                  message.isSelf
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-gray-700 text-white'
+                }`}
+              >
+                {message.text}
+              </span>
+            </div>
+          ))}
       </div>
       <form onSubmit={handleSendMessage} className="p-2 bg-gray-900">
         <div className="flex space-x-2">
@@ -78,4 +84,3 @@ export default function TextChat({ messages, onSendMessage, connected, onClose }
     </div>
   );
 }
-
