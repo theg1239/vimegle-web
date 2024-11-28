@@ -38,7 +38,52 @@ const profaneWords = [
   'F?',
   'weed',
   'drugs',
+  'sheik_hussainbeevi',
+  'sheik hussain beevi',
+  'sheik_hussain beevi',
+  'sheik hussainbeevi',
+  'sheikhussainbeevi',
+  'sheik hussainbeevi',
+  'sh3ik_hussainbeevi',
+  'sheik_hussainb33vi',
+  'beevi_hussain_sheik',
+  'sheik hussain',
+  'sheik#hussainbeevi',
+  'sh3!k_hussainbeevi',
+  'sh3ik_hu$$ainb33v1',
+  'sheik_hussainb33vi',
+  'sheik__hussainbeevi',
+  '_sheik_hussainbeevi_',
+  'sheik@hussain@beevi'
 ];
+
+const leetspeakMap: Record<string, string[]> = {
+  a: ['4', '@', 'á', 'à', 'ä', 'â', 'ã'],
+  b: ['8', 'ß'],
+  c: ['<', '©'],
+  e: ['3', '€', 'é', 'è', 'ê', 'ë'],
+  g: ['9', '6'],
+  h: ['#'],
+  i: ['1', '!', '|', 'í', 'ì', 'î', 'ï', 'l'],
+  k: ['κ'],
+  l: ['1', '|', '£'],
+  o: ['0', 'ó', 'ò', 'ö', 'ô', 'õ', 'ø'],
+  s: ['$', '5', '§', 'š'],
+  t: ['7', '+'],
+  u: ['ü', 'ú', 'ù', 'û'],
+  z: ['2', 'ž']
+};
+
+function normalizeLeetspeak(text: string): string {
+  let normalizedText = text;
+
+  for (const [char, replacements] of Object.entries(leetspeakMap)) {
+    const regex = new RegExp(`[${replacements.join('')}]`, 'gi');
+    normalizedText = normalizedText.replace(regex, char);
+  }
+
+  return normalizedText;
+}
 
 const profaneRegex = new RegExp(
   profaneWords
@@ -47,16 +92,20 @@ const profaneRegex = new RegExp(
         .trim()
         .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') 
         .replace(/\s+/g, '\\s*') 
+        .split('')
+        .join('[^a-z0-9]*') 
     )
     .join('|'),
   'i'
 );
 
 export function isProfane(text: string): boolean {
-  const normalizedText = text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/gi, '') 
-    .trim();
+  const normalizedText = normalizeLeetspeak(
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/gi, '') 
+      .trim()
+  );
 
   return profaneRegex.test(normalizedText);
 }
