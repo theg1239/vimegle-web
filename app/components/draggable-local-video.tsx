@@ -79,7 +79,7 @@ export default function DraggableLocalVideo({ localStream }: DraggableLocalVideo
     <div
       ref={containerRef}
       className={`fixed bg-black rounded-lg overflow-hidden shadow-2xl border-2 border-pink-500 cursor-move transition-transform duration-300 ease-in-out ${
-        isMinimized ? 'w-12 h-12' : 'w-40 h-30'
+        isMinimized ? 'w-12 h-12' : 'w-32 h-20'
       }`}
       style={{
         transform: `translate(${renderPosition.x}px, ${renderPosition.y}px)`,

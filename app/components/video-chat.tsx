@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import * as nsfwjs from 'nsfwjs';
+import * as tf from '@tensorflow/tfjs';
 
 interface VideoChatProps {
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
@@ -30,11 +31,20 @@ const VideoChat: React.FC<VideoChatProps> = ({
   useEffect(() => {
     const loadModel = async () => {
       try {
-        const nsfwModel = await nsfwjs.load('/models/mobilenet_v2');
+        const backend = tf.getBackend(); 
+        if (backend !== 'webgl') {
+          await tf.setBackend('cpu');
+          //console.warn('WebGL not available. Using CPU backend for TensorFlow.js.');
+        } else {
+          //console.log('Using WebGL backend for TensorFlow.js.');
+        }
+        await tf.ready();
+
+        const nsfwModel = await nsfwjs.load('/models/mobilenet_v2/');
         setModel(nsfwModel);
-        console.log('NSFW.js model loaded.');
+        //console.log('NSFW.js model loaded.');
       } catch (error) {
-        console.error('Error loading NSFW.js model:', error);
+        //console.error('Error loading NSFW.js model or TensorFlow backend:', error);
       }
     };
     loadModel();
@@ -119,7 +129,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
         </div>
       )}
 
-      {/* Various States (Loading, Searching, etc.) */}
       {(!connected || !remoteStream) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
           {isConnecting ? (
