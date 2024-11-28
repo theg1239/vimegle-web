@@ -6,5 +6,6 @@ export interface Message {
     reactions: { [key: string]: number };
     liked: boolean;
     replyTo?: Message | null;
+    seen: boolean;
   }
   
