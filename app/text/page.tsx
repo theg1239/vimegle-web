@@ -319,10 +319,13 @@ export default function TextChatPage() {
       'sports',
       'technology',
       'art',
-      'travel',
       'gaming',
       'cooking',
       'fitness',
+      'vellore',
+      'ap',
+      'chennai',
+      'bhopal'
     ],
     []
   );
@@ -834,7 +837,7 @@ export default function TextChatPage() {
         return;
       }
 
-      let tag = customTagInput.trim().substring(0, 6);
+      let tag = customTagInput.trim().substring(0, 10);
 
       tag = DOMPurify.sanitize(tag, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
       tag = tag.replace(/[^a-zA-Z0-9]/g, '');
@@ -1551,8 +1554,8 @@ export default function TextChatPage() {
                 <Input
                   value={customTagInput}
                   onChange={(e) => setCustomTagInput(e.target.value)}
-                  placeholder="Add custom tag (max 6 letters)"
-                  maxLength={6}
+                  placeholder="Add custom tag (max 10 letters)"
+                  maxLength={10}
                   className={`mb-2 ${
                     darkMode
                       ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
