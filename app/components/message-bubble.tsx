@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Twemoji } from 'react-emoji-render';
 import { Heart, MessageCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
@@ -13,7 +13,7 @@ interface MessageBubbleProps {
   onReply: (message: Message) => void;
   darkMode: boolean;
   isSelf: boolean;
-  onInView: (messageId: string, inView: boolean) => void; // Add this
+  onInView: (messageId: string, inView: boolean) => void;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -59,7 +59,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       transition={{ duration: 0.3 }}
       className={`mb-2 ${isSelf ? 'ml-auto' : 'mr-auto'} max-w-[80%] relative group`}
     >
-      <div ref={ref}>
+      <div ref={ref} className="relative">
         {message.replyTo && (
           <div
             className={`text-xs mb-1 ${
@@ -96,9 +96,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
             } break-words`}
             style={{
-              wordBreak: 'break-word', // Ensures long unbroken text wraps correctly
-              whiteSpace: 'pre-wrap', // Keeps line breaks in the message
-              overflowWrap: 'break-word', // Handles long words gracefully
+              wordBreak: 'break-word',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'break-word',
             }}
           >
             <Twemoji
@@ -132,6 +132,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             Seen
           </div>
         )}
+        <AnimatePresence>
+          {message.liked && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.3 }}
+              className={`absolute ${
+                isSelf ? '-left-2' : '-right-2'
+              } -bottom-2 z-10`}
+            >
+              <div className={`rounded-full p-1 shadow-md ` }>
+                <Heart className="w-5 h-5 text-red-500 fill-current" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       <Button
         variant="ghost"
@@ -146,19 +163,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       >
         <MessageCircle className="w-4 h-4" />
       </Button>
-      {message.liked && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className={`absolute ${
-            isSelf ? 'left-0' : 'right-0'
-          } bottom-0 transform ${
-            isSelf ? '-translate-x-1/2' : 'translate-x-1/2'
-          } translate-y-1/2`}
-        >
-          <Heart className="w-4 h-4 text-red-500 fill-current" />
-        </motion.div>
-      )}
     </motion.div>
   );
 };
+

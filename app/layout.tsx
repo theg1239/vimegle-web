@@ -8,7 +8,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Vimegle - Connect with Strangers',
+  title: 'Vimegle',
   description:
     'Vimegle is a platform where you can connect with strangers via video and text chat. Chat anonymously, meet new people, and share interests.',
   keywords:
