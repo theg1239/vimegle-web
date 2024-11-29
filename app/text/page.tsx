@@ -224,6 +224,7 @@ export default function TextChatPage() {
   const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSelfTyping, setIsSelfTyping] = useState(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
+  const mainRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
@@ -291,6 +292,23 @@ export default function TextChatPage() {
     ],
     []
   );
+
+  useEffect(() => {
+    const resizeHandler = () => {
+      if (mainRef.current) {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
+      }
+    };
+
+    resizeHandler();
+    window.addEventListener('resize', resizeHandler);
+
+    return () => {
+      window.removeEventListener('resize', resizeHandler);
+    };
+  }, []);
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -1163,6 +1181,7 @@ export default function TextChatPage() {
 
   return (
     <div
+      ref={mainRef}
       className={`flex flex-col h-screen relative ${
         darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
       }`}
@@ -1172,7 +1191,7 @@ export default function TextChatPage() {
     >
       {/* Configure Toaster with top-center position */}
       <Toaster
-  position="bottom-center" // Or top-right, etc., to move out of the header
+  position="top-center" // Or top-right, etc., to move out of the header
   toastOptions={{
     duration: 5000,
     style: {
@@ -1301,10 +1320,10 @@ export default function TextChatPage() {
 
 {/* Header */}
 <header
-  className={`${
-    darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-  } border-b p-4 flex justify-between items-center shadow-sm`}
->
+        className={`${
+          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        } border-b p-4 flex justify-between items-center shadow-sm`}
+      >
   <div className="flex items-center space-x-3">
     <button
       onClick={handleBack} // Handle back action
@@ -1553,13 +1572,12 @@ export default function TextChatPage() {
   }`}
 >
   {connected && (
-    <div className="flex flex-col flex-grow">
+    <div className="flex-1 flex flex-col overflow-hidden">
       {/* Scrollable Messages Area */}
       <ScrollArea
-        className="flex-grow overflow-y-auto px-4 pt-4 pb-2"
-        ref={scrollAreaRef}
-        style={{ maxHeight: 'calc(100vh - 120px)' }} // Adjust height for the input box
-      >
+              className="flex-1 px-4 pt-4 pb-2"
+              ref={scrollAreaRef}
+            >
         <div className="flex flex-col gap-2">
           <AnimatePresence initial={false}>
             {messages.map((msg) => (
@@ -1614,10 +1632,10 @@ export default function TextChatPage() {
 
       {/* Input Box */}
       <div
-        className={`relative px-4 py-2 ${
-          darkMode ? 'bg-gray-800' : 'bg-gray-100'
-        }`}
-      >
+              className={`relative px-4 py-2 ${
+                darkMode ? 'bg-gray-800' : 'bg-gray-100'
+              } flex-shrink-0`}
+            >
         {replyTo && (
           <ReplyPreview
             originalMessage={replyTo}
