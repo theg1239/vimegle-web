@@ -8,21 +8,27 @@ export default function ErrorPage() {
             Access Denied
           </h2>
           <p className="mt-4 text-lg text-gray-400 leading-relaxed max-w-md mx-auto">
-            It seems like you're trying to access this page from an unsupported location. Our website is only available in supported regions.
+            It seems like you're trying to access this page from an unsupported
+            location. Our website is only available in supported regions.
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-12">
           <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-gray-200">Why am I seeing this?</h3>
+            <h3 className="text-xl font-semibold text-gray-200">
+              Why am I seeing this?
+            </h3>
             <p className="text-gray-400">
               Our website restricts access from certain locations.
             </p>
           </div>
           <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-gray-200">Need Access?</h3>
+            <h3 className="text-xl font-semibold text-gray-200">
+              Need Access?
+            </h3>
             <p className="text-gray-400">
-              If you believe this is a mistake or require assistance, please contact our support team at support@vimegle.com
+              If you believe this is a mistake or require assistance, please
+              contact our support team at support@vimegle.com
             </p>
           </div>
         </div>

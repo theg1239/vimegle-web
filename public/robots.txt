@@ -1,0 +1,9 @@
+# *
+User-agent: *
+Allow: /
+
+# Host
+Host: https://vimegle.com
+
+# Sitemaps
+Sitemap: https://vimegle.com/sitemap.xml
