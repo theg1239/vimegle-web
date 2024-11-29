@@ -362,7 +362,7 @@ export default function ChatPage() {
 
       newPeer.on('error', (err) => {
         console.error('Peer error:', err);
-        toast.error('Connection error. Attempting to find a new match...', {
+        toast.error('User disconnected. Attempting to find a new match...', {
           id: 'peer-error-toast',
         });
         handleNext();
