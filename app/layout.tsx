@@ -12,13 +12,14 @@ export const metadata = {
   description:
     'Vimegle is a platform where you can connect with strangers via video and text chat. Chat anonymously, meet new people, and share interests.',
   keywords:
-    'video chat, text chat, meet strangers, anonymous chat, social platform'};
+    'video chat, text chat, meet strangers, anonymous chat, social platform',
+};
 
-    export const generateViewport = () => ({
-      width: 'device-width',
-      initialScale: 1,
-    });
-    
+export const generateViewport = () => ({
+  width: 'device-width',
+  initialScale: 1,
+});
+
 export default function RootLayout({
   children,
 }: {

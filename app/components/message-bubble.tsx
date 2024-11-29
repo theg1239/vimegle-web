@@ -143,7 +143,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 isSelf ? '-left-2' : '-right-2'
               } -bottom-2 z-10`}
             >
-              <div className={`rounded-full p-1 shadow-md ` }>
+              <div className={`rounded-full p-1 shadow-md `}>
                 <Heart className="w-5 h-5 text-red-500 fill-current" />
               </div>
             </motion.div>
@@ -166,4 +166,3 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     </motion.div>
   );
 };
-

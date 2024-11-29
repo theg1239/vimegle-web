@@ -1191,14 +1191,15 @@ export default function TextChatPage() {
     >
       {/* Configure Toaster with top-center position */}
       <Toaster
-  position="top-center" // Or top-right, etc., to move out of the header
-  toastOptions={{
-    duration: 5000,
-    style: {
-      zIndex: 9999, // Ensure the toast is above most UI elements
-    },
-  }}
-/>
+        position="top-center"
+        toastOptions={{
+          duration: 5000,
+          style: {
+            marginTop: '4rem', // Adjust the value based on your header height
+            zIndex: 9999, // Ensure the toast is above most UI elements
+          },
+        }}
+      />
       {/* Background Watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <span
@@ -1318,404 +1319,407 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
-{/* Header */}
-<header
+      {/* Header */}
+      <header
         className={`${
           darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
         } border-b p-4 flex justify-between items-center shadow-sm`}
       >
-  <div className="flex items-center space-x-3">
-    <button
-      onClick={handleBack} // Handle back action
-      className={`cursor-pointer ${
-        darkMode
-          ? 'text-white hover:text-gray-300'
-          : 'text-gray-700 hover:text-gray-500'
-      } transition-colors`}
-      aria-label="Go Back"
-    >
-      <ArrowLeft className="w-5 h-5" />
-    </button>
-    <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
-      Vimegle
-    </h1>
-  </div>
-
-  <div className="flex space-x-4 relative">
-    {/* Popover for Settings */}
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`cursor-pointer ${
-            darkMode
-              ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-              : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-          } rounded-full p-2 shadow-sm transition-colors duration-300`}
-          aria-label="Open Settings"
-        >
-          <Settings className="w-5 h-5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className={`w-72 p-4 rounded-lg shadow-lg ${
-          darkMode
-            ? 'bg-gray-800 text-gray-100'
-            : 'bg-gray-50 text-gray-800'
-        }`}
-        style={{ zIndex: 1050 }} // Ensures this stays above other elements
-      >
-        <div className="grid gap-4">
-          <div className="space-y-2">
-            <h4 className="font-medium leading-none">Settings</h4>
-            <p className="text-xs text-gray-400">Customize your chat experience</p>
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between">
-            <Label
-              htmlFor="dark-mode"
-              className={`${
-                darkMode ? 'text-gray-200' : 'text-gray-700'
-              } text-sm`}
-            >
-              Dark Mode
-            </Label>
-            <Switch
-              id="dark-mode"
-              checked={darkMode}
-              onCheckedChange={setDarkMode}
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                  : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-              }`}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label
-              htmlFor="sound"
-              className={`${
-                darkMode ? 'text-gray-200' : 'text-gray-700'
-              } text-sm`}
-            >
-              Sound
-            </Label>
-            <Switch
-              id="sound"
-              checked={soundEnabled}
-              onCheckedChange={setSoundEnabled}
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                  : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-              }`}
-            />
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  </div>
-
-  <div className="flex items-center space-x-4">
-    <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          className={`cursor-pointer ${
-            darkMode
-              ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
-              : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
-          } rounded-full p-3 sm:p-2 transition-all duration-300`}
-          aria-label="Advanced Search"
-          style={{
-            fontSize: '1rem', // Increase font size for better visibility
-            width: '48px', // Larger tap target
-            height: '48px',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
-        >
-          <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="end"
-        sideOffset={5}
-        className="w-full max-w-xs p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
-      >
-        <h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">
-          Select Tags
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {availableTags.map((tag) => (
-            <div key={tag} className="relative inline-block">
-              <Button
-                variant={tags.includes(tag) ? 'default' : 'outline'}
-                className={`cursor-pointer ${
-                  tags.includes(tag)
-                    ? 'bg-blue-500 text-white hover:bg-blue-600'
-                    : darkMode
-                      ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                      : 'border-gray-300 text-gray-700 hover:bg-gray-200'
-                } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
-                onClick={() => toggleTag(tag)}
-              >
-                {tag}
-              </Button>
-              {customTag === tag && (
-                <button
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md transition-colors duration-300"
-                  onClick={() => {
-                    setCustomTag(null); // Clear the custom tag
-                    setTags((prevTags) =>
-                      prevTags.filter((t) => t !== tag)
-                    );
-                  }}
-                  aria-label={`Remove ${tag}`}
-                >
-                  ×
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <Input
-            value={customTagInput}
-            onChange={(e) => setCustomTagInput(e.target.value)}
-            placeholder="Add custom tag (max 6 letters)"
-            maxLength={6}
-            className="mb-2"
-            aria-label="Custom Tag Input"
-          />
-          <Button
-            onClick={handleAddCustomTag}
-            className="w-full bg-green-500 hover:bg-green-600 text-white rounded-full shadow-sm transition-colors duration-300"
-            aria-label="Add Custom Tag"
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleBack} // Handle back action
+            className={`cursor-pointer ${
+              darkMode
+                ? 'text-white hover:text-gray-300'
+                : 'text-gray-700 hover:text-gray-500'
+            } transition-colors`}
+            aria-label="Go Back"
           >
-            Add Custom Tag
-          </Button>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
+            Vimegle
+          </h1>
         </div>
-        <Button
-          onClick={() => {
-            setShowTagMenu(false);
-            startSearch();
-          }}
-          className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-sm transition-colors duration-300"
-          aria-label="Search with Tags"
-        >
-          Search with Tags
-        </Button>
-      </PopoverContent>
-    </Popover>
 
-    {isSearching ? (
-      <Button
-        onClick={() => {
-          textSocket.emit('cancel_search');
-          setIsSearching(false);
-          setNoUsersOnline(false);
-          setReplyTo(null);
-          setMessages([]);
-          toast('Search cancelled.');
-        }}
-        variant="outline"
-        size="sm"
-        className={`cursor-pointer ${
-          darkMode
-            ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-            : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-        } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-        aria-label="Cancel Search"
-      >
-        Cancel
-      </Button>
-    ) : connected ? (
-      <Button
-        onClick={handleNextChat}
-        variant="outline"
-        size="sm"
-        className={`cursor-pointer ${
-          darkMode
-            ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-            : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-        } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-        aria-label="Next Match"
-      >
-        Next
-      </Button>
-    ) : (
-      <Button
-        onClick={startSearch}
-        variant="outline"
-        size="sm"
-        className={`cursor-pointer ${
-          darkMode
-            ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-            : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-        } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-        aria-label="Find Match"
-      >
-        Find Match
-      </Button>
-    )}
-  </div>
-</header>
+        <div className="flex space-x-4 relative">
+          {/* Popover for Settings */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`cursor-pointer ${
+                  darkMode
+                    ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                    : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                } rounded-full p-2 shadow-sm transition-colors duration-300`}
+                aria-label="Open Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className={`w-72 p-4 rounded-lg shadow-lg ${
+                darkMode
+                  ? 'bg-gray-800 text-gray-100'
+                  : 'bg-gray-50 text-gray-800'
+              }`}
+              style={{ zIndex: 1050 }} // Ensures this stays above other elements
+            >
+              <div className="grid gap-4">
+                <div className="space-y-2">
+                  <h4 className="font-medium leading-none">Settings</h4>
+                  <p className="text-xs text-gray-400">
+                    Customize your chat experience
+                  </p>
+                </div>
+                <Separator />
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="dark-mode"
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
+                  >
+                    Dark Mode
+                  </Label>
+                  <Switch
+                    id="dark-mode"
+                    checked={darkMode}
+                    onCheckedChange={setDarkMode}
+                    className={`cursor-pointer ${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label
+                    htmlFor="sound"
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
+                  >
+                    Sound
+                  </Label>
+                  <Switch
+                    id="sound"
+                    checked={soundEnabled}
+                    onCheckedChange={setSoundEnabled}
+                    className={`cursor-pointer ${
+                      darkMode
+                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                    }`}
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                className={`cursor-pointer ${
+                  darkMode
+                    ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
+                    : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
+                } rounded-full p-3 sm:p-2 transition-all duration-300`}
+                aria-label="Advanced Search"
+                style={{
+                  fontSize: '1rem', // Increase font size for better visibility
+                  width: '48px', // Larger tap target
+                  height: '48px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={5}
+              className="w-full max-w-xs p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
+            >
+              <h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">
+                Select Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => (
+                  <div key={tag} className="relative inline-block">
+                    <Button
+                      variant={tags.includes(tag) ? 'default' : 'outline'}
+                      className={`cursor-pointer ${
+                        tags.includes(tag)
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : darkMode
+                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                            : 'border-gray-300 text-gray-700 hover:bg-gray-200'
+                      } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </Button>
+                    {customTag === tag && (
+                      <button
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md transition-colors duration-300"
+                        onClick={() => {
+                          setCustomTag(null); // Clear the custom tag
+                          setTags((prevTags) =>
+                            prevTags.filter((t) => t !== tag)
+                          );
+                        }}
+                        aria-label={`Remove ${tag}`}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <Input
+                  value={customTagInput}
+                  onChange={(e) => setCustomTagInput(e.target.value)}
+                  placeholder="Add custom tag (max 6 letters)"
+                  maxLength={6}
+                  className="mb-2"
+                  aria-label="Custom Tag Input"
+                />
+                <Button
+                  onClick={handleAddCustomTag}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white rounded-full shadow-sm transition-colors duration-300"
+                  aria-label="Add Custom Tag"
+                >
+                  Add Custom Tag
+                </Button>
+              </div>
+              <Button
+                onClick={() => {
+                  setShowTagMenu(false);
+                  startSearch();
+                }}
+                className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-sm transition-colors duration-300"
+                aria-label="Search with Tags"
+              >
+                Search with Tags
+              </Button>
+            </PopoverContent>
+          </Popover>
+
+          {isSearching ? (
+            <Button
+              onClick={() => {
+                textSocket.emit('cancel_search');
+                setIsSearching(false);
+                setNoUsersOnline(false);
+                setReplyTo(null);
+                setMessages([]);
+                toast('Search cancelled.');
+              }}
+              variant="outline"
+              size="sm"
+              className={`cursor-pointer ${
+                darkMode
+                  ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                  : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+              aria-label="Cancel Search"
+            >
+              Cancel
+            </Button>
+          ) : connected ? (
+            <Button
+              onClick={handleNextChat}
+              variant="outline"
+              size="sm"
+              className={`cursor-pointer ${
+                darkMode
+                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+              aria-label="Next Match"
+            >
+              Next
+            </Button>
+          ) : (
+            <Button
+              onClick={startSearch}
+              variant="outline"
+              size="sm"
+              className={`cursor-pointer ${
+                darkMode
+                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+              aria-label="Find Match"
+            >
+              Find Match
+            </Button>
+          )}
+        </div>
+      </header>
 
       <main
-  className={`flex flex-col h-[100vh] overflow-hidden ${
-    darkMode
-      ? 'bg-gradient-to-b from-gray-800 to-gray-900'
-      : 'bg-gradient-to-b from-gray-100 to-white'
-  }`}
->
-  {connected && (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Scrollable Messages Area */}
-      <ScrollArea
-              className="flex-1 px-4 pt-4 pb-2"
-              ref={scrollAreaRef}
-            >
-        <div className="flex flex-col gap-2">
-          <AnimatePresence initial={false}>
-            {messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                onDoubleTap={handleDoubleTap}
-                onReply={handleReply}
-                darkMode={darkMode}
-                isSelf={msg.isSelf}
-                onInView={(messageId, inView) =>
-                  handleInView(messageId, inView)
-                }
-              />
-            ))}
-            {showIntroMessage && (
-              <motion.div
-                key="intro-message"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className={`p-4 rounded-lg ${
-                  darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-                } shadow-inner`}
-              >
-                <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
-                  Welcome to Vimegle Text Chat!
-                </h3>
-                <p className="text-gray-700 dark:text-gray-300">
-                  You're now connected with a random stranger. Say hello and start chatting!
-                </p>
-                {matchedTags.length > 0 && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Connected based on tags: <strong>{matchedTags.join(', ')}</strong>
-                  </p>
-                )}
-                {!matchedTags.length && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Connected to a stranger! Feel free to start the conversation.
-                  </p>
-                )}
-                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  Remember to be respectful and follow our community guidelines.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
+        className={`flex flex-col h-[100vh] overflow-hidden ${
+          darkMode
+            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+            : 'bg-gradient-to-b from-gray-100 to-white'
+        }`}
+      >
+        {connected && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Scrollable Messages Area */}
+            <ScrollArea className="flex-1 px-4 pt-4 pb-2" ref={scrollAreaRef}>
+              <div className="flex flex-col gap-2">
+                <AnimatePresence initial={false}>
+                  {messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      onDoubleTap={handleDoubleTap}
+                      onReply={handleReply}
+                      darkMode={darkMode}
+                      isSelf={msg.isSelf}
+                      onInView={(messageId, inView) =>
+                        handleInView(messageId, inView)
+                      }
+                    />
+                  ))}
+                  {showIntroMessage && (
+                    <motion.div
+                      key="intro-message"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className={`p-4 rounded-lg ${
+                        darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                      } shadow-inner`}
+                    >
+                      <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
+                        Welcome to Vimegle Text Chat!
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        You're now connected with a random stranger. Say hello
+                        and start chatting!
+                      </p>
+                      {matchedTags.length > 0 && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Connected based on tags:{' '}
+                          <strong>{matchedTags.join(', ')}</strong>
+                        </p>
+                      )}
+                      {!matchedTags.length && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Connected to a stranger! Feel free to start the
+                          conversation.
+                        </p>
+                      )}
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Remember to be respectful and follow our community
+                        guidelines.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
 
-      {/* Input Box */}
-      <div
+            {/* Input Box */}
+            <div
               className={`relative px-4 py-2 ${
                 darkMode ? 'bg-gray-800' : 'bg-gray-100'
               } flex-shrink-0`}
             >
-        {replyTo && (
-          <ReplyPreview
-            originalMessage={replyTo}
-            onCancelReply={cancelReply}
-          />
-        )}
-        <div className="relative">
-          {/* Typing Indicator */}
-          {isTyping && !isSelfTyping && !replyTo && (
-            <MemoizedTypingIndicator darkMode={darkMode} />
-          )}
+              {replyTo && (
+                <ReplyPreview
+                  originalMessage={replyTo}
+                  onCancelReply={cancelReply}
+                />
+              )}
+              <div className="relative">
+                {/* Typing Indicator */}
+                {isTyping && !isSelfTyping && !replyTo && (
+                  <MemoizedTypingIndicator darkMode={darkMode} />
+                )}
 
-          <div className="relative">
-            <Input
-              id="message-input"
-              type="text"
-              value={inputMessage}
-              onChange={handleInputChange} // Use debounced handler
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSendMessage();
-              }}
-              placeholder="Type a message..."
-              disabled={!connected}
-              autoComplete="off"
-              className={`w-full ${
-                darkMode
-                  ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                  : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
-              } pr-24 pl-4 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              aria-label="Message Input"
-            />
-            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => setShowEmojiPicker((prev) => !prev)}
-                className={`${
-                  darkMode
-                    ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
-                } rounded-full w-10 h-10 transition-colors duration-300`}
-                aria-label="Toggle Emoji Picker"
-              >
-                <Smile className="w-5 h-5" />
-              </Button>
+                <div className="relative">
+                  <Input
+                    id="message-input"
+                    type="text"
+                    value={inputMessage}
+                    onChange={handleInputChange} // Use debounced handler
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSendMessage();
+                    }}
+                    placeholder="Type a message..."
+                    disabled={!connected}
+                    autoComplete="off"
+                    className={`w-full ${
+                      darkMode
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                        : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+                    } pr-24 pl-4 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    aria-label="Message Input"
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setShowEmojiPicker((prev) => !prev)}
+                      className={`${
+                        darkMode
+                          ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+                      } rounded-full w-10 h-10 transition-colors duration-300`}
+                      aria-label="Toggle Emoji Picker"
+                    >
+                      <Smile className="w-5 h-5" />
+                    </Button>
 
-              <Button
-                onClick={handleSendMessage}
-                disabled={!connected || !inputMessage.trim()}
-                size="icon"
-                className={`${
-                  darkMode
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-blue-500 hover:bg-blue-600'
-                } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
-                  !connected || !inputMessage.trim()
-                    ? 'opacity-50 cursor-not-allowed'
-                    : ''
-                }`}
-                aria-label="Send Message"
-              >
-                <Send className="w-5 h-5" />
-              </Button>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!connected || !inputMessage.trim()}
+                      size="icon"
+                      className={`${
+                        darkMode
+                          ? 'bg-blue-600 hover:bg-blue-700'
+                          : 'bg-blue-500 hover:bg-blue-600'
+                      } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
+                        !connected || !inputMessage.trim()
+                          ? 'opacity-50 cursor-not-allowed'
+                          : ''
+                      }`}
+                      aria-label="Send Message"
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {showEmojiPicker && (
+                  <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
+                    <MemoizedEmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      darkMode={darkMode}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+        )}
+      </main>
 
-          {showEmojiPicker && (
-            <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
-              <MemoizedEmojiPicker
-                onEmojiClick={handleEmojiClick}
-                darkMode={darkMode}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )}
-</main>
-        
       {/* <footer
         className={`${
           darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
