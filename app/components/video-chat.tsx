@@ -86,13 +86,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
     const downscaleFactor = 0.9;
     canvas.width = video.videoWidth * downscaleFactor;
     canvas.height = video.videoHeight * downscaleFactor;
-    context.drawImage(
-      video,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     try {
       const predictions = await model.classify(canvas);

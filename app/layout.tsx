@@ -3,18 +3,22 @@ import { Inter } from 'next/font/google';
 import MaintenanceOverlay from '@/app/components/maintenance-overlay';
 import { Toaster } from '@/app/components/ui/toaster';
 import { Analytics } from '@vercel/analytics/react';
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
   title: 'Vimegle - Connect with Strangers',
-  description: 'Vimegle is a platform where you can connect with strangers via video and text chat. Chat anonymously, meet new people, and share interests.',
-  keywords: 'video chat, text chat, meet strangers, anonymous chat, social platform',
-  viewport: 'width=device-width, initial-scale=1.0',
-  robots: 'index, follow',
-};
+  description:
+    'Vimegle is a platform where you can connect with strangers via video and text chat. Chat anonymously, meet new people, and share interests.',
+  keywords:
+    'video chat, text chat, meet strangers, anonymous chat, social platform'};
 
+    export const generateViewport = () => ({
+      width: 'device-width',
+      initialScale: 1,
+    });
+    
 export default function RootLayout({
   children,
 }: {
@@ -27,8 +31,6 @@ export default function RootLayout({
       <head>
         <meta name="description" content={metadata.description} />
         <meta name="keywords" content={metadata.keywords} />
-        <meta name="viewport" content={metadata.viewport} />
-        <meta name="robots" content={metadata.robots} />
         <meta property="og:title" content={metadata.title} />
         <meta property="og:description" content={metadata.description} />
         <meta property="og:image" content="/og-image.png" />
@@ -44,15 +46,15 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              name: "Vimegle",
-              url: "https://vimegle.com",
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: 'Vimegle',
+              url: 'https://vimegle.com',
               description: metadata.description,
               potentialAction: {
-                "@type": "SearchAction",
-                target: "https://vimegle.com/search?q={search_term_string}",
-                "query-input": "required name=search_term_string",
+                '@type': 'SearchAction',
+                target: 'https://vimegle.com/search?q={search_term_string}',
+                'query-input': 'required name=search_term_string',
               },
             }),
           }}

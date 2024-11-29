@@ -66,30 +66,29 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (!socketRef.current) return;
-  
+
     // Listener for broadcast toast notifications
     const handleToastNotification = ({ message }: { message: string }) => {
       toast.success(message, { id: 'broadcast-toast' });
       //console.log('Broadcast toast received:', message);
     };
-  
+
     // Listener for error messages
     const handleError = ({ message }: { message: string }) => {
       toast.error(message, { id: 'broadcast-error-toast' });
       console.error('Broadcast error received:', message);
     };
-  
+
     // Register event listeners
     socketRef.current.on('toastNotification', handleToastNotification);
     socketRef.current.on('error', handleError);
-  
+
     // Clean up listeners on unmount
     return () => {
       socketRef.current?.off('toastNotification', handleToastNotification);
       socketRef.current?.off('error', handleError);
     };
   }, []);
-  
 
   // Toggle chat visibility
   const toggleChat = useCallback(() => {
@@ -154,7 +153,7 @@ export default function ChatPage() {
     setRoom(null);
     setIsSearching(false);
     setSearchCancelled(false);
-  
+
     if (isSelfInitiatedDisconnectRef.current) {
       // Show a specific toast for user-initiated disconnection
       toast.success('You have left the chat.', {
@@ -168,10 +167,10 @@ export default function ChatPage() {
         id: 'partner-disconnect-toast',
       });
     }
-  
+
     // Reset the self-initiated disconnect flag
     isSelfInitiatedDisconnectRef.current = false;
-  
+
     // Clean up the peer instance and related event listeners
     if (peerRef.current) {
       peerRef.current.destroy();
@@ -180,7 +179,6 @@ export default function ChatPage() {
       socketRef.current?.off('leave', handleLeave);
     }
   }, [handleSignal]);
-  
 
   // Process queued signaling data once connection is established
   const processSignalQueue = useCallback(() => {
@@ -241,17 +239,17 @@ export default function ChatPage() {
     if (isDebouncingRef.current) {
       return;
     }
-  
+
     // Mark this as a self-initiated disconnect
     isSelfInitiatedDisconnectRef.current = true;
-  
+
     if (peerRef.current) {
       peerRef.current.destroy();
       peerRef.current = null;
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
     }
-  
+
     setConnected(false);
     setRemoteStream(null);
     setMessages([]);
@@ -261,20 +259,19 @@ export default function ChatPage() {
     setIsDisconnected(false);
     setHasCameraError(false);
     setChatState('searching');
-  
+
     if (roomRef.current) {
       socketRef.current?.emit('leave', { room: roomRef.current });
       setRoom(null);
     }
-  
+
     startSearch();
-  
+
     setIsDebouncing(true);
     setTimeout(() => {
       setIsDebouncing(false);
     }, 2000);
   }, [startSearch, handleSignal, handleLeave]);
-  
 
   // Handle 'match' events
   const handleMatch = useCallback(
