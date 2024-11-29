@@ -949,7 +949,7 @@ export default function TextChatPage() {
     if (!inputMessage.trim()) return;
 
     if (isProfane(inputMessage)) {
-      toast.error('Please refrain from using profanity.');
+      toast.error('Do not be a creep.');
       return;
     }
 
