@@ -669,7 +669,7 @@ export default function ChatPage() {
             Vimegle
           </h1>
         </div>
-        <div className="flex items-center space-x-1 sm:space-x-2">
+        <div className="flex items-center space-x-5 sm:space-x-5">
           <Button
             onClick={toggleChat}
             variant="outline"
@@ -682,7 +682,10 @@ export default function ChatPage() {
             {chatState === 'connecting' || chatState === 'searching' ? (
               <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
             ) : (
-              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+              <MessageCircle
+                className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                  isChatOpen ? 'text-green-500' : ''
+                }`}/>
             )}
           </Button>
 
