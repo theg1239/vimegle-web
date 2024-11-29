@@ -21,7 +21,7 @@ const Header: React.FC = () => {
         </Link> */}
         <Link href="/feedback">
         <button className="px-3 py-1.5 text-sm font-medium text-white hover:text-purple-300 bg-transparent hover:bg-purple-500/20 rounded-full transition-colors">
-        Feedback
+            Feedback
           </button>
         </Link>
         <Link href="/guidelines">
