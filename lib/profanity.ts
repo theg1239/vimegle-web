@@ -69,6 +69,8 @@ export const profaneWords: string[] = [
   'rapeme',
   'F ?',
   'F    ?',
+  'B/G',
+  '  F? '
 ];
 
 const normalizeText = (text: string): string => {
