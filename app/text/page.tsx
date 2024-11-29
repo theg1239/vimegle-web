@@ -586,7 +586,7 @@ export default function TextChatPage() {
 
         // Limit the number of messages to 1000
         const newMessages = [...prev, newMessage];
-        if (newMessages.length > 1000) {
+        if (newMessages.length > 100) {
           newMessages.shift(); // Remove the oldest message
         }
         return newMessages;
