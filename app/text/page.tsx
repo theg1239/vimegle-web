@@ -1635,7 +1635,7 @@ export default function TextChatPage() {
               } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
               aria-label="Find Match"
             >
-              Find Match
+              Find
             </Button>
           )}
         </div>
