@@ -1,5 +1,4 @@
 import XRegExp from 'xregexp';
-import chunk from 'lodash.chunk';
 
 export const profaneWords: string[] = [
   'nigger',
@@ -66,29 +65,48 @@ export const profaneWords: string[] = [
   'M ?',
   'M',
   'F',
+  'rape',
+  'rapeme',
+  'F ?',
+  'F    ?',
 ];
 
-const profaneRegex = new RegExp(
-  `\\b(${profaneWords
-    .map((word) =>
-      word
-        .replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
-        .replace(
-          /\bm\s*\/\s*f\b|\bf\s*\/\s*m\b|\bm\s*or\s*f\b|\bf\s*or\s*m\b/gi,
-          'm[\\s\\/-]?f|f[\\s\\/-]?m'
-        )
-        .replace(/\s+/g, '\\s*')
-    )
-    .join('|')})\\b`,
-  'i'
-);
-
-export function isProfane(text: string): boolean {
-  const normalizedText = text
+const normalizeText = (text: string): string => {
+  return text
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/gi, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[0-9]/g, '') // Remove digits
+    .replace(/[@!$&]/g, '') // Remove special characters
+    .replace(/[l1]/g, 'i') // Replace l and 1 with i
+    .replace(/0/g, 'o') // Replace 0 with o
+    .replace(/3/g, 'e') // Replace 3 with e
+    .replace(/5/g, 's') // Replace 5 with s
+    .replace(/\s+/g, '') // Remove spaces
     .trim();
+};
 
-  return profaneRegex.test(normalizedText);
+const createProfaneRegex = () => {
+  const enhancedWords = profaneWords.map(
+    (word) =>
+      word
+        .replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') // Escape regex metacharacters
+        .replace(/\s+/g, '\\s*') // Allow flexible spaces between words
+  );
+  return new RegExp(`\\b(${enhancedWords.join('|')})\\b`, 'i');
+};
+
+const profaneRegex = createProfaneRegex();
+
+// Main function to check for profanity
+export function isProfane(text: string): boolean {
+  const normalized = normalizeText(text); // Normalize the input text
+  return profaneRegex.test(normalized);
+}
+
+// Optional: Highlight profane words for debugging or feedback
+export function highlightProfanity(text: string): string {
+  const normalized = normalizeText(text);
+  return text.replace(
+    profaneRegex,
+    (match) => `<span class="profanity">${match}</span>`
+  );
 }

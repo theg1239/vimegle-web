@@ -4,7 +4,7 @@ import MaintenanceOverlay from '@/app/components/maintenance-overlay';
 import { Toaster } from '@/app/components/ui/toaster';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
-import Script from 'next/script'; 
+import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
 

@@ -9,6 +9,8 @@ import React, {
   FC,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FixedSizeList as List } from 'react-window'; // Import react-window
+import AutoSizer from 'react-virtualized-auto-sizer'; // For automatic sizing
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { ScrollArea } from '@/app/components/ui/scroll-area';
@@ -74,7 +76,7 @@ const Tooltip: FC = () => (
     animate={{ opacity: 1, y: 0 }}
     exit={{ opacity: 0, y: 20 }}
     transition={{ duration: 0.5 }}
-    className="fixed bottom-5 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
+    className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
   >
     <p>We value your feedback!</p>
     <Link
@@ -196,6 +198,38 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
     </div>
   );
 };
+
+// Virtualized Message List Item
+const MessageListItem: FC<{
+  index: number;
+  style: React.CSSProperties;
+  data: {
+    messages: Message[];
+    onDoubleTap: (messageId: string, isSelf: boolean) => void;
+    onReply: (message: Message) => void;
+    darkMode: boolean;
+    onInView: (messageId: string, inView: boolean) => void;
+  };
+}> = React.memo(({ index, style, data }) => {
+  const { messages, onDoubleTap, onReply, darkMode, onInView } = data;
+  const message = messages[index];
+
+  return (
+    <div style={style}>
+      <MessageBubble
+        key={message.id}
+        message={message}
+        onDoubleTap={onDoubleTap}
+        onReply={onReply}
+        darkMode={darkMode}
+        isSelf={message.isSelf}
+        onInView={onInView}
+      />
+    </div>
+  );
+});
+
+MessageListItem.displayName = 'MessageListItem';
 
 export default function TextChatPage() {
   const [connected, setConnected] = useState<boolean>(false);
@@ -550,7 +584,12 @@ export default function TextChatPage() {
           return prev; // Prevent duplicate messages
         }
 
-        return [...prev, newMessage];
+        // Limit the number of messages to 1000
+        const newMessages = [...prev, newMessage];
+        if (newMessages.length > 1000) {
+          newMessages.shift(); // Remove the oldest message
+        }
+        return newMessages;
       });
 
       if (!isSelf) {
@@ -570,7 +609,7 @@ export default function TextChatPage() {
       // Scroll to bottom after adding a new message
       setTimeout(scrollToBottom, 100);
     },
-    [playMessageSound, messages, scrollToBottom, handleInView]
+    [playMessageSound, messages, scrollToBottom, handleInView, textSocket]
   );
 
   // Handle Reaction Updates
@@ -732,6 +771,7 @@ export default function TextChatPage() {
     handleStopTypingFromPeer,
     textSocket,
   ]);
+
   // Handle Before Unload (User leaves the page)
   useEffect(() => {
     const handleBeforeUnload = () => {
@@ -946,11 +986,16 @@ export default function TextChatPage() {
       seen: false, // Self messages are marked as unseen
     };
 
-    setMessages(
-      (prev) => prev.map((msg) => ({ ...msg, seen: false })) // Reset seen status for all messages
-    );
-
-    setMessages((prev) => [...prev, newMessage]);
+    setMessages((prev) => {
+      // Reset seen status for all messages
+      const updated = prev.map((msg) => ({ ...msg, seen: false }));
+      // Limit the number of messages to 1000
+      const newMessages = [...updated, newMessage];
+      if (newMessages.length > 1000) {
+        newMessages.shift(); // Remove the oldest message
+      }
+      return newMessages;
+    });
     setInputMessage('');
     setReplyTo(null);
 
@@ -970,29 +1015,41 @@ export default function TextChatPage() {
     textSocket,
   ]);
 
-  const handleTypingDebounced = useDebounce(() => {
-    if (connected && currentRoom) {
-      textSocket.emit('typing', { room: currentRoom });
-    }
-  }, 300);
+  const handleTypingDebounced = useDebounce(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputMessage(e.target.value);
+      handleTyping(); // Trigger typing indicator
+      handleStopTyping(); // Ensure typing stops after a delay
+    },
+    200
+  );
 
-  useEffect(() => {
-    if (!textSocket) return;
+  interface TypingIndicatorProps {
+    darkMode: boolean;
+  }
 
-    const handleResetSeenStatus = () => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) => ({ ...msg, seen: false }))
-      );
-    };
+  const MemoizedTypingIndicator = React.memo(
+    ({ darkMode }: TypingIndicatorProps) => (
+      <div className="absolute bottom-full left-4 mb-1 text-xs text-gray-500 dark:text-gray-300 flex items-center space-x-1">
+        <span>Stranger is typing</span>
+        <div className="flex space-x-1">
+          <div
+            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+            style={{ animationDelay: '0s' }}
+          ></div>
+          <div
+            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+            style={{ animationDelay: '0.2s' }}
+          ></div>
+          <div
+            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+            style={{ animationDelay: '0.4s' }}
+          ></div>
+        </div>
+      </div>
+    )
+  );
 
-    textSocket.on('resetSeenStatus', handleResetSeenStatus);
-
-    return () => {
-      textSocket.off('resetSeenStatus', handleResetSeenStatus);
-    };
-  }, [textSocket]);
-
-  // Handle Emoji Click
   const handleEmojiClick = useCallback(
     (emojiData: EmojiClickData, event: MouseEvent) => {
       setInputMessage((prev) => prev + emojiData.emoji);
@@ -1001,30 +1058,23 @@ export default function TextChatPage() {
     },
     [handleTypingDebounced]
   );
+  interface EmojiPickerProps {
+    onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
+    darkMode: boolean;
+  }
 
-  const notifyPeerDisconnection = useCallback(() => {
-    if (textSocket && currentRoom) {
-      textSocket.emit('peerDisconnected', { room: currentRoom });
-    }
-  }, [currentRoom, textSocket]);
+  const MemoizedEmojiPicker = React.memo(
+    ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
+      <EmojiPicker
+        onEmojiClick={onEmojiClick}
+        theme={darkMode ? Theme.DARK : Theme.LIGHT}
+        width="100%"
+        height={350}
+      />
+    )
+  );
 
-  const handleBack = useCallback(() => {
-    const confirmed = window.confirm(
-      'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
-    );
-    if (confirmed) {
-      notifyPeerDisconnection();
-      setConnected(false);
-      setMessages([]);
-      setCurrentRoom('');
-      setReplyTo(null);
-      setMatchedTags([]);
-      setChatState('idle');
-      window.history.back();
-    }
-  }, [notifyPeerDisconnection]);
-
-  // Handle Double Tap for Reactions
+  // Double Tap Handler
   const handleDoubleTap = useCallback(
     (messageId: string, isSelf: boolean) => {
       setMessages((prevMessages) =>
@@ -1044,6 +1094,24 @@ export default function TextChatPage() {
     },
     [textSocket, currentRoom, messages]
   );
+
+  // Optimize the data passed to the virtualized list
+  const listData = useMemo(
+    () => ({
+      messages,
+      onDoubleTap: handleDoubleTap,
+      onReply: handleReply,
+      darkMode,
+      onInView: handleInView,
+    }),
+    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
+  );
+
+  const notifyPeerDisconnection = useCallback(() => {
+    if (textSocket && currentRoom) {
+      textSocket.emit('peerDisconnected', { room: currentRoom });
+    }
+  }, [currentRoom, textSocket]);
 
   useEffect(() => {
     const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
@@ -1113,6 +1181,30 @@ export default function TextChatPage() {
     setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
   }, []);
 
+  const handleBack = useCallback(() => {
+    const confirmed = window.confirm(
+      'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
+    );
+
+    if (confirmed) {
+      // Notify the other user about the disconnection
+      if (currentRoom) {
+        textSocket.emit('peerDisconnected', { room: currentRoom });
+      }
+
+      // Clean up the current chat state
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setReplyTo(null);
+      setMatchedTags([]);
+      setChatState('idle');
+
+      // Redirect to Vimegle homepage
+      window.location.href = '/';
+    }
+  }, [currentRoom, textSocket]);
+
   const handleNextChat = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to move to the next chat? This will disconnect your current chat partner.'
@@ -1136,47 +1228,6 @@ export default function TextChatPage() {
       handleStopTyping(); // Ensure typing stops after a delay
     },
     200
-  );
-  interface TypingIndicatorProps {
-    darkMode: boolean;
-  }
-
-  const MemoizedTypingIndicator = React.memo(
-    ({ darkMode }: TypingIndicatorProps) => (
-      <div className="absolute bottom-full left-4 mb-1 text-xs text-gray-500 dark:text-gray-300 flex items-center space-x-1">
-        <span>Stranger is typing</span>
-        <div className="flex space-x-1">
-          <div
-            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-            style={{ animationDelay: '0s' }}
-          ></div>
-          <div
-            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-            style={{ animationDelay: '0.2s' }}
-          ></div>
-          <div
-            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-            style={{ animationDelay: '0.4s' }}
-          ></div>
-        </div>
-      </div>
-    )
-  );
-
-  interface EmojiPickerProps {
-    onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
-    darkMode: boolean;
-  }
-
-  const MemoizedEmojiPicker = React.memo(
-    ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
-      <EmojiPicker
-        onEmojiClick={onEmojiClick}
-        theme={darkMode ? Theme.DARK : Theme.LIGHT}
-        width="100%"
-        height={350}
-      />
-    )
   );
 
   return (
@@ -1446,9 +1497,17 @@ export default function TextChatPage() {
             <PopoverContent
               align="end"
               sideOffset={5}
-              className="w-full max-w-xs p-4 bg-white dark:bg-gray-800 rounded-lg shadow-lg"
+              className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                darkMode
+                  ? 'bg-gray-800 text-gray-200'
+                  : 'bg-white text-gray-800'
+              } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
             >
-              <h3 className="text-lg font-semibold mb-2 text-gray-700 dark:text-gray-200">
+              <h3
+                className={`text-lg font-semibold mb-2 ${
+                  darkMode ? 'text-gray-200' : 'text-gray-800'
+                }`}
+              >
                 Select Tags
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -1461,7 +1520,7 @@ export default function TextChatPage() {
                           ? 'bg-blue-500 text-white hover:bg-blue-600'
                           : darkMode
                             ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-200'
+                            : 'border-gray-300 text-gray-800 hover:bg-gray-100'
                       } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
                       onClick={() => toggleTag(tag)}
                     >
@@ -1469,7 +1528,11 @@ export default function TextChatPage() {
                     </Button>
                     {customTag === tag && (
                       <button
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow-md transition-colors duration-300"
+                        className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
+                          darkMode
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-red-400 text-white hover:bg-red-500'
+                        } transition-colors duration-300`}
                         onClick={() => {
                           setCustomTag(null); // Clear the custom tag
                           setTags((prevTags) =>
@@ -1490,12 +1553,20 @@ export default function TextChatPage() {
                   onChange={(e) => setCustomTagInput(e.target.value)}
                   placeholder="Add custom tag (max 6 letters)"
                   maxLength={6}
-                  className="mb-2"
+                  className={`mb-2 ${
+                    darkMode
+                      ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
+                      : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
+                  } rounded-md shadow-sm transition-colors duration-300`}
                   aria-label="Custom Tag Input"
                 />
                 <Button
                   onClick={handleAddCustomTag}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white rounded-full shadow-sm transition-colors duration-300"
+                  className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
+                    darkMode
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-green-400 hover:bg-green-500 text-white'
+                  }`}
                   aria-label="Add Custom Tag"
                 >
                   Add Custom Tag
@@ -1506,14 +1577,17 @@ export default function TextChatPage() {
                   setShowTagMenu(false);
                   startSearch();
                 }}
-                className="mt-4 w-full bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-sm transition-colors duration-300"
+                className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
+                  darkMode
+                    ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                    : 'bg-pink-400 hover:bg-pink-500 text-white'
+                }`}
                 aria-label="Search with Tags"
               >
                 Search with Tags
               </Button>
             </PopoverContent>
           </Popover>
-
           {isSearching ? (
             <Button
               onClick={() => {
