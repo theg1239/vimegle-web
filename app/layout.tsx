@@ -2,8 +2,6 @@ import './globals.css';
 import { Inter } from 'next/font/google';
 import MaintenanceOverlay from '@/app/components/maintenance-overlay';
 import { Toaster } from '@/app/components/ui/toaster';
-import { Analytics } from '@vercel/analytics/react';
-import { SpeedInsights } from '@vercel/speed-insights/next';
 import Script from 'next/script';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -77,9 +75,7 @@ export default function RootLayout({
       <body className={`${inter.className} bg-black text-white relative`}>
         <main>{children}</main>
         {isMaintenance && <MaintenanceOverlay />}
-        <Analytics />
         <Toaster />
-        <SpeedInsights />
       </body>
     </html>
   );
