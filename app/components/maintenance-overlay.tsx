@@ -13,12 +13,12 @@ const MaintenanceOverlay: React.FC = () => {
         className="text-center max-w-md mx-auto p-8"
       >
         <motion.h1
-          className="text-5xl font-bold mb-6 text-white"
+          className="text-6xl font-bold mb-6 text-white"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.6 }}
         >
-          We're Making Improvements
+          Vimegle
         </motion.h1>
         <motion.p
           className="text-xl text-gray-200 mb-4"
@@ -26,8 +26,7 @@ const MaintenanceOverlay: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6 }}
         >
-          Our website is currently undergoing maintenance. We apologize for any
-          inconvenience and appreciate your patience.
+          Nov 24-Nov 30.
         </motion.p>
         <motion.p
           className="text-lg text-gray-300"
@@ -35,7 +34,7 @@ const MaintenanceOverlay: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.6 }}
         >
-          Please check back soon!
+          Killed by creeps.
         </motion.p>
       </motion.div>
       <motion.div
