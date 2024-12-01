@@ -11,7 +11,11 @@ export default function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith('/sounds')) {
-    console.log('Request to /sounds, bypassing geolocation checks.');
+    ////console.log('Request to /sounds, bypassing geolocation checks.');
+    return NextResponse.next();
+  }
+
+  if (path.startsWith('/models')) {
     return NextResponse.next();
   }
 
@@ -23,14 +27,14 @@ export default function middleware(request: NextRequest) {
   });
 
   if (country === ALLOWED_COUNTRY) {
-    console.log('Visitor is from allowed country, proceeding.');
+    //console.log('Visitor is from allowed country, proceeding.');
     return NextResponse.next();
   }
 
   if (country === 'UNKNOWN') {
-    console.log('Visitor country is UNKNOWN, treating as disallowed.');
+    ////console.log('Visitor country is UNKNOWN, treating as disallowed.');
   } else {
-    console.log(`Non-allowed visitor detected from country: ${country}`);
+    //console.log(`Non-allowed visitor detected from country: ${country}`);
   }
 
   request.nextUrl.pathname = '/error';

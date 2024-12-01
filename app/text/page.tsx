@@ -1,7 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+  FC,
+} from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FixedSizeList as List } from 'react-window'; // Import react-window
+import AutoSizer from 'react-virtualized-auto-sizer'; // For automatic sizing
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { ScrollArea } from '@/app/components/ui/scroll-area';
@@ -15,13 +24,17 @@ import {
   AlertTriangle,
   Settings,
   Loader2,
-  Heart,
+  SparklesIcon,
+  X as CloseIcon,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { textSocket } from '@/lib/socket';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { v4 as uuidv4 } from 'uuid';
-import { Twemoji } from 'react-emoji-render';
+import DOMPurify from 'dompurify';
+import { MessageBubble } from '@/app/components/message-bubble';
+import { Message } from '@/types/messageTypes';
 import {
   Popover,
   PopoverContent,
@@ -31,27 +44,9 @@ import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
+import { chunk } from 'lodash';
 
-interface ReactionUpdate {
-  messageId: string;
-  liked: boolean;
-}
-
-interface ReactionData {
-  room: string;
-  messageId: string;
-  liked: boolean;
-}
-
-type Message = {
-  id: string;
-  text: string;
-  isSelf: boolean;
-  timestamp: Date;
-  reactions: { [key: string]: number };
-  liked: boolean;
-};
-
+// Custom hook for debouncing
 function useDebounce(callback: Function, delay: number) {
   const timer = useRef<NodeJS.Timeout>();
 
@@ -74,6 +69,168 @@ function useDebounce(callback: Function, delay: number) {
   return debouncedFunction;
 }
 
+// Tooltip Component
+const Tooltip: FC = () => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: 20 }}
+    transition={{ duration: 0.5 }}
+    className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
+  >
+    <p>We value your feedback!</p>
+    <Link
+      href="/feedback"
+      className="underline text-sm"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Click here to provide feedback
+    </Link>
+  </motion.div>
+);
+
+// Modals for Peer Searching and Disconnection
+const PeerSearchingModal: FC<{
+  onReturnToSearch: () => void;
+  darkMode: boolean;
+}> = ({ onReturnToSearch, darkMode }) => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+  >
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.8, opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
+    >
+      <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
+        Your partner is looking for someone else.
+      </p>
+      <div className="flex space-x-4">
+        <Button
+          onClick={onReturnToSearch}
+          className={`px-4 py-2 ${
+            darkMode
+              ? 'bg-blue-500 hover:bg-blue-600 text-white'
+              : 'bg-blue-500 hover:bg-blue-600 text-white'
+          } rounded-full shadow-md transition-colors duration-300`}
+          aria-label="Return to Search"
+        >
+          Return to Search
+        </Button>
+      </div>
+    </motion.div>
+  </motion.div>
+);
+
+const PeerDisconnectedModal: FC<{
+  onStartNewChat: () => void;
+  darkMode: boolean;
+}> = ({ onStartNewChat, darkMode }) => (
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+  >
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0.8, opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
+    >
+      <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4">
+        Stranger Disconnected
+      </p>
+      <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+        Your chat partner has left the conversation.
+      </p>
+      <Button
+        onClick={onStartNewChat}
+        className={`px-4 py-2 ${
+          darkMode
+            ? 'bg-blue-500 hover:bg-blue-600 text-white'
+            : 'bg-blue-500 hover:bg-blue-600 text-white'
+        } rounded-full shadow-md transition-colors duration-300 w-full`}
+        aria-label="Start New Chat"
+      >
+        Start New Chat
+      </Button>
+    </motion.div>
+  </motion.div>
+);
+
+// Reply Preview Component
+interface ReplyPreviewProps {
+  originalMessage: Message;
+  onCancelReply: () => void;
+}
+
+const ReplyPreview: FC<ReplyPreviewProps> = ({
+  originalMessage,
+  onCancelReply,
+}) => {
+  return (
+    <div className="flex items-center space-x-2 mb-2 p-2 bg-gray-200 dark:bg-gray-700 rounded-lg shadow-sm">
+      <div className="flex-1 truncate">
+        <span className="text-sm font-semibold">
+          {originalMessage.isSelf ? 'You' : 'Stranger'}
+        </span>
+        <p className="text-sm text-gray-700 dark:text-gray-200">
+          {originalMessage.text}
+        </p>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onCancelReply}
+        className="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100"
+        aria-label="Cancel Reply"
+      >
+        <CloseIcon className="w-4 h-4" />
+      </Button>
+    </div>
+  );
+};
+
+// Virtualized Message List Item
+const MessageListItem: FC<{
+  index: number;
+  style: React.CSSProperties;
+  data: {
+    messages: Message[];
+    onDoubleTap: (messageId: string, isSelf: boolean) => void;
+    onReply: (message: Message) => void;
+    darkMode: boolean;
+    onInView: (messageId: string, inView: boolean) => void;
+  };
+}> = React.memo(({ index, style, data }) => {
+  const { messages, onDoubleTap, onReply, darkMode, onInView } = data;
+  const message = messages[index];
+
+  return (
+    <div style={style}>
+      <MessageBubble
+        key={message.id}
+        message={message}
+        onDoubleTap={onDoubleTap}
+        onReply={onReply}
+        darkMode={darkMode}
+        isSelf={message.isSelf}
+        onInView={onInView}
+      />
+    </div>
+  );
+});
+
+MessageListItem.displayName = 'MessageListItem';
+
 export default function TextChatPage() {
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -89,15 +246,106 @@ export default function TextChatPage() {
   const [hasInteracted, setHasInteracted] = useState<boolean>(false);
   const [isDisconnected, setIsDisconnected] = useState<boolean>(false);
   const [noUsersOnline, setNoUsersOnline] = useState<boolean>(false);
-  const [lastTapTime, setLastTapTime] = useState<{ [key: string]: number }>({});
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const [showLikeMessage, setShowLikeMessage] = useState<boolean>(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [showTagMenu, setShowTagMenu] = useState<boolean>(false);
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const [searchCancelled, setSearchCancelled] = useState<boolean>(false);
+  const [customTagInput, setCustomTagInput] = useState<string>('');
+  const [customTag, setCustomTag] = useState<string | null>(null);
+  const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false);
+  const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isSelfTyping, setIsSelfTyping] = useState(false);
+  const [matchedTags, setMatchedTags] = useState<string[]>([]);
+  const mainRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
+    useState<boolean>(false);
+  const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
+  const [hideSeenForMessageIds, setHideSeenForMessageIds] = useState<
+    Set<string>
+  >(new Set());
 
+  // Refs for sound and interaction
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
+
+  const handleTypingFromPeer = useCallback(() => {
+    setIsTyping(true);
+
+    // Clear existing timeout to prevent premature hiding
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+
+    // Set a new timeout to hide the typing indicator after a delay
+    peerTypingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      peerTypingTimeoutRef.current = null;
+    }, 3000); // Adjust the delay as needed
+  }, []);
+
+  const handleStopTypingFromPeer = useCallback(() => {
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+    setIsTyping(false);
+  }, []);
+
+  // Self Typing Event Handlers
+  const handleTyping = useDebounce(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(true);
+      textSocket.emit('typing', { room: currentRoom });
+    }
+  }, 300);
+
+  const handleStopTyping = useDebounce(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(false);
+      textSocket.emit('stopTyping', { room: currentRoom });
+    }
+  }, 2000);
+
+  const defaultTags = useMemo(
+    () => [
+      'music',
+      'movies',
+      'books',
+      'sports',
+      'technology',
+      'art',
+      'gaming',
+      'cooking',
+      'fitness',
+      'vellore',
+      'ap',
+      'chennai',
+      'bhopal'
+    ],
+    []
+  );
+
+  useEffect(() => {
+    const resizeHandler = () => {
+      if (mainRef.current) {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
+      }
+    };
+
+    resizeHandler();
+    window.addEventListener('resize', resizeHandler);
+
+    return () => {
+      window.removeEventListener('resize', resizeHandler);
+    };
+  }, []);
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -115,6 +363,7 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
+  // Sound Effects
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
     if (!hasInteractedRef.current) return;
@@ -154,161 +403,489 @@ export default function TextChatPage() {
     }
   }, []);
 
-  const handleSession = useCallback(({ sessionId }: { sessionId: string }) => {
-    //console.log(`Session ID received: ${sessionId}`);
-  }, []);
+  // User Interaction Handler
+  const handleUserInteraction = useCallback(() => {
+    if (!hasInteracted) {
+      setHasInteracted(true);
+    }
+  }, [hasInteracted]);
 
-  const handleConnect = useCallback(() => {
-    textSocket.emit('findTextMatch');
+  // Start Search Function
+  const startSearch = useCallback(() => {
     setIsSearching(true);
-    //console.log('Socket connected. Searching for a match...');
+    setSearchCancelled(false);
+    setNoUsersOnline(false);
+    setIsDisconnected(false);
+    setShowIntroMessage(true);
+    setReplyTo(null);
+    setMessages([]); // Clear messages when starting a new search
+    setMatchedTags([]);
+
+    const normalizedTags = tags.map((tag) => tag.trim().toLowerCase());
+
+    if (textSocket && textSocket.connected) {
+      textSocket.emit('findTextMatch', { tags });
+    } else {
+      textSocket?.once('connect', () => {
+        textSocket?.emit('findTextMatch', { tags });
+      });
+    }
+  }, [tags]);
+
+  // Reply Handling
+  const handleReply = useCallback((message: Message) => {
+    setReplyTo(message);
+    document.getElementById('message-input')?.focus();
   }, []);
 
+  const cancelReply = useCallback(() => {
+    setReplyTo(null);
+  }, []);
+
+  // Scroll to Bottom
+  const scrollToBottom = useCallback(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, []);
+
+  // Handle Text Match Event
   const handleTextMatch = useCallback(
-    ({ room, initiator }: { room: string; initiator: boolean }) => {
+    ({
+      room,
+      initiator,
+      matchedTags,
+    }: {
+      room: string;
+      initiator: boolean;
+      matchedTags?: string | string[];
+    }) => {
+      let tagsArray: string[] = [];
+
+      if (Array.isArray(matchedTags)) {
+        tagsArray = matchedTags;
+      } else if (typeof matchedTags === 'string' && matchedTags.trim() !== '') {
+        tagsArray = matchedTags.split(',').filter((tag) => tag.trim() !== '');
+      }
+
+      setMatchedTags(tagsArray);
+      setShowIntroMessage(true);
+
+      const toastId = `text-match-${room}`;
+
+      if (tagsArray.length > 0) {
+        toast.dismiss(toastId);
+        toast.success(`Connected based on tags: ${tagsArray.join(', ')}`, {
+          id: toastId,
+        });
+      } else {
+        toast.dismiss(toastId);
+        toast.success('Connected to a stranger!', { id: toastId });
+      }
+
+      if (soundEnabledRef.current && hasInteractedRef.current) {
+        playNotificationSound();
+      }
+
       setConnected(true);
       setIsSearching(false);
-      setNoUsersOnline(false);
       setCurrentRoom(room);
-      setShowIntroMessage(true);
       setIsDisconnected(false);
-      toast.success('Connected to a stranger!');
-      //console.log(`Text match found in room: ${room}`);
-      if (soundEnabledRef.current && hasInteractedRef.current)
-        playNotificationSound();
+      setNoUsersOnline(false);
+      setReplyTo(null);
     },
     [playNotificationSound]
   );
 
-  const addMessage = useCallback(
-    (text: string, isSelf: boolean, messageId: string) => {
-      if (!messageId) {
-        console.error('Received message without a messageId');
-        return;
-      }
-      setMessages((prev) => {
-        if (prev.find((msg) => msg.id === messageId)) {
-          console.warn(`Duplicate messageId detected: ${messageId}`);
-          return prev;
-        }
-        return [
-          ...prev,
-          {
-            id: messageId,
-            text,
-            isSelf,
-            timestamp: new Date(),
-            reactions: {},
-            liked: false,
-          },
-        ];
-      });
+  // Handle No Text Match
+  const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
+    setIsSearching(false);
+    setNoUsersOnline(true);
+
+    const toastId = 'no-text-match';
+    toast.dismiss(toastId);
+    toast.error(message || 'No users found with matching tags.', {
+      id: toastId,
+    });
+  }, []);
+
+  // Handle Search Cancelled
+  const handleSearchCancelled = useCallback(
+    ({ message }: { message: string }) => {
+      setIsSearching(false);
+      setSearchCancelled(true);
+
+      const toastId = 'search-cancelled';
+      toast.dismiss(toastId);
+      toast(message || 'Search cancelled.', { id: toastId });
     },
     []
   );
 
+  const handleInView = useCallback(
+    (messageId: string, inView: boolean) => {
+      if (!inView) return; // Skip if the message is not in view
+
+      // Avoid unnecessary state updates
+      if (seenMessages.has(messageId)) return;
+
+      setSeenMessages((prev) => new Set([...prev, messageId]));
+
+      // Update the specific message as seen
+      setMessages((prevMessages) => {
+        const messageIndex = prevMessages.findIndex(
+          (msg) => msg.id === messageId && !msg.seen
+        );
+        if (messageIndex === -1) return prevMessages; // No change needed
+
+        const updatedMessages = [...prevMessages];
+        updatedMessages[messageIndex] = {
+          ...updatedMessages[messageIndex],
+          seen: true,
+        };
+        return updatedMessages;
+      });
+
+      // Notify the server only for newly seen messages
+      textSocket.emit('messageSeen', { messageId, room: currentRoom });
+      //console.log(`Message ${messageId} seen and notified to the server.`);
+    },
+    [currentRoom, textSocket, seenMessages]
+  );
+
+  // Handle Text Message Event
   const handleTextMessage = useCallback(
     ({
       message,
       sender,
       messageId,
+      replyToId,
     }: {
       message: string;
       sender: string;
       messageId: string;
+      replyToId?: string;
     }) => {
-      //console.log('Received message:', { message, sender, messageId });
       const isSelf = sender === textSocket.id;
-      addMessage(message, isSelf, messageId);
-      if (!isSelf && soundEnabledRef.current && hasInteractedRef.current)
+      let replyToMessage: Message | undefined;
+      if (replyToId) {
+        replyToMessage = messages.find((msg) => msg.id === replyToId);
+      }
+      const newMessage: Message = {
+        id: messageId,
+        text: message,
+        isSelf,
+        timestamp: new Date(),
+        reactions: {},
+        liked: false,
+        replyTo: replyToMessage || null,
+        seen: false, // Default to unseen
+      };
+
+      setMessages((prev) => {
+        if (prev.find((msg) => msg.id === messageId)) {
+          return prev; // Prevent duplicate messages
+        }
+
+        // Limit the number of messages to 1000
+        const newMessages = [...prev, newMessage];
+        if (newMessages.length > 100) {
+          newMessages.shift(); // Remove the oldest message
+        }
+        return newMessages;
+      });
+
+      if (!isSelf) {
+        // Automatically mark the latest message as seen
+        if (scrollAreaRef.current) {
+          const messageElement = document.getElementById(messageId);
+          if (
+            messageElement &&
+            messageElement.getBoundingClientRect().top < window.innerHeight
+          ) {
+            handleInView(messageId, true);
+          }
+        }
         playMessageSound();
+      }
+
+      // Scroll to bottom after adding a new message
+      setTimeout(scrollToBottom, 100);
     },
-    [addMessage, playMessageSound]
+    [playMessageSound, messages, scrollToBottom, handleInView, textSocket]
   );
 
-  const handlePeerDisconnected = useCallback(
+  // Handle Reaction Updates
+  const handleReactionUpdate = useCallback(
+    ({ messageId, liked }: { messageId: string; liked: boolean }) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId ? { ...msg, liked } : msg
+        )
+      );
+    },
+    []
+  );
+
+  // Handle Toast Notifications
+  const handleToastNotification = useCallback(
     ({ message }: { message: string }) => {
-      //console.log('Peer disconnected:', message);
+      const toastId = `toast-${message}`;
+      toast.dismiss(toastId);
+      toast(message, { id: toastId });
+    },
+    []
+  );
+
+  // Handle Peer Message Seen
+  const handlePeerMessageSeen = useCallback(
+    ({ messageId }: { messageId: string }) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId ? { ...msg, seen: true } : msg
+        )
+      );
+    },
+    []
+  );
+
+  // Handle Peer Searching (Additional Handler)
+  const handlePeerSearching = useCallback(
+    ({ message }: { message: string }) => {
       setConnected(false);
       setMessages([]);
       setCurrentRoom('');
-      setIsDisconnected(true);
-      toast.error(message || 'Your chat partner has disconnected.');
+      setIsDisconnected(false);
+      setIsSearching(false);
+      setNoUsersOnline(false);
+      setReplyTo(null);
+      setIsPeerSearching(true);
+      setMatchedTags([]);
+
+      const toastId = 'peer-searching';
+      toast.dismiss(toastId);
+      toast.error(
+        message || 'Your chat partner is searching for a new match.',
+        { id: toastId }
+      );
+
       if (soundEnabledRef.current && hasInteractedRef.current)
         playDisconnectSound();
     },
     [playDisconnectSound]
   );
 
-  const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
-    setIsSearching(false);
-    setNoUsersOnline(true);
-    toast.error(message);
-    //console.log('No text match found:', message);
-  }, []);
+  // Handle Peer Disconnected
+  const handlePeerDisconnected = useCallback(
+    ({ message }: { message: string }) => {
+      if (isUserInitiatedDisconnect) {
+        setIsUserInitiatedDisconnect(false);
+        return;
+      }
 
-  const handleTypingFromPeer = useCallback(() => {
-    setIsTyping(true);
-    setTimeout(() => setIsTyping(false), 3000);
-    //console.log('Stranger is typing...');
-  }, []);
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setReplyTo(null);
+      setMatchedTags([]);
+      setChatState('idle'); // Reset to home screen
 
-  const handleReactionUpdate = useCallback(
-    ({ messageId, liked }: ReactionUpdate) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === messageId && !msg.isSelf ? { ...msg, liked } : msg
-        )
-      );
-      //console.log(`Reaction updated for message ${messageId}: ${liked}`);
+      const toastId = 'peer-disconnected';
+      toast.dismiss(toastId);
+      toast.error(message || 'Your chat partner has disconnected.', {
+        id: toastId,
+      });
+
+      if (soundEnabledRef.current && hasInteractedRef.current)
+        playDisconnectSound();
     },
-    []
+    [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
-  const handleDisconnect = useCallback((reason: string) => {
-    //console.log('Disconnected from server:', reason);
-    setConnected(false);
-    if (reason === 'io server disconnect') {
-      textSocket.connect();
-    }
-  }, []);
+  // Handle Read Receipts (Additional Handler)
+  const handleMessageSeen = useCallback(
+    ({ messageId }: { messageId: string }) => {
+      setMessages((prevMessages) => {
+        let updated = false;
 
-  const handleReconnect = useCallback((attemptNumber: number) => {
-    //console.log(`Reconnected after ${attemptNumber} attempts`);
-    if (currentRoomRef.current) {
-      textSocket.emit('findTextMatch');
-      setIsSearching(true);
-      //console.log('Re-attempting to find a text match...');
-    }
-  }, []);
-
-  const handleTyping = useCallback(() => {
-    if (connectedRef.current && currentRoomRef.current) {
-      textSocket.emit('typing', { room: currentRoomRef.current });
-      //console.log('Emitting typing event...');
-    }
-  }, []);
-
-  const handleTypingDebounced = useDebounce(handleTyping, 500);
-
-  const handleEmojiClick = useCallback(
-    (emojiData: EmojiClickData, event: MouseEvent) => {
-      setInputMessage((prev) => prev + emojiData.emoji);
-      setShowEmojiPicker(false);
-      //console.log(`Emoji selected: ${emojiData.emoji}`);
+        // Only mark the latest message as seen
+        return prevMessages.map((msg, index) => {
+          if (msg.id === messageId && !updated) {
+            updated = true; // Mark the first match as seen
+            return { ...msg, seen: true };
+          }
+          return { ...msg, seen: false }; // Unmark others
+        });
+      });
     },
     []
   );
 
   useEffect(() => {
+    if (!textSocket) return;
+
+    // Register Socket Event Handlers
+    textSocket.on('peerMessageSeen', handlePeerMessageSeen);
+    textSocket.on('textMatch', handleTextMatch);
+    textSocket.on('noTextMatch', handleNoTextMatch);
+    textSocket.on('textMessage', handleTextMessage);
+    textSocket.on('typing', handleTypingFromPeer);
+    textSocket.on('reactionUpdate', handleReactionUpdate);
+    textSocket.on('search_cancelled', handleSearchCancelled);
+    textSocket.on('toastNotification', handleToastNotification);
+    textSocket.on('peerSearching', handlePeerSearching);
+    textSocket.on('peerDisconnected', handlePeerDisconnected);
+    textSocket.on('stopTyping', handleStopTypingFromPeer);
+    textSocket.on('peerSearchingSelf', ({ message }: { message: string }) => {
+      const toastId = 'peer-searching-self';
+      toast.dismiss(toastId);
+      toast(message || 'You have initiated a new search.', { id: toastId });
+    });
+    textSocket.on('messageSeen', handleMessageSeen); // Listen for 'messageSeen' events
+
+    return () => {
+      // Clean up Socket Event Handlers
+      textSocket.off('peerMessageSeen', handlePeerMessageSeen);
+      textSocket.off('textMatch', handleTextMatch);
+      textSocket.off('noTextMatch', handleNoTextMatch);
+      textSocket.off('textMessage', handleTextMessage);
+      textSocket.off('typing', handleTypingFromPeer);
+      textSocket.off('reactionUpdate', handleReactionUpdate);
+      textSocket.off('search_cancelled', handleSearchCancelled);
+      textSocket.off('toastNotification', handleToastNotification);
+      textSocket.off('peerSearching', handlePeerSearching);
+      textSocket.off('peerDisconnected', handlePeerDisconnected);
+      textSocket.off('peerSearchingSelf');
+      textSocket.off('stopTyping', handleStopTypingFromPeer);
+      textSocket.off('messageSeen', handleMessageSeen);
+    };
+  }, [
+    handleTextMatch,
+    handleNoTextMatch,
+    handleTextMessage,
+    handleTypingFromPeer,
+    handleReactionUpdate,
+    handleSearchCancelled,
+    handleToastNotification,
+    handlePeerSearching,
+    handlePeerDisconnected,
+    handleMessageSeen,
+    handlePeerMessageSeen,
+    handleStopTypingFromPeer,
+    textSocket,
+  ]);
+
+  // Handle Before Unload (User leaves the page)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (connected && currentRoom) {
+        textSocket.emit('nextTextChat', { room: currentRoom });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('unload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('unload', handleBeforeUnload);
+    };
+  }, [connected, currentRoom, textSocket]);
+
+  // Available Tags
+  const availableTags = useMemo(() => {
+    if (customTag) {
+      return [...defaultTags, customTag];
+    }
+    return defaultTags;
+  }, [customTag, defaultTags]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputMessage(e.target.value); // Update input value immediately
+    debouncedHandleTyping(); // Trigger debounced typing events
+  };
+
+  const debouncedHandleTyping = useDebounce(() => {
+    handleTyping(); // Trigger typing indicator
+    handleStopTyping(); // Ensure typing stops after a delay
+  }, 200);
+
+  // Toggle Tag Selection
+  const toggleTag = (tag: string) => {
+    setTags((prevTags) => {
+      let newTags = prevTags.includes(tag)
+        ? prevTags.filter((t) => t !== tag)
+        : [...prevTags, tag];
+
+      const totalTags =
+        newTags.length + (customTag && !newTags.includes(customTag) ? 1 : 0);
+
+      if (totalTags > 3) {
+        toast.error('You can select up to 3 tags in total.');
+        return prevTags;
+      }
+
+      return newTags;
+    });
+  };
+
+  // Add Custom Tag
+  const handleAddCustomTag = () => {
+    if (customTagInput.trim().length > 0) {
+      if (customTag) {
+        toast.error('Only one custom tag is allowed.');
+        return;
+      }
+
+      let tag = customTagInput.trim().substring(0, 10);
+
+      tag = DOMPurify.sanitize(tag, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+      tag = tag.replace(/[^a-zA-Z0-9]/g, '');
+
+      if (tag.length === 0) {
+        toast.error('Invalid tag.');
+        return;
+      }
+
+      setCustomTag(tag);
+      setCustomTagInput('');
+
+      setTags((prevTags) => {
+        let newTags = [...prevTags, tag];
+
+        const totalTags = newTags.length;
+
+        if (totalTags > 3) {
+          toast.error('You can select up to 3 tags in total.');
+          return prevTags;
+        }
+
+        return newTags;
+      });
+    }
+  };
+
+  // Clear Messages on Disconnect
+  useEffect(() => {
+    if (!connected && !isSearching) {
+      setMessages([]);
+      setMatchedTags([]);
+    }
+  }, [connected, isSearching]);
+
+  // Scroll to Bottom on Messages Update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // Tooltip Handling
+  useEffect(() => {
     if (isSearching && !tooltipShownRef.current) {
       tooltipShownRef.current = true;
       setShowTooltip(true);
-      //console.log('Showing tooltip: We value your feedback!');
 
       const tooltipTimeout = setTimeout(() => {
         setShowTooltip(false);
-        //console.log('Hiding tooltip after timeout');
       }, 5000);
 
       return () => clearTimeout(tooltipTimeout);
@@ -317,116 +894,10 @@ export default function TextChatPage() {
     if (!isSearching) {
       tooltipShownRef.current = false;
       setShowTooltip(false);
-      //console.log('Hiding tooltip: Match found or search canceled');
     }
   }, [isSearching]);
 
-  const handleUserInteraction = useCallback(() => {
-    if (!hasInteracted) {
-      setHasInteracted(true);
-      //console.log('User has interacted with the page');
-    }
-  }, [hasInteracted]);
-
-  const toggleEmojiPicker = useCallback(() => {
-    setShowEmojiPicker((prev) => !prev);
-    //console.log('Toggled emoji picker');
-  }, []);
-
-  const handleDoubleTap = useCallback(
-    (messageId: string, isSelf: boolean) => {
-      if (isSelf) return;
-
-      const now = Date.now();
-      const lastTap = lastTapTime[messageId] || 0;
-      const timeDiff = now - lastTap;
-
-      if (timeDiff < 300) {
-        const message = messages.find((msg) => msg.id === messageId);
-        if (!message) return;
-
-        const updatedLiked = !message.liked;
-        setMessages((prevMessages) =>
-          prevMessages.map((msg) =>
-            msg.id === messageId ? { ...msg, liked: updatedLiked } : msg
-          )
-        );
-
-        const reactionData: ReactionData = {
-          room: currentRoom,
-          messageId,
-          liked: updatedLiked,
-        };
-        textSocket.emit('reaction', reactionData);
-        //console.log(`Sent reaction for message ${messageId}: ${updatedLiked}`);
-      }
-
-      setLastTapTime((prev) => ({ ...prev, [messageId]: now }));
-    },
-    [lastTapTime, messages, currentRoom]
-  );
-
-  const handleSendMessage = useCallback(() => {
-    if (inputMessage.trim() && connected && currentRoom) {
-      if (isProfane(inputMessage)) {
-        toast.error('Please try to keep the conversation respectful.');
-        console.warn('Profanity detected. Message not sent.');
-        return;
-      }
-      const messageId = uuidv4();
-      textSocket.emit('textMessage', {
-        room: currentRoom,
-        message: inputMessage,
-        messageId,
-      });
-      setInputMessage('');
-      setShowIntroMessage(false);
-      //console.log(`Sent message: ${inputMessage} with ID: ${messageId}`);
-
-      addMessage(inputMessage, true, messageId);
-    }
-  }, [inputMessage, connected, currentRoom, addMessage]);
-
-  const handleNext = useCallback(() => {
-    setConnected(false);
-    setMessages([]);
-    setIsSearching(true);
-    setShowIntroMessage(true);
-    setNoUsersOnline(false);
-    setCurrentRoom('');
-    setIsDisconnected(false);
-
-    if (currentRoom) {
-      textSocket.emit('nextTextChat', { room: currentRoom });
-    }
-
-    textSocket.emit('findTextMatch');
-    //console.log('Initiated next chat');
-  }, [currentRoom]);
-
-  const Tooltip = useCallback(
-    () => (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 20 }}
-        transition={{ duration: 0.5 }}
-        className="fixed top-10 right-5 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50"
-      >
-        <p>We value your feedback!</p>
-        <Link
-          href="/feedback"
-          className="underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Click here to provide feedback
-        </Link>
-      </motion.div>
-    ),
-    []
-  );
-
+  // Show Like Message Once
   useEffect(() => {
     const hasSeenMessage = localStorage.getItem('seenLikeMessage');
     if (!hasSeenMessage) {
@@ -435,93 +906,379 @@ export default function TextChatPage() {
 
       const timer = setTimeout(() => {
         setShowLikeMessage(false);
-      }, 15000); // 15 seconds
+      }, 10000);
 
       return () => clearTimeout(timer);
     }
   }, []);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // Handle Next Chat
+  const handleNext = useCallback(() => {
+    if (connected && currentRoom) {
+      setIsUserInitiatedDisconnect(true);
+      textSocket.emit('nextTextChat', { room: currentRoom });
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setIsDisconnected(false);
+      setIsSearching(false);
+      setNoUsersOnline(false);
+      setReplyTo(null);
+      setMatchedTags([]);
+      startSearch();
+    } else {
+      startSearch();
+    }
+  }, [connected, currentRoom, startSearch, textSocket]);
 
-  useEffect(() => {
-    textSocket.on('reactionUpdate', ({ messageId, liked }) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === messageId ? { ...msg, liked } : msg
-        )
-      );
-      //console.log(`Reaction updated for message ${messageId}: ${liked}`);
-    });
+  // Chat State
+  const [chatState, setChatState] = useState<string>('idle');
 
-    return () => {
-      textSocket.off('reactionUpdate');
-    };
+  const handleReturnToSearch = useCallback(() => {
+    setIsPeerSearching(false);
+    setConnected(false);
+    setMessages([]);
+    setCurrentRoom('');
+    setReplyTo(null);
+    setMatchedTags([]);
+    setChatState('idle');
   }, []);
 
-  useEffect(() => {
-    textSocket.on('connect', handleConnect);
-    textSocket.on('session', handleSession);
-    textSocket.on('textMatch', handleTextMatch);
-    textSocket.on('textMessage', handleTextMessage);
-    textSocket.on('peerDisconnected', handlePeerDisconnected);
-    textSocket.on('noTextMatch', handleNoTextMatch);
-    textSocket.on('typing', handleTypingFromPeer);
-    textSocket.on('reactionUpdate', handleReactionUpdate);
-    textSocket.on('disconnect', handleDisconnect);
-    textSocket.on('reconnect', handleReconnect);
+  const handleCancelPeerSearching = useCallback(() => {
+    setIsPeerSearching(false);
+  }, []);
 
-    const handleBeforeUnload = () => {
-      if (connected && currentRoom) {
-        textSocket.emit('nextTextChat', { room: currentRoom });
-        //console.log('Emitted nextTextChat due to tab closure');
+  const handleSendMessage = useCallback(() => {
+    if (!inputMessage.trim()) return;
+
+    if (isProfane(inputMessage)) {
+      toast.error('Do not be a creep.');
+      return;
+    }
+
+    const sanitizedMessage = DOMPurify.sanitize(inputMessage, {
+      ALLOWED_TAGS: [],
+      ALLOWED_ATTR: [],
+    });
+
+    const messageId = uuidv4();
+
+    const decodedMessage = sanitizedMessage
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&');
+
+    textSocket.emit('textMessage', {
+      room: currentRoom,
+      message: decodedMessage,
+      messageId,
+      replyTo: replyTo ? replyTo.id : undefined,
+    });
+
+    // Reset seen status for the peer
+    textSocket.emit('resetSeenStatus', { room: currentRoom });
+
+    const newMessage: Message = {
+      id: messageId,
+      text: decodedMessage,
+      isSelf: true,
+      timestamp: new Date(),
+      reactions: {},
+      liked: false,
+      replyTo: replyTo || null,
+      seen: false, // Self messages are marked as unseen
+    };
+
+    setMessages((prev) => {
+      // Reset seen status for all messages
+      const updated = prev.map((msg) => ({ ...msg, seen: false }));
+      // Limit the number of messages to 1000
+      const newMessages = [...updated, newMessage];
+      if (newMessages.length > 1000) {
+        newMessages.shift(); // Remove the oldest message
+      }
+      return newMessages;
+    });
+    setInputMessage('');
+    setReplyTo(null);
+
+    setShowIntroMessage(false);
+
+    if (soundEnabledRef.current && hasInteractedRef.current) {
+      playMessageSound();
+    }
+
+    scrollToBottom();
+  }, [
+    inputMessage,
+    currentRoom,
+    replyTo,
+    playMessageSound,
+    scrollToBottom,
+    textSocket,
+  ]);
+
+  const handleTypingDebounced = useDebounce(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputMessage(e.target.value);
+      handleTyping(); // Trigger typing indicator
+      handleStopTyping(); // Ensure typing stops after a delay
+    },
+    200
+  );
+
+  interface TypingIndicatorProps {
+    darkMode: boolean;
+  }
+
+  const MemoizedTypingIndicator = React.memo(
+    ({ darkMode }: TypingIndicatorProps) => (
+      <div className="absolute bottom-full left-4 mb-1 text-xs text-gray-500 dark:text-gray-300 flex items-center space-x-1">
+        <span>Stranger is typing</span>
+        <div className="flex space-x-1">
+          <div
+            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+            style={{ animationDelay: '0s' }}
+          ></div>
+          <div
+            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+            style={{ animationDelay: '0.2s' }}
+          ></div>
+          <div
+            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+            style={{ animationDelay: '0.4s' }}
+          ></div>
+        </div>
+      </div>
+    )
+  );
+
+  const handleEmojiClick = useCallback(
+    (emojiData: EmojiClickData, event: MouseEvent) => {
+      setInputMessage((prev) => prev + emojiData.emoji);
+      setShowEmojiPicker(false);
+      handleTypingDebounced(); // Emit typing when emoji is clicked
+    },
+    [handleTypingDebounced]
+  );
+  interface EmojiPickerProps {
+    onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
+    darkMode: boolean;
+  }
+
+  const MemoizedEmojiPicker = React.memo(
+    ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
+      <EmojiPicker
+        onEmojiClick={onEmojiClick}
+        theme={darkMode ? Theme.DARK : Theme.LIGHT}
+        width="100%"
+        height={350}
+      />
+    )
+  );
+
+  // Double Tap Handler
+  const handleDoubleTap = useCallback(
+    (messageId: string, isSelf: boolean) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId ? { ...msg, liked: !msg.liked } : msg
+        )
+      );
+
+      const message = messages.find((msg) => msg.id === messageId);
+      if (message) {
+        textSocket.emit('reaction', {
+          room: currentRoom,
+          messageId,
+          liked: !message.liked,
+        });
+      }
+    },
+    [textSocket, currentRoom, messages]
+  );
+
+  // Optimize the data passed to the virtualized list
+  const listData = useMemo(
+    () => ({
+      messages,
+      onDoubleTap: handleDoubleTap,
+      onReply: handleReply,
+      darkMode,
+      onInView: handleInView,
+    }),
+    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
+  );
+
+  const notifyPeerDisconnection = useCallback(() => {
+    if (textSocket && currentRoom) {
+      textSocket.emit('peerDisconnected', { room: currentRoom });
+    }
+  }, [currentRoom, textSocket]);
+
+  useEffect(() => {
+    const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
+      // Prevent navigation and show confirmation dialog
+      const confirmationMessage =
+        'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.';
+      const confirmed = window.confirm(confirmationMessage);
+      if (!confirmed) {
+        // Prevent navigation by re-adding the current state to the history stack
+        if (event.type === 'popstate') {
+          window.history.pushState(null, document.title, window.location.href);
+        }
+      } else {
+        notifyPeerDisconnection();
+        setConnected(false);
+        setMessages([]);
+        setCurrentRoom('');
+        setReplyTo(null);
+        setMatchedTags([]);
+        setChatState('idle');
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    // Add event listeners for back navigation
+    window.addEventListener('popstate', handleBackNavigation);
+    window.addEventListener('beforeunload', handleBackNavigation);
+
+    // Push initial state to prevent direct back navigation
+    window.history.pushState(null, document.title, window.location.href);
 
     return () => {
-      textSocket.off('connect', handleConnect);
-      textSocket.off('session', handleSession);
-      textSocket.off('textMatch', handleTextMatch);
-      textSocket.off('textMessage', handleTextMessage);
-      textSocket.off('peerDisconnected', handlePeerDisconnected);
-      textSocket.off('noTextMatch', handleNoTextMatch);
-      textSocket.off('typing', handleTypingFromPeer);
-      textSocket.off('reactionUpdate', handleReactionUpdate);
-      textSocket.off('disconnect', handleDisconnect);
-      textSocket.off('reconnect', handleReconnect);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Clean up event listeners on component unmount
+      window.removeEventListener('popstate', handleBackNavigation);
+      window.removeEventListener('beforeunload', handleBackNavigation);
     };
+  }, [notifyPeerDisconnection]);
+
+  const handleSwitchToVideo = useCallback(() => {
+    const confirmed = window.confirm(
+      'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
+    );
+
+    if (!confirmed) {
+      return; // Exit early if the user cancels
+    }
+
+    // If confirmed, proceed with the action
+    notifyPeerDisconnection();
+    setConnected(false);
+    setMessages([]);
+    setCurrentRoom('');
+    setReplyTo(null);
+    setMatchedTags([]);
+    setChatState('idle');
+    window.location.href = '/video'; // Redirect to video chat
   }, [
-    handleConnect,
-    handleSession,
-    handleTextMatch,
-    handleTextMessage,
-    handlePeerDisconnected,
-    handleNoTextMatch,
-    handleTypingFromPeer,
-    handleReactionUpdate,
-    handleDisconnect,
-    handleReconnect,
-    connected,
-    currentRoom,
+    notifyPeerDisconnection,
+    setConnected,
+    setMessages,
+    setCurrentRoom,
+    setReplyTo,
+    setMatchedTags,
+    setChatState,
   ]);
+
+  const handleNewMessageFromRecipient = useCallback((messageId: string) => {
+    setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
+  }, []);
+
+  const handleBack = useCallback(() => {
+    const confirmed = window.confirm(
+      'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
+    );
+
+    if (confirmed) {
+      // Notify the other user about the disconnection
+      if (currentRoom) {
+        textSocket.emit('peerDisconnected', { room: currentRoom });
+      }
+
+      // Clean up the current chat state
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setReplyTo(null);
+      setMatchedTags([]);
+      setChatState('idle');
+
+      // Redirect to Vimegle homepage
+      window.location.href = '/';
+    }
+  }, [currentRoom, textSocket]);
+
+  const handleNextChat = useCallback(() => {
+    const confirmed = window.confirm(
+      'Are you sure you want to move to the next chat? This will disconnect your current chat partner.'
+    );
+    if (confirmed) {
+      notifyPeerDisconnection();
+      setIsUserInitiatedDisconnect(true);
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setReplyTo(null);
+      setMatchedTags([]);
+      startSearch();
+    }
+  }, [notifyPeerDisconnection, startSearch]);
+
+  const debouncedHandleInputChange = useDebounce(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setInputMessage(e.target.value);
+      handleTyping(); // Trigger typing indicator
+      handleStopTyping(); // Ensure typing stops after a delay
+    },
+    200
+  );
 
   return (
     <div
+      ref={mainRef}
       className={`flex flex-col h-screen relative ${
-        darkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-black'
+        darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
       }`}
       onClick={handleUserInteraction}
       onKeyDown={handleUserInteraction}
       onMouseMove={handleUserInteraction}
     >
-      <Toaster position="top-center" />
+      {/* Configure Toaster with top-center position */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 5000,
+          style: {
+            marginTop: '4rem', // Adjust the value based on your header height
+            zIndex: 9999, // Ensure the toast is above most UI elements
+          },
+        }}
+      />
+      {/* Background Watermark */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <span
+          className={`text-4xl font-bold select-none transition-opacity duration-300 ${
+            darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
+          }`}
+        >
+          Vimegle
+        </span>
+      </div>
 
+      {/* Tooltip */}
       <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence>
 
+      {/* Peer Searching Modal */}
+      <AnimatePresence>
+        {isPeerSearching && (
+          <PeerSearchingModal
+            onReturnToSearch={handleReturnToSearch}
+            darkMode={darkMode}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Searching Modal */}
       <AnimatePresence>
         {isSearching && (
           <motion.div
@@ -529,24 +1286,46 @@ export default function TextChatPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-40"
+            className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10"
+              className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
             >
               <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
-              <p className="text-2xl font-bold text-gray-700 dark:text-gray-200">
+              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
                 Searching for a match...
               </p>
+              {tags.length > 0 && (
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                  Based on your tags: <strong>{tags.join(', ')}</strong>
+                </p>
+              )}
+              <Button
+                onClick={() => {
+                  textSocket.emit('cancel_search');
+                  setIsSearching(false);
+                  setNoUsersOnline(false);
+                  setReplyTo(null);
+                  setMessages([]);
+                  toast('Search cancelled.');
+                }}
+                variant="outline"
+                size="sm"
+                className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
+                aria-label="Cancel Search"
+              >
+                Cancel
+              </Button>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
+      {/* No Users Online Modal */}
       <AnimatePresence>
         {noUsersOnline && (
           <motion.div
@@ -554,30 +1333,28 @@ export default function TextChatPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
+            className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.8, opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg"
+              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
             >
-              <p className="text-2xl font-bold text-gray-700 dark:text-gray-200 mb-4">
-                No Users Online
+              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
+                No Users Found
               </p>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                There are currently no users available to chat. Please try again
-                later.
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+                We couldn't find any users matching your tags. Please try again
+                with different tags or broaden your search.
               </p>
               <Button
                 onClick={() => {
                   setNoUsersOnline(false);
-                  textSocket.emit('findTextMatch');
-                  setIsSearching(true);
-                  //console.log('Retrying search for a match...');
+                  startSearch();
                 }}
-                className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded"
+                className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
               >
                 Retry Search
               </Button>
@@ -586,339 +1363,68 @@ export default function TextChatPage() {
         )}
       </AnimatePresence>
 
+      {/* Disconnected Modal */}
       <AnimatePresence>
         {isDisconnected && (
-          <motion.div
-            key="disconnected-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/75 z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg z-10 max-w-sm w-full`}
-            >
-              <h2 className="text-xl font-bold mb-4">Stranger Disconnected</h2>
-              <p className="mb-4">
-                Your chat partner has left the conversation.
-              </p>
-              <Button
-                onClick={handleNext}
-                className="w-full"
-                aria-label="Start New Chat"
-              >
-                Start a New Chat
-              </Button>
-            </motion.div>
-          </motion.div>
+          <PeerDisconnectedModal
+            onStartNewChat={handleNext}
+            darkMode={darkMode}
+          />
         )}
       </AnimatePresence>
 
+      {/* Header */}
       <header
         className={`${
-          darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-        } border-b p-4 flex justify-between items-center`}
+          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        } border-b p-4 flex justify-between items-center shadow-sm`}
       >
-        <div className="flex items-center space-x-4">
-          <Link
-            href="/"
-            className={`${
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleBack} // Handle back action
+            className={`cursor-pointer ${
               darkMode
                 ? 'text-white hover:text-gray-300'
-                : 'text-black hover:text-gray-600'
+                : 'text-gray-700 hover:text-gray-500'
             } transition-colors`}
+            aria-label="Go Back"
           >
-            <ArrowLeft className="w-6 h-6" />
-          </Link>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
             Vimegle
           </h1>
         </div>
-        <div className="flex space-x-2">
-          {isSearching ? (
-            <Button
-              onClick={() => {
-                textSocket.emit('cancel_search');
-                setIsSearching(false);
-                setNoUsersOnline(false);
-                toast('Search cancelled.');
-                //console.log('Search cancelled by user');
-              }}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              aria-label="Cancel Search"
-            >
-              Cancel Search
-            </Button>
-          ) : connected ? (
-            <Button
-              onClick={handleNext}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              aria-label="Next Chat"
-            >
-              Next Chat
-            </Button>
-          ) : (
-            <Button
-              onClick={() => {
-                textSocket.emit('findTextMatch');
-                setIsSearching(true);
-                //console.log('Initiated search for a match');
-              }}
-              variant="outline"
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20"
-              aria-label="Find Match"
-            >
-              Find Match
-            </Button>
-          )}
-        </div>
-      </header>
 
-      <main
-        className={`flex-grow flex flex-col p-4 overflow-hidden ${
-          darkMode
-            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
-            : 'bg-gradient-to-b from-gray-100 to-white'
-        }`}
-      >
-        <ScrollArea className="flex-grow relative">
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <h1
-              className={`text-6xl font-bold text-gray-300 opacity-10 ${
-                darkMode ? 'text-white' : 'text-gray-800'
-              }`}
-            >
-              Vimegle
-            </h1>
-            {showLikeMessage && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className={`mt-4 text-sm font-medium ${
-                  darkMode ? 'text-gray-200' : 'text-gray-800'
-                }`}
-              >
-                Double-tap a message to like!
-              </motion.div>
-            )}
-          </div>
-
-          {showIntroMessage && connected && (
-            <motion.div
-              key="intro-message"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-              className={`mb-4 p-4 rounded-lg ${
-                darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-              }`}
-            >
-              <h3 className="font-bold mb-2">Welcome to Vimegle Text Chat!</h3>
-              <p>
-                You're now connected with a random stranger. Say hello and start
-                chatting!
-              </p>
-              <p className="mt-2 text-sm">
-                Remember to be respectful and follow our community guidelines.
-              </p>
-            </motion.div>
-          )}
-
-          <AnimatePresence initial={false}>
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className={`mb-4 ${msg.isSelf ? 'text-right' : 'text-left'}`}
-              >
-                <div
-                  className={`inline-block max-w-[70%] ${
-                    msg.isSelf
-                      ? darkMode
-                        ? 'bg-blue-600'
-                        : 'bg-blue-500'
-                      : darkMode
-                        ? 'bg-gray-700'
-                        : 'bg-gray-300'
-                  } rounded-2xl p-4 relative cursor-pointer`}
-                  onClick={() => handleDoubleTap(msg.id, msg.isSelf)}
-                >
-                  <span
-                    className={`${
-                      msg.isSelf
-                        ? 'text-white'
-                        : darkMode
-                          ? 'text-white'
-                          : 'text-black'
-                    } break-words`}
-                  >
-                    <Twemoji
-                      text={msg.text}
-                      options={{
-                        className: 'inline-block align-middle',
-                      }}
-                    />
-                  </span>
-                  <span
-                    className={`text-xs ${
-                      darkMode ? 'text-gray-400' : 'text-gray-600'
-                    } mt-1 block`}
-                  >
-                    {msg.timestamp.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                  {msg.liked && (
-                    <motion.div
-                      initial={{ opacity: 0, translateY: 10 }}
-                      animate={{ opacity: 1, translateY: 0 }}
-                      exit={{ opacity: 0, translateY: 10 }}
-                      transition={{ duration: 0.3 }}
-                      className={`absolute ${
-                        msg.isSelf
-                          ? 'bottom-[-10px] left-0'
-                          : 'bottom-[-10px] right-0'
-                      } z-10`}
-                    >
-                      <Heart className="w-6 h-6 text-red-500 fill-current" />
-                    </motion.div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {isTyping && (
-            <motion.div
-              key="typing-indicator"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className={`${
-                darkMode ? 'text-gray-400' : 'text-gray-600'
-              } italic`}
-            >
-              Stranger is typing...
-            </motion.div>
-          )}
-          <div ref={messagesEndRef} />
-        </ScrollArea>
-        <div className="relative">
-          <Input
-            type="text"
-            value={inputMessage}
-            onChange={(e) => {
-              setInputMessage(e.target.value);
-              handleTypingDebounced();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleSendMessage();
-            }}
-            placeholder="Type a message..."
-            disabled={!connected}
-            className={`w-full ${
-              darkMode
-                ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-400'
-                : 'bg-white border-gray-300 text-black placeholder-gray-500'
-            } pr-24 rounded-full`}
-            aria-label="Message Input"
-          />
-          <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={toggleEmojiPicker}
-              className={`${
-                darkMode
-                  ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                  : 'text-gray-600 hover:text-black hover:bg-gray-200'
-              } rounded-full`}
-              aria-label="Toggle Emoji Picker"
-            >
-              <Smile className="w-5 h-5" />
-            </Button>
-            <Button
-              onClick={handleSendMessage}
-              disabled={!connected || !inputMessage.trim()}
-              size="icon"
-              className={`${
-                darkMode
-                  ? 'bg-blue-600 hover:bg-blue-700'
-                  : 'bg-blue-500 hover:bg-blue-600'
-              } text-white rounded-full`}
-              aria-label="Send Message"
-            >
-              <Send className="w-5 h-5" />
-            </Button>
-          </div>
-          {showEmojiPicker && (
-            <div className="absolute bottom-16 right-4 z-10">
-              <EmojiPicker
-                onEmojiClick={handleEmojiClick}
-                theme={darkMode ? Theme.DARK : Theme.LIGHT}
-              />
-            </div>
-          )}
-        </div>
-      </main>
-
-      <footer
-        className={`${
-          darkMode ? 'bg-black border-white/10' : 'bg-white border-gray-200'
-        } border-t p-4 flex justify-between items-center`}
-      >
-        <div className="flex space-x-2">
-          <Link href="/video">
-            <Button
-              variant="ghost"
-              className={`${
-                darkMode
-                  ? 'text-white hover:bg-gray-800'
-                  : 'text-black hover:bg-gray-200'
-              }`}
-              aria-label="Switch to Video Chat"
-            >
-              <Video className="w-5 h-5 mr-2" />
-              Switch to Video
-            </Button>
-          </Link>
+        <div className="flex space-x-4 relative">
+          {/* Popover for Settings */}
           <Popover>
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
-                className={`${
+                size="sm"
+                className={`cursor-pointer ${
                   darkMode
-                    ? 'text-white hover:bg-gray-800'
-                    : 'text-black hover:bg-gray-200'
-                }`}
+                    ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                    : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                } rounded-full p-2 shadow-sm transition-colors duration-300`}
                 aria-label="Open Settings"
               >
                 <Settings className="w-5 h-5" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className={`w-80 p-4 rounded-lg shadow-lg ${
+              className={`w-72 p-4 rounded-lg shadow-lg ${
                 darkMode
-                  ? 'bg-gray-700 text-gray-100'
+                  ? 'bg-gray-800 text-gray-100'
                   : 'bg-gray-50 text-gray-800'
               }`}
+              style={{ zIndex: 1050 }} // Ensures this stays above other elements
             >
               <div className="grid gap-4">
                 <div className="space-y-2">
                   <h4 className="font-medium leading-none">Settings</h4>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-xs text-gray-400">
                     Customize your chat experience
                   </p>
                 </div>
@@ -926,7 +1432,9 @@ export default function TextChatPage() {
                 <div className="flex items-center justify-between">
                   <Label
                     htmlFor="dark-mode"
-                    className={darkMode ? 'text-gray-200' : 'text-gray-700'}
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
                   >
                     Dark Mode
                   </Label>
@@ -934,7 +1442,7 @@ export default function TextChatPage() {
                     id="dark-mode"
                     checked={darkMode}
                     onCheckedChange={setDarkMode}
-                    className={`${
+                    className={`cursor-pointer ${
                       darkMode
                         ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
                         : 'bg-gray-300 data-[state=checked]:bg-blue-600'
@@ -944,7 +1452,9 @@ export default function TextChatPage() {
                 <div className="flex items-center justify-between">
                   <Label
                     htmlFor="sound"
-                    className={darkMode ? 'text-gray-200' : 'text-gray-700'}
+                    className={`${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    } text-sm`}
                   >
                     Sound
                   </Label>
@@ -952,7 +1462,7 @@ export default function TextChatPage() {
                     id="sound"
                     checked={soundEnabled}
                     onCheckedChange={setSoundEnabled}
-                    className={`${
+                    className={`cursor-pointer ${
                       darkMode
                         ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
                         : 'bg-gray-300 data-[state=checked]:bg-blue-600'
@@ -963,14 +1473,359 @@ export default function TextChatPage() {
             </PopoverContent>
           </Popover>
         </div>
-        <div className="flex space-x-2">
+
+        <div className="flex items-center space-x-4">
+          <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                className={`cursor-pointer ${
+                  darkMode
+                    ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
+                    : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
+                } rounded-full p-3 sm:p-2 transition-all duration-300`}
+                aria-label="Advanced Search"
+                style={{
+                  fontSize: '1rem', // Increase font size for better visibility
+                  width: '48px', // Larger tap target
+                  height: '48px',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                }}
+              >
+                <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              sideOffset={5}
+              className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                darkMode
+                  ? 'bg-gray-800 text-gray-200'
+                  : 'bg-white text-gray-800'
+              } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+            >
+              <h3
+                className={`text-lg font-semibold mb-2 ${
+                  darkMode ? 'text-gray-200' : 'text-gray-800'
+                }`}
+              >
+                Select Tags
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => (
+                  <div key={tag} className="relative inline-block">
+                    <Button
+                      variant={tags.includes(tag) ? 'default' : 'outline'}
+                      className={`cursor-pointer ${
+                        tags.includes(tag)
+                          ? 'bg-blue-500 text-white hover:bg-blue-600'
+                          : darkMode
+                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                            : 'border-gray-300 text-gray-800 hover:bg-gray-100'
+                      } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
+                      onClick={() => toggleTag(tag)}
+                    >
+                      {tag}
+                    </Button>
+                    {customTag === tag && (
+                      <button
+                        className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
+                          darkMode
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-red-400 text-white hover:bg-red-500'
+                        } transition-colors duration-300`}
+                        onClick={() => {
+                          setCustomTag(null); // Clear the custom tag
+                          setTags((prevTags) =>
+                            prevTags.filter((t) => t !== tag)
+                          );
+                        }}
+                        aria-label={`Remove ${tag}`}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <Input
+                  value={customTagInput}
+                  onChange={(e) => setCustomTagInput(e.target.value)}
+                  placeholder="Add custom tag (max 10 letters)"
+                  maxLength={10}
+                  className={`mb-2 ${
+                    darkMode
+                      ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
+                      : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
+                  } rounded-md shadow-sm transition-colors duration-300`}
+                  aria-label="Custom Tag Input"
+                />
+                <Button
+                  onClick={handleAddCustomTag}
+                  className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
+                    darkMode
+                      ? 'bg-green-500 hover:bg-green-600 text-white'
+                      : 'bg-green-400 hover:bg-green-500 text-white'
+                  }`}
+                  aria-label="Add Custom Tag"
+                >
+                  Add Custom Tag
+                </Button>
+              </div>
+              <Button
+                onClick={() => {
+                  setShowTagMenu(false);
+                  startSearch();
+                }}
+                className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
+                  darkMode
+                    ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                    : 'bg-pink-400 hover:bg-pink-500 text-white'
+                }`}
+                aria-label="Search with Tags"
+              >
+                Search with Tags
+              </Button>
+            </PopoverContent>
+          </Popover>
+          {isSearching ? (
+            <Button
+              onClick={() => {
+                textSocket.emit('cancel_search');
+                setIsSearching(false);
+                setNoUsersOnline(false);
+                setReplyTo(null);
+                setMessages([]);
+                toast('Search cancelled.');
+              }}
+              variant="outline"
+              size="sm"
+              className={`cursor-pointer ${
+                darkMode
+                  ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                  : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+              aria-label="Cancel Search"
+            >
+              Cancel
+            </Button>
+          ) : connected ? (
+            <Button
+              onClick={handleNextChat}
+              variant="outline"
+              size="sm"
+              className={`cursor-pointer ${
+                darkMode
+                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                  : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+              aria-label="Next Match"
+            >
+              Next
+            </Button>
+          ) : (
+            <Button
+              onClick={startSearch}
+              variant="outline"
+              size="sm"
+              className={`cursor-pointer ${
+                darkMode
+                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+              aria-label="Find Match"
+            >
+              Find
+            </Button>
+          )}
+        </div>
+      </header>
+
+      <main
+        className={`flex flex-col h-[100vh] overflow-hidden ${
+          darkMode
+            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+            : 'bg-gradient-to-b from-gray-100 to-white'
+        }`}
+      >
+        {connected && (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Scrollable Messages Area */}
+            <ScrollArea className="flex-1 px-4 pt-4 pb-2" ref={scrollAreaRef}>
+              <div className="flex flex-col gap-2">
+                <AnimatePresence initial={false}>
+                  {messages.map((msg) => (
+                    <MessageBubble
+                      key={msg.id}
+                      message={msg}
+                      onDoubleTap={handleDoubleTap}
+                      onReply={handleReply}
+                      darkMode={darkMode}
+                      isSelf={msg.isSelf}
+                      onInView={(messageId, inView) =>
+                        handleInView(messageId, inView)
+                      }
+                    />
+                  ))}
+                  {showIntroMessage && (
+                    <motion.div
+                      key="intro-message"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className={`p-4 rounded-lg ${
+                        darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                      } shadow-inner`}
+                    >
+                      <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
+                        Welcome to Vimegle Text Chat!
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        You're now connected with a random stranger. Say hello
+                        and start chatting!
+                      </p>
+                      {matchedTags.length > 0 && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Connected based on tags:{' '}
+                          <strong>{matchedTags.join(', ')}</strong>
+                        </p>
+                      )}
+                      {!matchedTags.length && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Connected to a stranger! Feel free to start the
+                          conversation.
+                        </p>
+                      )}
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Remember to be respectful and follow our community
+                        guidelines.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Input Box */}
+            <div
+              className={`relative px-4 py-2 ${
+                darkMode ? 'bg-gray-800' : 'bg-gray-100'
+              } flex-shrink-0`}
+            >
+              {replyTo && (
+                <ReplyPreview
+                  originalMessage={replyTo}
+                  onCancelReply={cancelReply}
+                />
+              )}
+              <div className="relative">
+                {/* Typing Indicator */}
+                {isTyping && !isSelfTyping && !replyTo && (
+                  <MemoizedTypingIndicator darkMode={darkMode} />
+                )}
+
+                <div className="relative">
+                  <Input
+                    id="message-input"
+                    type="text"
+                    value={inputMessage}
+                    onChange={handleInputChange} // Use debounced handler
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSendMessage();
+                    }}
+                    placeholder="Type a message..."
+                    disabled={!connected}
+                    autoComplete="off"
+                    className={`w-full ${
+                      darkMode
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                        : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+                    } pr-24 pl-4 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    aria-label="Message Input"
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => setShowEmojiPicker((prev) => !prev)}
+                      className={`${
+                        darkMode
+                          ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+                      } rounded-full w-10 h-10 transition-colors duration-300`}
+                      aria-label="Toggle Emoji Picker"
+                    >
+                      <Smile className="w-5 h-5" />
+                    </Button>
+
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!connected || !inputMessage.trim()}
+                      size="icon"
+                      className={`${
+                        darkMode
+                          ? 'bg-blue-600 hover:bg-blue-700'
+                          : 'bg-blue-500 hover:bg-blue-600'
+                      } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
+                        !connected || !inputMessage.trim()
+                          ? 'opacity-50 cursor-not-allowed'
+                          : ''
+                      }`}
+                      aria-label="Send Message"
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
+                  </div>
+                </div>
+
+                {showEmojiPicker && (
+                  <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
+                    <MemoizedEmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      darkMode={darkMode}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* <footer
+        className={`${
+          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+        } border-t p-4 flex justify-between items-center shadow-sm`}
+      >
+        <div className="flex space-x-4">
           <Button
+            onClick={handleSwitchToVideo}
             variant="ghost"
+            size="sm"
             className={`${
               darkMode
-                ? 'text-white hover:bg-gray-800'
-                : 'text-black hover:bg-gray-200'
-            }`}
+                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+            } flex items-center space-x-2 rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+            aria-label="Switch to Video Chat"
+          >
+            <Video className="w-5 h-5" />
+            <span className="text-sm hidden sm:inline">Video</span>
+          </Button>
+        </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`${
+              darkMode
+                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+            } rounded-full p-2 shadow-sm transition-colors duration-300`}
             onClick={() => toast('Feature not implemented yet')}
             aria-label="Flag"
           >
@@ -978,18 +1833,19 @@ export default function TextChatPage() {
           </Button>
           <Button
             variant="ghost"
+            size="sm"
             className={`${
               darkMode
-                ? 'text-white hover:bg-gray-800'
-                : 'text-black hover:bg-gray-200'
-            }`}
+                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+            } rounded-full p-2 shadow-sm transition-colors duration-300`}
             onClick={() => toast('Feature not implemented yet')}
             aria-label="Alert"
           >
             <AlertTriangle className="w-5 h-5" />
           </Button>
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 }

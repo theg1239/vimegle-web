@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { Loader2, AlertTriangle } from 'lucide-react';
+import * as nsfwjs from 'nsfwjs';
+import * as tf from '@tensorflow/tfjs';
 
 interface VideoChatProps {
   remoteVideoRef: React.RefObject<HTMLVideoElement>;
@@ -8,98 +9,281 @@ interface VideoChatProps {
   remoteStream: MediaStream | null;
   isSearching: boolean;
   searchCancelled: boolean;
+  hasCameraError: boolean;
+  isConnecting: boolean;
+  chatState: string;
 }
 
-const overlayVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
-
-const VideoChat: React.FC<VideoChatProps> = React.memo(function VideoChat({
+const VideoChat: React.FC<VideoChatProps> = ({
   remoteVideoRef,
   connected,
   remoteStream,
   isSearching,
   searchCancelled,
-}) {
+  hasCameraError,
+  isConnecting,
+  chatState,
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isNSFW, setIsNSFW] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [model, setModel] = useState<nsfwjs.NSFWJS | null>(null);
+  const [frameScores, setFrameScores] = useState<number[]>([]);
+  const [nsfwDetectionEnabled, setNSFWDetectionEnabled] = useState(true);
+  const [motionThreshold, setMotionThreshold] = useState(20); // Threshold for motion detection
+  const [previousFrame, setPreviousFrame] = useState<ImageData | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const WEIGHTS = {
+    Porn: 1.5,
+    Sexy: 0.3,
+    Hentai: 1.5,
+    Neutral: 0.0,
+    Drawing: 0.0,
+  };
+
+  const AVERAGE_THRESHOLD = 0.7;
+  const FRAME_BUFFER_SIZE = 10;
+  const FRAME_INTERVAL = 2000; // Increased to 2 seconds to reduce processing
+
+  // Load NSFW.js model
+  useEffect(() => {
+    const loadModel = async () => {
+      try {
+        if (tf.getBackend() !== 'webgl') {
+          await tf.setBackend('webgl');
+        }
+        await tf.ready();
+        const nsfwModel = await nsfwjs.load('/models/mobilenet_v2/');
+        setModel(nsfwModel);
+        console.log('NSFW.js model loaded.');
+      } catch (error) {
+        console.error('Error loading NSFW.js model:', error);
+      }
+    };
+    loadModel();
+  }, []);
+
+  // Function to compute difference between two frames for motion detection
+  const computeFrameDifference = (currentFrame: ImageData, previousFrame: ImageData): number => {
+    let diff = 0;
+    for (let i = 0; i < currentFrame.data.length; i += 4) {
+      const rDiff = Math.abs(currentFrame.data[i] - previousFrame.data[i]);
+      const gDiff = Math.abs(currentFrame.data[i + 1] - previousFrame.data[i + 1]);
+      const bDiff = Math.abs(currentFrame.data[i + 2] - previousFrame.data[i + 2]);
+      diff += (rDiff + gDiff + bDiff) / 3;
+    }
+    return diff / (currentFrame.width * currentFrame.height);
+  };
+
+  // Analyze frame for NSFW content with motion detection
+  const analyzeFrame = useCallback(async () => {
+    if (
+      !model ||
+      !canvasRef.current ||
+      !remoteVideoRef.current ||
+      isBlocked ||
+      !nsfwDetectionEnabled ||
+      isAnalyzing
+    )
+      return;
+
+    const canvas = canvasRef.current;
+    const video = remoteVideoRef.current;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.warn('Video dimensions are not ready.');
+      return;
+    }
+
+    // Downscale the video for faster processing
+    const downscaleFactor = 0.5; // Reduced to 50% for performance
+    canvas.width = video.videoWidth * downscaleFactor;
+    canvas.height = video.videoHeight * downscaleFactor;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    try {
+      const currentFrame = context.getImageData(0, 0, canvas.width, canvas.height);
+
+      // Motion Detection
+      if (previousFrame) {
+        const frameDifference = computeFrameDifference(currentFrame, previousFrame);
+        if (frameDifference < motionThreshold) {
+          // Low motion detected, skip analysis to prevent false positives
+          console.log(`Low motion detected (${frameDifference.toFixed(2)}), skipping frame analysis.`);
+          return;
+        }
+      }
+
+      setPreviousFrame(currentFrame);
+      setIsAnalyzing(true);
+
+      const predictions = await model.classify(canvas);
+      console.log('NSFW Predictions:', predictions); // Debugging
+
+      const pornScore =
+        predictions.find((p) => p.className === 'Porn')?.probability || 0;
+      const hentaiScore =
+        predictions.find((p) => p.className === 'Hentai')?.probability || 0;
+      const combinedScore =
+        pornScore * WEIGHTS.Porn + hentaiScore * WEIGHTS.Hentai;
+
+      if (combinedScore > 0.8) {
+        setIsNSFW(true);
+        setIsBlocked(true);
+      }
+
+      setFrameScores((prevScores) => {
+        const newScores = [...prevScores, combinedScore];
+        if (newScores.length > FRAME_BUFFER_SIZE) newScores.shift();
+        return newScores;
+      });
+    } catch (error) {
+      console.error('Error analyzing frame with NSFW.js:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [model, remoteVideoRef, isBlocked, nsfwDetectionEnabled, previousFrame, motionThreshold, isAnalyzing]);
+
+  // Schedule frame analysis at intervals
+  useEffect(() => {
+    if (!connected || !remoteStream || !model) return;
+
+    const interval = setInterval(() => {
+      analyzeFrame();
+    }, FRAME_INTERVAL);
+
+    return () => clearInterval(interval);
+  }, [connected, remoteStream, model, analyzeFrame]);
+
+  // Play remote video stream
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
-      //console.log('Assigning remote stream to video element.');
       remoteVideoRef.current.srcObject = remoteStream;
 
-      remoteStream.getTracks().forEach((track) => {
-        //console.log(`Remote track: kind=${track.kind}, id=${track.id}`);
-      });
-
       remoteVideoRef.current.onloadedmetadata = () => {
-        //console.log('Remote video metadata loaded.');
         remoteVideoRef.current
           ?.play()
           .catch((e) => console.error('Error playing remote video:', e));
       };
 
       remoteVideoRef.current.onerror = (e) => {
-        //console.error('Remote video error:', e);
+        console.error('Remote video error:', e);
       };
-    } else {
-      // console.warn(
-      //   'remoteVideoRef is not initialized or remoteStream is null.'
-      // );
     }
   }, [remoteStream, remoteVideoRef]);
 
+  // Analyze average score
+  useEffect(() => {
+    if (frameScores.length === FRAME_BUFFER_SIZE) {
+      const averageScore =
+        frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
+      console.log('Average NSFW Score:', averageScore); // Debugging
+      if (averageScore > AVERAGE_THRESHOLD) {
+        setIsNSFW(true);
+        setIsBlocked(true);
+      } else {
+        setIsNSFW(false);
+        setIsBlocked(false);
+      }
+    }
+  }, [frameScores]);
+
+  // Reset states when chat state changes
+  useEffect(() => {
+    if (chatState === 'searching' || chatState === 'idle') {
+      setIsBlocked(false);
+      setIsNSFW(false);
+      setFrameScores([]);
+      setNSFWDetectionEnabled(true);
+      setPreviousFrame(null);
+    }
+  }, [chatState]);
+
+  // Handle "Show Anyway"
+  const handleShowAnyway = () => {
+    setNSFWDetectionEnabled(false);
+    setIsBlocked(false);
+    setIsNSFW(false);
+  };
+
+  // Handle user toggling NSFW detection
+  const toggleNSFWDetection = () => {
+    setNSFWDetectionEnabled((prev) => !prev);
+    if (isNSFW && nsfwDetectionEnabled) {
+      setIsBlocked(false);
+      setIsNSFW(false);
+    }
+  };
+
   return (
-    <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30 backdrop-blur-sm">
+    <div className="relative h-full rounded-xl overflow-hidden shadow-2xl bg-black/30">
       <video
         ref={remoteVideoRef}
         autoPlay
         playsInline
-        className="w-full h-full object-cover transform scale-x-[-1]"
+        className={`w-full h-full object-cover ${
+          isBlocked ? 'blur-lg grayscale' : 'transform scale-x-[-1]'
+        }`}
         aria-label="Remote Video"
       />
+      <canvas ref={canvasRef} className="hidden" />
 
-      {(!connected || !remoteStream) && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
-          {isSearching ? (
-            <div className="flex flex-col items-center">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" />
-              <p className="text-2xl font-bold">Searching for a match...</p>
-            </div>
-          ) : searchCancelled ? (
-            <p className="text-lg">
-              Search cancelled. Click "Next Chat" to find a new match.
-            </p>
-          ) : (
-            <p className="text-lg"></p>
-          )}
+      {(isNSFW || isBlocked) && nsfwDetectionEnabled && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-10">
+          <AlertTriangle className="w-16 h-16 text-red-500 animate-pulse" />
+          <p className="text-white text-2xl font-bold mt-4">
+            NSFW Content Detected
+          </p>
+          <p className="text-gray-300 mt-2 text-center">
+            This video contains potentially inappropriate content and has been
+            blurred for your safety.
+          </p>
+          <button
+            onClick={handleShowAnyway}
+            className="mt-4 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md transition-all duration-300"
+          >
+            Show Anyway
+          </button>
         </div>
       )}
 
-      <AnimatePresence>
-        {!isSearching && !connected && !searchCancelled && (
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            exit="hidden"
-            variants={overlayVariants}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="absolute inset-0 flex items-center justify-center bg-black/75 text-white"
-          >
+      {!connected && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/75 text-white">
+          {isConnecting ? (
             <div className="text-center">
-              <p className="text-2xl font-bold mb-4">
-                Waiting for connection...
-              </p>
-              <div className="inline-flex space-x-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce"></div>
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-200"></div>
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce delay-400"></div>
-              </div>
+              <Loader2 className="w-12 h-12 animate-spin text-pink-500 mx-auto mb-4" />
+              <p className="text-lg">Connecting...</p>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ) : isSearching ? (
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-pink-500 mx-auto mb-4" />
+              <p className="text-lg">Searching for a match...</p>
+            </div>
+          ) : hasCameraError ? (
+            <div className="text-center">
+              <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <p className="text-lg">
+                Camera access denied. Check your permissions.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Optional: NSFW Detection Toggle */}
+      <div className="absolute top-2 right-2">
+        <button
+          onClick={toggleNSFWDetection}
+          className="px-3 py-1 bg-gray-700 text-white rounded-full shadow-md hover:bg-gray-600 transition-colors duration-200"
+        >
+          {nsfwDetectionEnabled ? 'Disable NSFW Detection' : 'Enable NSFW Detection'}
+        </button>
+      </div>
     </div>
   );
-});
+};
 
 export default VideoChat;
