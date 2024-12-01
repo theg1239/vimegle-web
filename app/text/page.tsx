@@ -45,6 +45,7 @@ import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
 import { chunk } from 'lodash';
+import DisclaimerProvder from '@/app/components/disclaimer-provider';
 
 // Custom hook for debouncing
 function useDebounce(callback: Function, delay: number) {
@@ -69,26 +70,26 @@ function useDebounce(callback: Function, delay: number) {
   return debouncedFunction;
 }
 
-// Tooltip Component
-const Tooltip: FC = () => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: 20 }}
-    transition={{ duration: 0.5 }}
-    className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
-  >
-    <p>We value your feedback!</p>
-    <Link
-      href="/feedback"
-      className="underline text-sm"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Click here to provide feedback
-    </Link>
-  </motion.div>
-);
+// // Tooltip Component
+// const Tooltip: FC = () => (
+//   <motion.div
+//     initial={{ opacity: 0, y: 20 }}
+//     animate={{ opacity: 1, y: 0 }}
+//     exit={{ opacity: 0, y: 20 }}
+//     transition={{ duration: 0.5 }}
+//     className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
+//   >
+//     <p>We value your feedback!</p>
+//     <Link
+//       href="/feedback"
+//       className="underline text-sm"
+//       target="_blank"
+//       rel="noopener noreferrer"
+//     >
+//       Click here to provide feedback
+//     </Link>
+//   </motion.div>
+// );
 
 // Modals for Peer Searching and Disconnection
 const PeerSearchingModal: FC<{
@@ -952,7 +953,7 @@ export default function TextChatPage() {
     if (!inputMessage.trim()) return;
 
     if (isProfane(inputMessage)) {
-      toast.error('Do not be a creep.');
+      toast.error('Please refrain from this activity.');
       return;
     }
 
@@ -1234,6 +1235,7 @@ export default function TextChatPage() {
   );
 
   return (
+    <DisclaimerProvder>
     <div
       ref={mainRef}
       className={`flex flex-col h-screen relative ${
@@ -1265,8 +1267,8 @@ export default function TextChatPage() {
         </span>
       </div>
 
-      {/* Tooltip */}
-      <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence>
+      {/* Tooltip
+      <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence> */}
 
       {/* Peer Searching Modal */}
       <AnimatePresence>
@@ -1847,5 +1849,6 @@ export default function TextChatPage() {
         </div>
       </footer> */}
     </div>
+    </DisclaimerProvder>
   );
 }

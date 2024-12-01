@@ -17,7 +17,7 @@ export default function TermsOfServicePage() {
               Terms of Service
             </h2>
             <p className="mt-2 text-lg text-gray-400">
-              Last Updated: November 26, 2024
+              Last Updated: December 1, 2024
             </p>
           </div>
 
@@ -28,10 +28,12 @@ export default function TermsOfServicePage() {
               </h3>
               <p className="text-gray-400">
                 By accessing or using our Service, you affirm that you are at
-                least 18 years old and capable of forming a binding contract. If
-                you are using our Service on behalf of an organization, you
+                least 18 years old or the legal age of majority in your
+                jurisdiction and capable of forming a binding contract. If you
+                are using our Service on behalf of an organization, you
                 represent and warrant that you have the authority to bind that
-                organization to these Terms.
+                organization to these Terms. Continued use of the Service
+                indicates your acceptance of these Terms and any future updates.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
@@ -40,15 +42,32 @@ export default function TermsOfServicePage() {
               <p className="text-gray-400">
                 Vimegle provides real-time, anonymous video and text chat
                 services connecting users randomly for conversation ("Service").
-                No account creation is required to use the Service.
+                No account creation is required to use the Service. The Service
+                is intended solely for personal, non-commercial use.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
-                3. User Responsibilities
+                3. No Affiliation Disclaimer
+              </h3>
+              <p className="text-gray-400">
+                Vimegle is an independent platform and does not claim or intend
+                to be affiliated, associated, authorized, endorsed by, or in any
+                way officially connected with any institution, organization,
+                company, or individual unless explicitly stated. The names,
+                logos, or any other proprietary identifiers used in connection
+                with the Service are solely for descriptive purposes and should
+                not imply any association, partnership, or endorsement. Any
+                implications to the contrary are expressly disclaimed.
+              </p>
+
+              <h3 className="text-xl font-semibold text-gray-200">
+                4. User Responsibilities
               </h3>
               <p className="text-gray-400">
                 <strong>Lawful Use:</strong> You agree to use the Service only
-                for lawful purposes and in accordance with these Terms.
+                for lawful purposes and in accordance with these Terms. Your
+                use must comply with all applicable laws, regulations, and
+                guidelines in your jurisdiction.
               </p>
 
               <p className="text-gray-400">
@@ -60,35 +79,45 @@ export default function TermsOfServicePage() {
                   behavior.
                 </li>
                 <li>
-                  Share or distribute illegal, harmful, or infringing content.
+                  Share, distribute, or transmit illegal, harmful, offensive,
+                  or infringing content.
                 </li>
                 <li>
-                  Attempt to gain unauthorized access to our systems or other
-                  users' data.
+                  Attempt to gain unauthorized access to our systems, or disrupt
+                  the integrity of the Service.
                 </li>
                 <li>
-                  Use automated means to access or interact with the Service.
+                  Use automated means or scripts to interact with the Service,
+                  unless explicitly authorized by us.
                 </li>
                 <li>
-                  Impersonate any person or entity or falsely represent your
-                  affiliation with a person or entity.
+                  Impersonate another person or falsely represent your identity
+                  or affiliation.
                 </li>
               </ul>
 
+              <h3 className="text-xl font-semibold text-gray-200">
+                5. User-Generated Content
+              </h3>
               <p className="text-gray-400">
-                <strong>Content Standards:</strong> You are solely responsible
-                for all content you transmit through the Service. We do not
-                endorse any content but reserve the right to remove content that
-                violates these Terms.
+                Vimegle is a platform that facilitates user interactions and does
+                not control or endorse any content transmitted by users. You
+                acknowledge and agree that all content is the sole responsibility
+                of the person who originated it. Vimegle and its affiliates will
+                not be held responsible or liable for any content, including but
+                not limited to errors, omissions, or any loss or damage incurred
+                as a result of the use of any content made available via the
+                Service.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
-                4. No Account Creation
+                6. No Account Creation
               </h3>
               <p className="text-gray-400">
                 Our Service does not require users to create an account. By
-                using the Service, you acknowledge that we may collect certain
-                information as described in our{' '}
+                using the Service, you agree that we may collect certain
+                non-identifiable information to improve functionality or comply
+                with legal requirements, as outlined in our{' '}
                 <Link
                   href="/guidelines/privacy"
                   className="underline text-blue-400 hover:text-blue-600"
@@ -99,103 +128,79 @@ export default function TermsOfServicePage() {
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
-                5. Intellectual Property
+                7. Intellectual Property
               </h3>
               <p className="text-gray-400">
                 <strong>Ownership:</strong> All content, features, and
                 functionality of the Service, including but not limited to text,
                 graphics, logos, and software, are owned by or licensed to us
-                and are protected by intellectual property laws.
+                and are protected by intellectual property laws. Any
+                unauthorized use of these materials is strictly prohibited.
               </p>
 
               <p className="text-gray-400">
                 <strong>Limited License:</strong> We grant you a limited,
                 non-exclusive, non-transferable, and revocable license to access
-                and use the Service for personal, non-commercial purposes.
+                and use the Service for personal, non-commercial purposes only.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
-                6. Termination
-              </h3>
-              <p className="text-gray-400">
-                We reserve the right to suspend or terminate your access to the
-                Service, without prior notice or liability, for any reason,
-                including if you breach these Terms. Upon termination, your
-                right to use the Service will immediately cease.
-              </p>
-
-              <h3 className="text-xl font-semibold text-gray-200">
-                7. Disclaimers
+                8. Disclaimers
               </h3>
               <p className="text-gray-400">
                 <strong>As-Is Basis:</strong> The Service is provided on an "AS
-                IS" and "AS AVAILABLE" basis without warranties of any kind,
-                either express or implied.
+                IS" and "AS AVAILABLE" basis, with no warranties of any kind,
+                either express or implied, including warranties of
+                merchantability or fitness for a particular purpose.
               </p>
 
               <p className="text-gray-400">
-                <strong>No Liability:</strong> We are not liable for any direct,
-                indirect, incidental, consequential, or punitive damages arising
-                out of your use of the Service.
-              </p>
-
-              <h3 className="text-xl font-semibold text-gray-200">
-                8. Limitation of Liability
-              </h3>
-              <p className="text-gray-400">
-                To the fullest extent permitted by law, Vimegle shall not be
-                liable for any damages of any kind arising from your use of the
-                Service, including but not limited to direct, indirect,
-                incidental, punitive, and consequential damages.
+                <strong>Liability Limitations:</strong> To the fullest extent
+                permitted by applicable law, we disclaim all responsibility for
+                damages arising from your use of the Service, including data
+                loss, service interruptions, or unauthorized access to user
+                communications.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
                 9. Indemnification
               </h3>
               <p className="text-gray-400">
-                You agree to defend, indemnify, and hold harmless Vimegle, its
-                affiliates, officers, directors, employees, and agents from and
-                against any claims, liabilities, damages, losses, and expenses
-                arising out of or in any way connected with your access to or
-                use of the Service.
+                You agree to indemnify and hold harmless Vimegle, its affiliates,
+                officers, directors, employees, and agents from any claims,
+                liabilities, damages, losses, and expenses arising out of or in
+                any way connected with your access to or use of the Service or
+                violation of these Terms.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
                 10. Governing Law
               </h3>
               <p className="text-gray-400">
-                These Terms shall be governed and construed in accordance with
-                the laws of{' '}
-                <strong>of the state of Delaware, United States</strong>,
-                without regard to its conflict of law provisions.
+                These Terms and any disputes arising under them shall be
+                governed by the laws of the State of Delaware, United States,
+                without regard to its conflict of law principles. Where
+                required, the Service also complies with applicable laws of
+                jurisdictions where it is accessed, including relevant
+                obligations under data protection and content moderation laws.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
-                11. Dispute Resolution
+                11. Changes to Terms
               </h3>
               <p className="text-gray-400">
-                Any disputes arising out of or relating to these Terms shall be
-                resolved through binding arbitration in accordance with the
-                rules of the American Arbitration Association.
+                We may modify these Terms at any time without prior notice. It
+                is your responsibility to review these Terms periodically. Your
+                continued use of the Service after changes are posted will
+                signify your acceptance of those changes.
               </p>
 
               <h3 className="text-xl font-semibold text-gray-200">
-                12. Changes to Terms
+                12. Contact Us
               </h3>
               <p className="text-gray-400">
-                We reserve the right to modify or replace these Terms at any
-                time. We will provide notice of these changes by updating the
-                "Last Updated" date at the top of this document. Your continued
-                use of the Service after such changes constitutes your
-                acceptance of the new Terms.
-              </p>
-
-              <h3 className="text-xl font-semibold text-gray-200">
-                13. Contact Us
-              </h3>
-              <p className="text-gray-400">
-                If you have any questions about these Terms, please contact us
-                at:
+                For questions or concerns regarding these Terms, please contact
+                us at:
               </p>
               <ul className="list-disc list-inside text-gray-400">
                 <li>

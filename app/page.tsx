@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { HeroSection } from '@/app/components/new-hero';
+import HeroSection from '@/app/components/new-hero';
 import { Toaster } from '@/app/components/ui/toaster';
 import Header from '@/app/components/header';
 import { useRouter } from 'next/navigation';

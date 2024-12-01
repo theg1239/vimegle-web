@@ -12,6 +12,7 @@ import { Socket } from 'socket.io-client';
 import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
 import DraggableLocalVideo from '@/app/components/draggable-local-video';
 import LocalVideo from '@/app/components/local-video';
+import DisclaimerProvder from '@/app/components/disclaimer-provider';
 
 type ChatState =
   | 'idle'
@@ -649,6 +650,7 @@ export default function ChatPage() {
   }, []);
 
   return (
+    <DisclaimerProvder>
     <div className="flex flex-col h-screen bg-gradient-to-br from-gray-900 to-black">
       <Toaster position="bottom-center" />
       <header className="bg-black/50 backdrop-blur-sm p-2 sm:p-4 flex justify-between items-center z-50">
@@ -795,5 +797,6 @@ export default function ChatPage() {
         </div>
       )}
     </div>
+    </DisclaimerProvder>
   );
 }

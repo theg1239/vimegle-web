@@ -1,52 +1,92 @@
-'use client';
+'use client'
 
-import React from 'react';
-import { Video, MessageSquare, ArrowRight } from 'lucide-react';
-import { Button } from '@/app/components/ui/button';
+import { useState } from 'react';
+import { Video, MessageSquare, Users, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { Button } from '@/app/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/app/components/ui/tooltip';
 
-export function HeroSection() {
+export default function HeroSection() {
+  const [showComingSoon, setShowComingSoon] = useState(false);
+
   return (
-    <div className="min-h-screen flex flex-col md:flex-row overflow-hidden">
-      {/* Video Chat Section */}
-      <div className="flex-1 bg-gradient-to-br from-purple-900 to-indigo-900 flex flex-col items-center justify-center text-white p-6 md:p-12">
-        <Video className="w-12 h-12 md:w-16 md:h-16 mb-4 md:mb-6 text-purple-300" />
-        <h2 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4 text-center">
-          Video Chat
-        </h2>
-        <p className="text-base md:text-lg mb-4 md:mb-8 text-center max-w-md">
-          Connect face-to-face.
-        </p>
-        <Link href="/video">
-          <Button
-            size="lg"
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 md:px-8 md:py-3 rounded-full transition-all duration-300 transform hover:scale-105 text-sm md:text-base"
-          >
-            Start Video Chat
-            <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5" />
-          </Button>
-        </Link>
-      </div>
-      {/* Text Chat Section */}
-      <div className="flex-1 bg-gradient-to-bl from-indigo-900 to-purple-900 flex flex-col items-center justify-center text-white p-6 md:p-12">
-        <MessageSquare className="w-12 h-12 md:w-16 md:h-16 mb-4 md:mb-6 text-indigo-300" />
-        <h2 className="text-2xl md:text-4xl font-bold mb-2 md:mb-4 text-center">
-          Text Chat
-        </h2>
-        <p className="text-base md:text-lg mb-4 md:mb-8 text-center max-w-md">
-          Engage in instant messaging.
-        </p>
-        <Link href="/text">
-          <Button
-            size="lg"
-            variant="outline"
-            className="border-indigo-500 text-indigo-300 hover:bg-indigo-700 hover:text-white px-6 py-2 md:px-8 md:py-3 rounded-full transition-all duration-300 transform hover:scale-105 text-sm md:text-base"
-          >
-            Try Text Chat
-            <ArrowRight className="ml-2 w-4 h-4 md:w-5 md:h-5" />
-          </Button>
-        </Link>
+    <div className="min-h-screen flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col sm:flex-row">
+        {/* Text Chat Section */}
+        <div className="flex-1 bg-gradient-to-tr from-sky-900 to-blue-900 flex flex-col items-center justify-center text-white p-4 sm:p-6">
+          <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 mb-2 sm:mb-4 text-blue-300" />
+          <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-center">
+            Text Chat
+          </h2>
+          <p className="text-sm sm:text-base mb-2 sm:mb-4 text-center max-w-[200px] sm:max-w-md">
+            Text strangers.
+          </p>
+          <Link href="/text">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-blue-500 text-blue-300 hover:bg-blue-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
+            >
+              Try Text Chat
+              <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
+            </Button>
+          </Link>
+        </div>
+
+        {/* Group Chat Section
+        <div className="flex-1 bg-gradient-to-tr from-purple-900 to-indigo-900 flex flex-col items-center justify-center text-white p-4 sm:p-6">
+          <Users className="w-10 h-10 sm:w-12 sm:h-12 mb-2 sm:mb-4 text-green-300" />
+          <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-center">
+            Group Chat
+          </h2>
+          <p className="text-sm sm:text-base mb-2 sm:mb-4 text-center max-w-[200px] sm:max-w-md">
+            Talk to a group of people.
+          </p>
+          <TooltipProvider>
+          <Tooltip open={showComingSoon} onOpenChange={setShowComingSoon}>
+  <TooltipTrigger asChild>
+    <Button
+      size="sm"
+      variant="outline"
+      className="border-green-500 text-green-300 hover:bg-green-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
+      onClick={() => setShowComingSoon(true)}
+    >
+      Try Group Chat
+      <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
+    </Button>
+  </TooltipTrigger>
+  <TooltipContent align="center" side="bottom" sideOffset={5}>
+    <p>Coming Soon!</p>
+  </TooltipContent>
+</Tooltip>
+
+</TooltipProvider> */}
+
+{/* 
+        </div> */}
+
+        {/* Video Chat Section */}
+        <div className="flex-1 bg-gradient-to-tr from-red-900 to-pink-900 flex flex-col items-center justify-center text-white p-4 sm:p-6">
+          <Video className="w-10 h-10 sm:w-12 sm:h-12 mb-2 sm:mb-4 text-red-300" />
+          <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-center">
+            Video Chat
+          </h2>
+          <p className="text-sm sm:text-base mb-2 sm:mb-4 text-center max-w-[200px] sm:max-w-md">
+            Connect via video.
+          </p>
+          <Link href="/video">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-red-500 text-red-300 hover:bg-red-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
+            >
+              Try Video Chat
+              <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
+            </Button>
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
+
