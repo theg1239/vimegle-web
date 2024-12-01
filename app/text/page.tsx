@@ -261,6 +261,7 @@ export default function TextChatPage() {
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
   const mainRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
@@ -330,6 +331,25 @@ export default function TextChatPage() {
     ],
     []
   );
+
+  const isTrending = (tag: string) => trendingTags.includes(tag);
+
+  // Handle updates to trending tags from the socket
+  useEffect(() => {
+    if (!textSocket) return;
+
+    const handleTrendingTagsUpdate = (updatedTags: string[]) => {
+      setTrendingTags(updatedTags);
+    };
+
+    // Listen for trending tags updates
+    textSocket.on('trendingTagsUpdate', handleTrendingTagsUpdate);
+
+    // Cleanup
+    return () => {
+      textSocket.off('trendingTagsUpdate', handleTrendingTagsUpdate);
+    };
+  }, [textSocket]);
 
   useEffect(() => {
     const resizeHandler = () => {
@@ -1518,19 +1538,22 @@ export default function TextChatPage() {
               <div className="flex flex-wrap gap-2">
                 {availableTags.map((tag) => (
                   <div key={tag} className="relative inline-block">
-                    <Button
-                      variant={tags.includes(tag) ? 'default' : 'outline'}
-                      className={`cursor-pointer ${
-                        tags.includes(tag)
-                          ? 'bg-blue-500 text-white hover:bg-blue-600'
-                          : darkMode
+            <Button
+                key={tag}
+                variant={tags.includes(tag) ? 'default' : 'outline'}
+                className={`cursor-pointer ${
+                    isTrending(tag) ? 'glowing' : ''
+                } ${
+                    tags.includes(tag)
+                        ? 'bg-blue-500 text-white hover:bg-blue-600'
+                        : darkMode
                             ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
                             : 'border-gray-300 text-gray-800 hover:bg-gray-100'
-                      } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
-                      onClick={() => toggleTag(tag)}
-                    >
-                      {tag}
-                    </Button>
+                } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
+                onClick={() => toggleTag(tag)}
+            >
+                {tag}
+            </Button>
                     {customTag === tag && (
                       <button
                         className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${

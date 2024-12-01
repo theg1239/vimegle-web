@@ -22,3 +22,20 @@ html {
     opacity: 1;
   }
 }
+
+@keyframes glow {
+  0% {
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.4), 0 0 10px rgba(255, 255, 255, 0.3);
+  }
+  50% {
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.7), 0 0 20px rgba(255, 255, 255, 0.5);
+  }
+  100% {
+      box-shadow: 0 0 5px rgba(255, 255, 255, 0.4), 0 0 10px rgba(255, 255, 255, 0.3);
+  }
+}
+
+.glowing {
+  animation: glow 1.5s infinite;
+  transition: box-shadow 0.2s;
+}
