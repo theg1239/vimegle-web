@@ -262,6 +262,7 @@ export default function TextChatPage() {
   const mainRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
+  const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
@@ -369,6 +370,16 @@ export default function TextChatPage() {
   }, []);
 
   useEffect(() => {
+    // Append new messages to the full history
+    if (messages.length > 0) {
+      setFullChatHistory((prevHistory) => [
+        ...prevHistory,
+        ...messages.slice(prevHistory.length),
+      ]);
+    }
+  }, [messages]);
+
+  useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
 
@@ -389,7 +400,7 @@ export default function TextChatPage() {
     if (!soundEnabledRef.current) return;
     if (!hasInteractedRef.current) return;
     try {
-      const audio = new Audio('/sounds/discord-notification.mp3');
+      const audio = new Audio('/sounds/notification.mp3');
       audio.play().catch((err) => {
         console.error('Error playing notification sound:', err);
       });
@@ -402,7 +413,7 @@ export default function TextChatPage() {
     if (!soundEnabledRef.current) return;
     if (!hasInteractedRef.current) return;
     try {
-      const audio = new Audio('/sounds/discord-message.mp3');
+      const audio = new Audio('/sounds/message.mp3');
       audio.play().catch((err) => {
         console.error('Error playing message sound:', err);
       });
@@ -415,7 +426,7 @@ export default function TextChatPage() {
     if (!soundEnabledRef.current) return;
     if (!hasInteractedRef.current) return;
     try {
-      const audio = new Audio('/sounds/discord-disconnect.mp3');
+      const audio = new Audio('/sounds/disconnect.mp3');
       audio.play().catch((err) => {
         console.error('Error playing disconnect sound:', err);
       });
@@ -530,18 +541,19 @@ export default function TextChatPage() {
     });
   }, []);
 
-  // Handle Search Cancelled
   const handleSearchCancelled = useCallback(
     ({ message }: { message: string }) => {
       setIsSearching(false);
       setSearchCancelled(true);
-
+      setFullChatHistory([]); // Reset chat history
+  
       const toastId = 'search-cancelled';
       toast.dismiss(toastId);
       toast(message || 'Search cancelled.', { id: toastId });
     },
     []
   );
+  
 
   const handleInView = useCallback(
     (messageId: string, inView: boolean) => {
@@ -706,6 +718,7 @@ export default function TextChatPage() {
 
       setConnected(false);
       setMessages([]);
+      setFullChatHistory([]);
       setCurrentRoom('');
       setReplyTo(null);
       setMatchedTags([]);
@@ -946,9 +959,11 @@ export default function TextChatPage() {
       setNoUsersOnline(false);
       setReplyTo(null);
       setMatchedTags([]);
+      setFullChatHistory([])
       startSearch();
     } else {
       startSearch();
+      setFullChatHistory([]);
     }
   }, [connected, currentRoom, startSearch, textSocket]);
 
@@ -959,6 +974,7 @@ export default function TextChatPage() {
     setIsPeerSearching(false);
     setConnected(false);
     setMessages([]);
+    setFullChatHistory([]);
     setCurrentRoom('');
     setReplyTo(null);
     setMatchedTags([]);
@@ -1254,6 +1270,40 @@ export default function TextChatPage() {
     200
   );
 
+  const downloadChat = useCallback(() => {
+    if (fullChatHistory.length === 0) {
+      toast.error('No messages to download.');
+      return;
+    }
+  
+    let chatContent = '';
+  
+    fullChatHistory.forEach((msg) => {
+      const timestamp = new Date(msg.timestamp).toLocaleString();
+      const sender = msg.isSelf ? 'You' : 'Stranger';
+      chatContent += `[${timestamp}] ${sender}: ${msg.text}\n`;
+  
+      if (msg.replyTo) {
+        const replySender = msg.replyTo.isSelf ? 'You' : 'Stranger';
+        chatContent += `    ↳ [${new Date(msg.replyTo.timestamp).toLocaleString()}] ${replySender}: ${msg.replyTo.text}\n`;
+      }
+    });
+  
+    const blob = new Blob([chatContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Vimegle_Chat_${new Date()
+      .toISOString()
+      .replace(/[:.]/g, '-')}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  
+    toast.success('Chat downloaded successfully!');
+  }, [fullChatHistory]);  
+
   return (
     <DisclaimerProvder>
     <div
@@ -1419,82 +1469,112 @@ export default function TextChatPage() {
         </div>
 
         <div className="flex space-x-4 relative">
-          {/* Popover for Settings */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`cursor-pointer ${
-                  darkMode
-                    ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                    : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-                } rounded-full p-2 shadow-sm transition-colors duration-300`}
-                aria-label="Open Settings"
-              >
-                <Settings className="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className={`w-72 p-4 rounded-lg shadow-lg ${
-                darkMode
-                  ? 'bg-gray-800 text-gray-100'
-                  : 'bg-gray-50 text-gray-800'
-              }`}
-              style={{ zIndex: 1050 }} // Ensures this stays above other elements
-            >
-              <div className="grid gap-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium leading-none">Settings</h4>
-                  <p className="text-xs text-gray-400">
-                    Customize your chat experience
-                  </p>
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="dark-mode"
-                    className={`${
-                      darkMode ? 'text-gray-200' : 'text-gray-700'
-                    } text-sm`}
-                  >
-                    Dark Mode
-                  </Label>
-                  <Switch
-                    id="dark-mode"
-                    checked={darkMode}
-                    onCheckedChange={setDarkMode}
-                    className={`cursor-pointer ${
-                      darkMode
-                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-                    }`}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label
-                    htmlFor="sound"
-                    className={`${
-                      darkMode ? 'text-gray-200' : 'text-gray-700'
-                    } text-sm`}
-                  >
-                    Sound
-                  </Label>
-                  <Switch
-                    id="sound"
-                    checked={soundEnabled}
-                    onCheckedChange={setSoundEnabled}
-                    className={`cursor-pointer ${
-                      darkMode
-                        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-                    }`}
-                  />
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+  {/* Popover for Settings */}
+  <Popover>
+    <PopoverTrigger asChild>
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`cursor-pointer ${
+          darkMode
+            ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+            : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+        } rounded-full p-2 shadow-sm transition-colors duration-300`}
+        aria-label="Open Settings"
+      >
+        <Settings className="w-5 h-5" />
+      </Button>
+    </PopoverTrigger>
+    <PopoverContent
+      className={`w-72 p-4 rounded-lg shadow-lg ${
+        darkMode
+          ? 'bg-gray-800 text-gray-100'
+          : 'bg-gray-50 text-gray-800'
+      }`}
+      style={{ zIndex: 1050 }} // Ensures this stays above other elements
+    >
+      <div className="grid gap-4">
+        <div className="space-y-2">
+          <h4 className="font-medium leading-none">Settings</h4>
+          <p className="text-xs text-gray-400">
+            Customize your chat experience
+          </p>
         </div>
+        <Separator />
+        {/* Dark Mode Toggle */}
+        <div className="flex items-center justify-between">
+          <Label
+            htmlFor="dark-mode"
+            className={`${
+              darkMode ? 'text-gray-200' : 'text-gray-700'
+            } text-sm`}
+          >
+            Dark Mode
+          </Label>
+          <Switch
+            id="dark-mode"
+            checked={darkMode}
+            onCheckedChange={setDarkMode}
+            className={`cursor-pointer ${
+              darkMode
+                ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+            }`}
+          />
+        </div>
+        {/* Sound Toggle */}
+        <div className="flex items-center justify-between">
+          <Label
+            htmlFor="sound"
+            className={`${
+              darkMode ? 'text-gray-200' : 'text-gray-700'
+            } text-sm`}
+          >
+            Sound
+          </Label>
+          <Switch
+            id="sound"
+            checked={soundEnabled}
+            onCheckedChange={setSoundEnabled}
+            className={`cursor-pointer ${
+              darkMode
+                ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+            }`}
+          />
+        </div>
+        {/* Download Chat Button */}
+        <div className="flex items-center justify-between">
+          <Label
+            htmlFor="download-chat"
+            className={`${
+              darkMode ? 'text-gray-200' : 'text-gray-700'
+            } text-sm`}
+          >
+            Download Chat
+          </Label>
+          <Button
+            id="download-chat"
+            onClick={downloadChat}
+            variant="ghost"
+            size="sm"
+            className={`cursor-pointer ${
+              darkMode
+                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+            } rounded-full shadow-sm transition-colors duration-300`}
+            aria-label="Download Chat"
+          >
+            Download
+          </Button>
+        </div>
+      </div>
+    </PopoverContent>
+  </Popover>
+</div>
+
+
+        
 
         <div className="flex items-center space-x-4">
           <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>

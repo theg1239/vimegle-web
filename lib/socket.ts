@@ -86,10 +86,10 @@ if (typeof window !== 'undefined') {
     });
 
     window.defaultSocket.on('connect_error', (error) => {
-      //console.error('Connection Error (Default):', error);
-      // toast.error(
-      //   'Connection Error (Default). Please check your internet and try again.'
-      // );
+      console.error('Connection Error (Default):', error);
+      toast.error(
+        'Connection Error (Default). Please check your internet and try again.'
+      );
     });
 
     window.defaultSocket.on('disconnect', (reason: string) => {
