@@ -1258,6 +1258,7 @@ export default function TextChatPage() {
       setReplyTo(null);
       setMatchedTags([]);
       startSearch();
+      setFullChatHistory([]);
     }
   }, [notifyPeerDisconnection, startSearch]);
 
