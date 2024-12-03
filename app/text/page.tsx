@@ -46,6 +46,7 @@ import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
 import { chunk } from 'lodash';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
+import Cookies from 'js-cookie'; 
 
 // Custom hook for debouncing
 function useDebounce(callback: Function, delay: number) {
@@ -414,6 +415,48 @@ export default function TextChatPage() {
     }
   }, []);
 
+  const handleReportChat = useCallback(async () => {
+    if (!currentRoom || fullChatHistory.length === 0) {
+      toast.error('No active chat to report.');
+      return;
+    }
+  
+    const reportData = {
+      room: currentRoom,
+      socketId: textSocket.id,
+      sessionId: Cookies.get('sessionId'), // Ensure sessionId is fetched
+      messages: fullChatHistory.map((msg) => ({
+        id: msg.id,
+        text: msg.text,
+        isSelf: msg.isSelf,
+        timestamp: msg.timestamp,
+        replyTo: msg.replyTo
+          ? { id: msg.replyTo.id, text: msg.replyTo.text }
+          : null,
+      })),
+    };
+  
+    try {
+      const response = await fetch('/api/report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reportData),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to send report.');
+      }
+  
+      toast.success('Report sent successfully.');
+    } catch (error) {
+      console.error('Error sending report:', error);
+      toast.error('Failed to send report.');
+    }
+  }, [currentRoom, fullChatHistory, textSocket]);  
+
+  
   const playMessageSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
     if (!hasInteractedRef.current) return;
@@ -1574,6 +1617,35 @@ export default function TextChatPage() {
             Download
           </Button>
         </div>
+        {/* Report Chat Button */}
+<div className="flex items-center justify-between">
+  <Label
+    htmlFor="report-chat"
+    className={`${
+      darkMode ? 'text-gray-200' : 'text-gray-700'
+    } text-sm`}
+  >
+    Report Chat
+  </Label>
+  <Button
+    id="report-chat"
+    onClick={async () => {
+      // Trigger the report function here
+      handleReportChat();
+    }}
+    variant="ghost"
+    size="sm"
+    className={`cursor-pointer ${
+      darkMode
+        ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+        : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+    } rounded-full shadow-sm transition-colors duration-300`}
+    aria-label="Report Chat"
+  >
+    Report
+  </Button>
+</div>
+
       </div>
     </PopoverContent>
   </Popover>
