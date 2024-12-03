@@ -335,22 +335,27 @@ export default function TextChatPage() {
 
   const isTrending = (tag: string) => trendingTags.includes(tag);
 
-  // Handle updates to trending tags from the socket
   useEffect(() => {
-    if (!textSocket) return;
-
+    if (!textSocket) {
+      //console.log("Socket not initialized.");
+      return;
+    }
+  
     const handleTrendingTagsUpdate = (updatedTags: string[]) => {
+      //console.log("Received trending tags update:", updatedTags); // Debugging
       setTrendingTags(updatedTags);
     };
-
-    // Listen for trending tags updates
+  
     textSocket.on('trendingTagsUpdate', handleTrendingTagsUpdate);
-
-    // Cleanup
+  
     return () => {
       textSocket.off('trendingTagsUpdate', handleTrendingTagsUpdate);
     };
   }, [textSocket]);
+
+  useEffect(() => {
+    //console.log("Trending tags state updated:", trendingTags);
+  }, [trendingTags]);  
 
   useEffect(() => {
     const resizeHandler = () => {
