@@ -45,8 +45,10 @@ import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
 import { chunk } from 'lodash';
+import { debounce } from 'lodash'
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie'; 
+import Snowfall from 'react-snowfall';
 
 // Custom hook for debouncing
 function useDebounce(callback: Function, delay: number) {
@@ -263,7 +265,9 @@ export default function TextChatPage() {
   const mainRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
+  const [isReporting, setIsReporting] = useState(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
+  const [winterTheme, setWinterTheme] = useState<boolean>(false);
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
@@ -416,10 +420,14 @@ export default function TextChatPage() {
   }, []);
 
   const handleReportChat = useCallback(async () => {
+    if (isReporting) return; // Prevent multiple clicks if already reporting
+  
     if (!currentRoom || fullChatHistory.length === 0) {
       toast.error('No active chat to report.');
       return;
     }
+  
+    setIsReporting(true); // Disable button immediately
   
     const reportData = {
       room: currentRoom,
@@ -453,9 +461,16 @@ export default function TextChatPage() {
     } catch (error) {
       console.error('Error sending report:', error);
       toast.error('Failed to send report.');
+    } finally {
+      setIsReporting(false); // Reset processing state
     }
-  }, [currentRoom, fullChatHistory, textSocket]);  
-
+  }, [currentRoom, fullChatHistory, textSocket, isReporting]);
+  
+  const debouncedHandleReportChat = useMemo(
+    () => debounce(handleReportChat, 2000),
+    [handleReportChat]
+  );
+  
   
   const playMessageSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
@@ -1364,6 +1379,20 @@ export default function TextChatPage() {
       onKeyDown={handleUserInteraction}
       onMouseMove={handleUserInteraction}
     >
+{/* Add Snowfall Effect */}
+{winterTheme && (
+  <Snowfall
+    style={{ position: 'fixed', zIndex: 9999 }}
+    snowflakeCount={
+      window.innerWidth <= 480
+        ? 10 // Fewer snowflakes for smaller screens
+        : window.innerWidth <= 768
+        ? 50 // Moderate snowflakes for tablets
+        : 100 // Higher snowflakes for larger screens
+    }
+  />
+)}
+
       {/* Configure Toaster with top-center position */}
       <Toaster
         position="top-center"
@@ -1375,16 +1404,18 @@ export default function TextChatPage() {
           },
         }}
       />
-      {/* Background Watermark */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span
-          className={`text-4xl font-bold select-none transition-opacity duration-300 ${
-            darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
-          }`}
-        >
-          Vimegle
-        </span>
-      </div>
+{/* Background Watermark */}
+<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+  <span
+    className={`text-4xl font-bold select-none transition-opacity duration-300 ${
+      winterTheme ? 'neon-text' : darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
+    }`}
+  >
+    Vimegle
+  </span>
+</div>
+
+
 
       {/* Tooltip
       <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence> */}
@@ -1617,7 +1648,7 @@ export default function TextChatPage() {
             Download
           </Button>
         </div>
-        {/* Report Chat Button */}
+ {/* Report Chat Button */}
 <div className="flex items-center justify-between">
   <Label
     htmlFor="report-chat"
@@ -1629,22 +1660,48 @@ export default function TextChatPage() {
   </Label>
   <Button
     id="report-chat"
-    onClick={async () => {
-      // Trigger the report function here
-      handleReportChat();
-    }}
+    onClick={debouncedHandleReportChat} // Use the debounced function
+    disabled={isReporting} // Prevent interaction while processing
     variant="ghost"
     size="sm"
     className={`cursor-pointer ${
       darkMode
         ? 'text-white hover:text-gray-300 hover:bg-gray-700'
         : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-    } rounded-full shadow-sm transition-colors duration-300`}
+    } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
     aria-label="Report Chat"
   >
-    Report
+    {isReporting ? (
+      <Loader2
+        className="w-5 h-5 animate-spin mr-2"
+        aria-hidden="true" // Accessibility improvement
+      />
+    ) : (
+      'Report'
+    )}
   </Button>
 </div>
+<div className="flex items-center justify-between">
+  <Label
+    htmlFor="winter-theme"
+    className={`${
+      darkMode ? 'text-gray-200' : 'text-gray-700'
+    } text-sm`}
+  >
+    Winter Theme
+  </Label>
+  <Switch
+    id="winter-theme"
+    checked={winterTheme}
+    onCheckedChange={setWinterTheme}
+    className={`cursor-pointer ${
+      darkMode
+        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+    }`}
+  />
+</div>
+
 
       </div>
     </PopoverContent>
