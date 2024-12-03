@@ -106,7 +106,7 @@ if (typeof window !== 'undefined') {
   }
 
   if (!window.defaultSocket) {
-    console.log('Initializing new Socket.io client for default namespace');
+    //console.log('Initializing new Socket.io client for default namespace');
 
     window.defaultSocket = io(`${SOCKET_URL}${DEFAULT_NAMESPACE}`, {
       transports: ['websocket'],
@@ -124,12 +124,12 @@ if (typeof window !== 'undefined') {
     let isBannedDefault = false; 
 
     window.defaultSocket.on('connect', () => {
-      console.log('Default Socket connected:', window.defaultSocket.id);
+      //console.log('Default Socket connected:', window.defaultSocket.id);
       isBannedDefault = false;
     });
 
     window.defaultSocket.on('session', ({ sessionId }) => {
-      console.log('Received sessionId from server (default):', sessionId);
+      //console.log('Received sessionId from server (default):', sessionId);
       Cookies.set(SESSION_COOKIE_NAME, sessionId, {
         expires: 7,
         sameSite: 'lax',
@@ -141,7 +141,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.defaultSocket.on('partnerBanned', ({ message }) => {
-      console.log('Partner was banned:', message);
+      //console.log('Partner was banned:', message);
       toast.error(message);
     });
 
@@ -150,7 +150,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.defaultSocket.on('banned', ({ message }) => {
-      console.log('Received banned event (default):', message);
+      //console.log('Received banned event (default):', message);
       toast.error(message);
       isBannedDefault = true;
       window.defaultSocket.io.opts.reconnection = false;
@@ -165,7 +165,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.defaultSocket.on('disconnect', (reason: string) => {
-      console.log('Default Socket disconnected:', reason);
+      //console.log('Default Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
         console.log('Reconnecting Default Socket...');
         if (!isBannedDefault) {
