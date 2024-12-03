@@ -1382,16 +1382,24 @@ export default function TextChatPage() {
 {/* Add Snowfall Effect */}
 {winterTheme && (
   <Snowfall
-    style={{ position: 'fixed', zIndex: 9999 }}
+    style={{ 
+      position: 'fixed', 
+      zIndex: 0, // Set zIndex to a negative value
+      top: 0, 
+      left: 0, 
+      width: '100%', 
+      height: '100%' 
+    }}
     snowflakeCount={
       window.innerWidth <= 480
         ? 10 // Fewer snowflakes for smaller screens
         : window.innerWidth <= 768
-        ? 50 // Moderate snowflakes for tablets
-        : 100 // Higher snowflakes for larger screens
+        ? 30 // Moderate snowflakes for tablets
+        : 50 // Higher snowflakes for larger screens
     }
   />
 )}
+
 
       {/* Configure Toaster with top-center position */}
       <Toaster
