@@ -1557,163 +1557,162 @@ export default function TextChatPage() {
         </div>
 
         <div className="flex space-x-4 relative">
-  {/* Popover for Settings */}
-  <Popover>
-    <PopoverTrigger asChild>
-      <Button
-        variant="ghost"
-        size="sm"
-        className={`cursor-pointer ${
-          darkMode
-            ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-            : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-        } rounded-full p-2 shadow-sm transition-colors duration-300`}
-        aria-label="Open Settings"
-      >
-        <Settings className="w-5 h-5" />
-      </Button>
-    </PopoverTrigger>
-    <PopoverContent
-      className={`w-72 p-4 rounded-lg shadow-lg ${
+        <Popover>
+  <PopoverTrigger asChild>
+    <Button
+      variant="ghost"
+      size="sm"
+      className={`cursor-pointer ${
         darkMode
-          ? 'bg-gray-800 text-gray-100'
-          : 'bg-gray-50 text-gray-800'
-      }`}
-      style={{ zIndex: 1050 }} // Ensures this stays above other elements
+          ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+          : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+      } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`} // Increased padding
+      aria-label="Open Settings"
+      onClick={() => console.log('Settings button clicked')} // Debugging
     >
-      <div className="grid gap-4">
-        <div className="space-y-2">
-          <h4 className="font-medium leading-none">Settings</h4>
-          <p className="text-xs text-gray-400">
-            Customize your chat experience
-          </p>
-        </div>
-        <Separator />
-        {/* Dark Mode Toggle */}
-        <div className="flex items-center justify-between">
-          <Label
-            htmlFor="dark-mode"
-            className={`${
-              darkMode ? 'text-gray-200' : 'text-gray-700'
-            } text-sm`}
-          >
-            Dark Mode
-          </Label>
-          <Switch
-            id="dark-mode"
-            checked={darkMode}
-            onCheckedChange={setDarkMode}
-            className={`cursor-pointer ${
-              darkMode
-                ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-            }`}
-          />
-        </div>
-        {/* Sound Toggle */}
-        <div className="flex items-center justify-between">
-          <Label
-            htmlFor="sound"
-            className={`${
-              darkMode ? 'text-gray-200' : 'text-gray-700'
-            } text-sm`}
-          >
-            Sound
-          </Label>
-          <Switch
-            id="sound"
-            checked={soundEnabled}
-            onCheckedChange={setSoundEnabled}
-            className={`cursor-pointer ${
-              darkMode
-                ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-            }`}
-          />
-        </div>
-        {/* Download Chat Button */}
-        <div className="flex items-center justify-between">
-          <Label
-            htmlFor="download-chat"
-            className={`${
-              darkMode ? 'text-gray-200' : 'text-gray-700'
-            } text-sm`}
-          >
-            Download Chat
-          </Label>
-          <Button
-            id="download-chat"
-            onClick={downloadChat}
-            variant="ghost"
-            size="sm"
-            className={`cursor-pointer ${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } rounded-full shadow-sm transition-colors duration-300`}
-            aria-label="Download Chat"
-          >
-            Download
-          </Button>
-        </div>
- {/* Report Chat Button */}
-<div className="flex items-center justify-between">
-  <Label
-    htmlFor="report-chat"
-    className={`${
-      darkMode ? 'text-gray-200' : 'text-gray-700'
-    } text-sm`}
-  >
-    Report Chat
-  </Label>
-  <Button
-    id="report-chat"
-    onClick={debouncedHandleReportChat} // Use the debounced function
-    disabled={isReporting} // Prevent interaction while processing
-    variant="ghost"
-    size="sm"
-    className={`cursor-pointer ${
+      <Settings className="w-5 h-5" />
+    </Button>
+  </PopoverTrigger>
+  <PopoverContent
+    className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg ${
       darkMode
-        ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-        : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-    } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
-    aria-label="Report Chat"
-  >
-    {isReporting ? (
-      <Loader2
-        className="w-5 h-5 animate-spin mr-2"
-        aria-hidden="true" // Accessibility improvement
-      />
-    ) : (
-      'Report'
-    )}
-  </Button>
-</div>
-<div className="flex items-center justify-between">
-  <Label
-    htmlFor="winter-theme"
-    className={`${
-      darkMode ? 'text-gray-200' : 'text-gray-700'
-    } text-sm`}
-  >
-    Winter Theme
-  </Label>
-  <Switch
-    id="winter-theme"
-    checked={winterTheme}
-    onCheckedChange={setWinterTheme}
-    className={`cursor-pointer ${
-      darkMode
-        ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-        : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+        ? 'bg-gray-800 text-gray-100'
+        : 'bg-gray-50 text-gray-800'
     }`}
-  />
-</div>
-
-
+    style={{ zIndex: 1050 }} // Ensures this stays above other elements
+  >
+    <div className="grid gap-4">
+      <div className="space-y-2">
+        <h4 className="font-medium leading-none">Settings</h4>
+        <p className="text-xs text-gray-400">
+          Customize your chat experience
+        </p>
       </div>
-    </PopoverContent>
-  </Popover>
+      <Separator />
+      {/* Dark Mode Toggle */}
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="dark-mode"
+          className={`${
+            darkMode ? 'text-gray-200' : 'text-gray-700'
+          } text-sm`}
+        >
+          Dark Mode
+        </Label>
+        <Switch
+          id="dark-mode"
+          checked={darkMode}
+          onCheckedChange={setDarkMode}
+          className={`cursor-pointer ${
+            darkMode
+              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+          }`}
+        />
+      </div>
+      {/* Sound Toggle */}
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="sound"
+          className={`${
+            darkMode ? 'text-gray-200' : 'text-gray-700'
+          } text-sm`}
+        >
+          Sound
+        </Label>
+        <Switch
+          id="sound"
+          checked={soundEnabled}
+          onCheckedChange={setSoundEnabled}
+          className={`cursor-pointer ${
+            darkMode
+              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+          }`}
+        />
+      </div>
+      {/* Download Chat Button */}
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="download-chat"
+          className={`${
+            darkMode ? 'text-gray-200' : 'text-gray-700'
+          } text-sm`}
+        >
+          Download Chat
+        </Label>
+        <Button
+          id="download-chat"
+          onClick={downloadChat}
+          variant="ghost"
+          size="sm"
+          className={`cursor-pointer ${
+            darkMode
+              ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+              : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+          } rounded-full shadow-sm transition-colors duration-300`}
+          aria-label="Download Chat"
+        >
+          Download
+        </Button>
+      </div>
+      {/* Report Chat Button */}
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="report-chat"
+          className={`${
+            darkMode ? 'text-gray-200' : 'text-gray-700'
+          } text-sm`}
+        >
+          Report Chat
+        </Label>
+        <Button
+          id="report-chat"
+          onClick={debouncedHandleReportChat} // Use the debounced function
+          disabled={isReporting} // Prevent interaction while processing
+          variant="ghost"
+          size="sm"
+          className={`cursor-pointer ${
+            darkMode
+              ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+              : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+          } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
+          aria-label="Report Chat"
+        >
+          {isReporting ? (
+            <Loader2
+              className="w-5 h-5 animate-spin mr-2"
+              aria-hidden="true" // Accessibility improvement
+            />
+          ) : (
+            'Report'
+          )}
+        </Button>
+      </div>
+      {/* Winter Theme Toggle */}
+      <div className="flex items-center justify-between">
+        <Label
+          htmlFor="winter-theme"
+          className={`${
+            darkMode ? 'text-gray-200' : 'text-gray-700'
+          } text-sm`}
+        >
+          Winter Theme
+        </Label>
+        <Switch
+          id="winter-theme"
+          checked={winterTheme}
+          onCheckedChange={setWinterTheme}
+          className={`cursor-pointer ${
+            darkMode
+              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+          }`}
+        />
+      </div>
+    </div>
+  </PopoverContent>
+</Popover>
 </div>
 
 
