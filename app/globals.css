@@ -109,3 +109,35 @@ html {
       0 0 18px rgba(102, 217, 255, 0.3);
   }
 }
+
+.message-bubble {
+  max-width: 60%; /* Adjust as needed */
+  word-wrap: break-word;
+  padding: 10px;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.message-self {
+  background-color: #007bff; /* Customize */
+  color: white;
+  margin-left: auto;
+  text-align: right;
+}
+
+.message-stranger {
+  background-color: #f1f1f1; /* Customize */
+  color: black;
+  margin-right: auto;
+  text-align: left;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  background: transparent; /* Optional: just make scrollbar invisible */
+}
+
+.custom-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}

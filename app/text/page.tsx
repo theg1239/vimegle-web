@@ -1,3 +1,5 @@
+// src/app/pages/TextChatPage.tsx
+
 'use client';
 
 import React, {
@@ -9,11 +11,10 @@ import React, {
   FC,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FixedSizeList as List } from 'react-window'; // Import react-window
+import { VariableSizeList as List, ListChildComponentProps } from 'react-window'; // Use VariableSizeList
 import AutoSizer from 'react-virtualized-auto-sizer'; // For automatic sizing
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
-import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -30,10 +31,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { textSocket } from '@/lib/socket';
-import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
+import EmojiPicker, { EmojiClickData, Theme as EmojiTheme } from 'emoji-picker-react';
 import { v4 as uuidv4 } from 'uuid';
 import DOMPurify from 'dompurify';
-import { MessageBubble } from '@/app/components/message-bubble';
+import { MemoizedMessageBubble } from '@/app/components/message-bubble';
 import { Message } from '@/types/messageTypes';
 import {
   Popover,
@@ -44,57 +45,11 @@ import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
-import { chunk } from 'lodash';
-import { debounce } from 'lodash'
-import DisclaimerProvder from '@/app/components/disclaimer-provider';
+import { debounce } from 'lodash';
+import DisclaimerProvider from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie'; 
 import Snowfall from 'react-snowfall';
 
-// Custom hook for debouncing
-function useDebounce(callback: Function, delay: number) {
-  const timer = useRef<NodeJS.Timeout>();
-
-  const debouncedFunction = useCallback(
-    (...args: any[]) => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        callback(...args);
-      }, delay);
-    },
-    [callback, delay]
-  );
-
-  useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-  }, []);
-
-  return debouncedFunction;
-}
-
-// // Tooltip Component
-// const Tooltip: FC = () => (
-//   <motion.div
-//     initial={{ opacity: 0, y: 20 }}
-//     animate={{ opacity: 1, y: 0 }}
-//     exit={{ opacity: 0, y: 20 }}
-//     transition={{ duration: 0.5 }}
-//     className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
-//   >
-//     <p>We value your feedback!</p>
-//     <Link
-//       href="/feedback"
-//       className="underline text-sm"
-//       target="_blank"
-//       rel="noopener noreferrer"
-//     >
-//       Click here to provide feedback
-//     </Link>
-//   </motion.div>
-// );
-
-// Modals for Peer Searching and Disconnection
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
   darkMode: boolean;
@@ -202,40 +157,49 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
     </div>
   );
 };
+// ... [Other components: PeerSearchingModal, PeerDisconnectedModal, ReplyPreview]
 
 // Virtualized Message List Item
-const MessageListItem: FC<{
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    messages: Message[];
-    onDoubleTap: (messageId: string, isSelf: boolean) => void;
-    onReply: (message: Message) => void;
-    darkMode: boolean;
-    onInView: (messageId: string, inView: boolean) => void;
-  };
-}> = React.memo(({ index, style, data }) => {
+const MessageListItem: FC<ListChildComponentProps<{
+  messages: Message[];
+  onDoubleTap: (messageId: string, isSelf: boolean) => void;
+  onReply: (message: Message) => void;
+  darkMode: boolean;
+  onInView: (messageId: string, inView: boolean) => void;
+}>> = React.memo(({ index, style, data }) => {
   const { messages, onDoubleTap, onReply, darkMode, onInView } = data;
   const message = messages[index];
 
   return (
     <div style={style}>
-      <MessageBubble
-        key={message.id}
+      <MemoizedMessageBubble
         message={message}
         onDoubleTap={onDoubleTap}
         onReply={onReply}
         darkMode={darkMode}
         isSelf={message.isSelf}
-        onInView={onInView}
+        onInView={(messageId, inView) => data.onInView(messageId, inView)}
       />
     </div>
+  );
+}, (prevProps, nextProps) => {
+  const prevMessage = prevProps.data.messages[prevProps.index];
+  const nextMessage = nextProps.data.messages[nextProps.index];
+  return (
+    prevMessage.id === nextMessage.id &&
+    prevMessage.text === nextMessage.text &&
+    prevMessage.liked === nextMessage.liked &&
+    prevMessage.seen === nextMessage.seen &&
+    prevMessage.isSelf === nextMessage.isSelf &&
+    prevProps.data.darkMode === nextProps.data.darkMode
   );
 });
 
 MessageListItem.displayName = 'MessageListItem';
 
+// Main TextChatPage Component
 export default function TextChatPage() {
+  // State Variables
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -244,7 +208,6 @@ export default function TextChatPage() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showIntroMessage, setShowIntroMessage] = useState<boolean>(true);
   const [currentRoom, setCurrentRoom] = useState<string>('');
   const [hasInteracted, setHasInteracted] = useState<boolean>(false);
@@ -260,14 +223,15 @@ export default function TextChatPage() {
   const [customTag, setCustomTag] = useState<string | null>(null);
   const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false);
   const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSelfTyping, setIsSelfTyping] = useState(false);
+  const [isSelfTyping, setIsSelfTyping] = useState<boolean>(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
   const mainRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<List>(null);
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [isReporting, setIsReporting] = useState(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
   const [winterTheme, setWinterTheme] = useState<boolean>(false);
+  const messagesRef = useRef<Message[]>(messages);
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
@@ -275,119 +239,16 @@ export default function TextChatPage() {
     Set<string>
   >(new Set());
 
-  // Refs for sound and interaction
+  // Update refs when state changes
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
-
-  const handleTypingFromPeer = useCallback(() => {
-    setIsTyping(true);
-
-    // Clear existing timeout to prevent premature hiding
-    if (peerTypingTimeoutRef.current) {
-      clearTimeout(peerTypingTimeoutRef.current);
-    }
-
-    // Set a new timeout to hide the typing indicator after a delay
-    peerTypingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      peerTypingTimeoutRef.current = null;
-    }, 3000); // Adjust the delay as needed
-  }, []);
-
-  const handleStopTypingFromPeer = useCallback(() => {
-    if (peerTypingTimeoutRef.current) {
-      clearTimeout(peerTypingTimeoutRef.current);
-    }
-    setIsTyping(false);
-  }, []);
-
-  // Self Typing Event Handlers
-  const handleTyping = useDebounce(() => {
-    if (connected && currentRoom) {
-      setIsSelfTyping(true);
-      textSocket.emit('typing', { room: currentRoom });
-    }
-  }, 300);
-
-  const handleStopTyping = useDebounce(() => {
-    if (connected && currentRoom) {
-      setIsSelfTyping(false);
-      textSocket.emit('stopTyping', { room: currentRoom });
-    }
-  }, 2000);
-
-  const defaultTags = useMemo(
-    () => [
-      'music',
-      'movies',
-      'books',
-      'sports',
-      'technology',
-      'art',
-      'gaming',
-      'cooking',
-      'fitness',
-      'vellore',
-      'ap',
-      'chennai',
-      'bhopal'
-    ],
-    []
-  );
-
-  const isTrending = (tag: string) => trendingTags.includes(tag);
-
-  useEffect(() => {
-    if (!textSocket) {
-      //console.log("Socket not initialized.");
-      return;
-    }
-  
-    const handleTrendingTagsUpdate = (updatedTags: string[]) => {
-      //console.log("Received trending tags update:", updatedTags); // Debugging
-      setTrendingTags(updatedTags);
-    };
-  
-    textSocket.on('trendingTagsUpdate', handleTrendingTagsUpdate);
-  
-    return () => {
-      textSocket.off('trendingTagsUpdate', handleTrendingTagsUpdate);
-    };
-  }, [textSocket]);
-
-  useEffect(() => {
-    //console.log("Trending tags state updated:", trendingTags);
-  }, [trendingTags]);  
-
-  useEffect(() => {
-    const resizeHandler = () => {
-      if (mainRef.current) {
-        const vh = window.innerHeight * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
-        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
-      }
-    };
-
-    resizeHandler();
-    window.addEventListener('resize', resizeHandler);
-
-    return () => {
-      window.removeEventListener('resize', resizeHandler);
-    };
-  }, []);
-
-  useEffect(() => {
-    // Append new messages to the full history
-    if (messages.length > 0) {
-      setFullChatHistory((prevHistory) => [
-        ...prevHistory,
-        ...messages.slice(prevHistory.length),
-      ]);
-    }
-  }, [messages]);
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -405,6 +266,38 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
+  // Available Tags
+  const defaultTags = useMemo(
+    () => [
+      'music',
+      'movies',
+      'books',
+      'sports',
+      'technology',
+      'art',
+      'gaming',
+      'cooking',
+      'fitness',
+      'vellore',
+      'ap',
+      'chennai',
+      'bhopal',
+    ],
+    []
+  );
+
+  const availableTags = useMemo(() => {
+    if (customTag) {
+      return [...defaultTags, customTag];
+    }
+    return defaultTags;
+  }, [customTag, defaultTags]);
+
+  const isTrending = useCallback(
+    (tag: string) => trendingTags.includes(tag),
+    [trendingTags]
+  );
+
   // Sound Effects
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
@@ -419,59 +312,6 @@ export default function TextChatPage() {
     }
   }, []);
 
-  const handleReportChat = useCallback(async () => {
-    if (isReporting) return; // Prevent multiple clicks if already reporting
-  
-    if (!currentRoom || fullChatHistory.length === 0) {
-      toast.error('No active chat to report.');
-      return;
-    }
-  
-    setIsReporting(true); // Disable button immediately
-  
-    const reportData = {
-      room: currentRoom,
-      socketId: textSocket.id,
-      sessionId: Cookies.get('sessionId'), // Ensure sessionId is fetched
-      messages: fullChatHistory.map((msg) => ({
-        id: msg.id,
-        text: msg.text,
-        isSelf: msg.isSelf,
-        timestamp: msg.timestamp,
-        replyTo: msg.replyTo
-          ? { id: msg.replyTo.id, text: msg.replyTo.text }
-          : null,
-      })),
-    };
-  
-    try {
-      const response = await fetch('/api/report', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(reportData),
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to send report.');
-      }
-  
-      toast.success('Report sent successfully.');
-    } catch (error) {
-      console.error('Error sending report:', error);
-      toast.error('Failed to send report.');
-    } finally {
-      setIsReporting(false); // Reset processing state
-    }
-  }, [currentRoom, fullChatHistory, textSocket, isReporting]);
-  
-  const debouncedHandleReportChat = useMemo(
-    () => debounce(handleReportChat, 2000),
-    [handleReportChat]
-  );
-  
-  
   const playMessageSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
     if (!hasInteractedRef.current) return;
@@ -498,6 +338,59 @@ export default function TextChatPage() {
     }
   }, []);
 
+  // Debounced Report Chat Handler
+  const handleReportChat = useCallback(async () => {
+    if (isReporting) return; // Prevent multiple clicks if already reporting
+
+    if (!currentRoom || fullChatHistory.length === 0) {
+      toast.error('No active chat to report.');
+      return;
+    }
+
+    setIsReporting(true); // Disable button immediately
+
+    const reportData = {
+      room: currentRoom,
+      socketId: textSocket.id,
+      sessionId: Cookies.get('sessionId'), // Ensure sessionId is fetched
+      messages: fullChatHistory.map((msg) => ({
+        id: msg.id,
+        text: msg.text,
+        isSelf: msg.isSelf,
+        timestamp: msg.timestamp,
+        replyTo: msg.replyTo
+          ? { id: msg.replyTo.id, text: msg.replyTo.text }
+          : null,
+      })),
+    };
+
+    try {
+      const response = await fetch('/api/report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reportData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send report.');
+      }
+
+      toast.success('Report sent successfully.');
+    } catch (error) {
+      console.error('Error sending report:', error);
+      toast.error('Failed to send report.');
+    } finally {
+      setIsReporting(false); // Reset processing state
+    }
+  }, [currentRoom, fullChatHistory, textSocket, isReporting]);
+
+  const debouncedHandleReportChat = useMemo(
+    () => debounce(handleReportChat, 2000),
+    [handleReportChat]
+  );
+
   // User Interaction Handler
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
@@ -519,18 +412,18 @@ export default function TextChatPage() {
     const normalizedTags = tags.map((tag) => tag.trim().toLowerCase());
 
     if (textSocket && textSocket.connected) {
-      textSocket.emit('findTextMatch', { tags });
+      textSocket.emit('findTextMatch', { tags: normalizedTags });
     } else {
       textSocket?.once('connect', () => {
-        textSocket?.emit('findTextMatch', { tags });
+        textSocket?.emit('findTextMatch', { tags: normalizedTags });
       });
     }
-  }, [tags]);
+  }, [tags, textSocket]);
 
   // Reply Handling
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
-    document.getElementById('message-input')?.focus();
+    messageInputRef.current?.focus();
   }, []);
 
   const cancelReply = useCallback(() => {
@@ -539,10 +432,10 @@ export default function TextChatPage() {
 
   // Scroll to Bottom
   const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (listRef.current) {
+      listRef.current.scrollToItem(messages.length - 1, 'end');
     }
-  }, []);
+  }, [messages.length]);
 
   // Handle Text Match Event
   const handleTextMatch = useCallback(
@@ -604,20 +497,21 @@ export default function TextChatPage() {
     });
   }, []);
 
+  // Handle Search Cancelled
   const handleSearchCancelled = useCallback(
     ({ message }: { message: string }) => {
       setIsSearching(false);
       setSearchCancelled(true);
       setFullChatHistory([]); // Reset chat history
-  
+
       const toastId = 'search-cancelled';
       toast.dismiss(toastId);
       toast(message || 'Search cancelled.', { id: toastId });
     },
     []
   );
-  
 
+  // Handle In View (Read Receipts)
   const handleInView = useCallback(
     (messageId: string, inView: boolean) => {
       if (!inView) return; // Skip if the message is not in view
@@ -643,10 +537,9 @@ export default function TextChatPage() {
       });
 
       // Notify the server only for newly seen messages
-      textSocket.emit('messageSeen', { messageId, room: currentRoom });
-      //console.log(`Message ${messageId} seen and notified to the server.`);
+      textSocket.emit('messageSeen', { messageId, room: currentRoomRef.current });
     },
-    [currentRoom, textSocket, seenMessages]
+    [seenMessages, textSocket]
   );
 
   // Handle Text Message Event
@@ -665,7 +558,7 @@ export default function TextChatPage() {
       const isSelf = sender === textSocket.id;
       let replyToMessage: Message | undefined;
       if (replyToId) {
-        replyToMessage = messages.find((msg) => msg.id === replyToId);
+        replyToMessage = messagesRef.current.find((msg) => msg.id === replyToId);
       }
       const newMessage: Message = {
         id: messageId,
@@ -685,7 +578,7 @@ export default function TextChatPage() {
 
         // Limit the number of messages to 1000
         const newMessages = [...prev, newMessage];
-        if (newMessages.length > 100) {
+        if (newMessages.length > 1000) {
           newMessages.shift(); // Remove the oldest message
         }
         return newMessages;
@@ -693,22 +586,14 @@ export default function TextChatPage() {
 
       if (!isSelf) {
         // Automatically mark the latest message as seen
-        if (scrollAreaRef.current) {
-          const messageElement = document.getElementById(messageId);
-          if (
-            messageElement &&
-            messageElement.getBoundingClientRect().top < window.innerHeight
-          ) {
-            handleInView(messageId, true);
-          }
-        }
+        handleInView(messageId, true);
         playMessageSound();
       }
 
       // Scroll to bottom after adding a new message
       setTimeout(scrollToBottom, 100);
     },
-    [playMessageSound, messages, scrollToBottom, handleInView, textSocket]
+    [playMessageSound, handleInView, textSocket, scrollToBottom]
   );
 
   // Handle Reaction Updates
@@ -722,7 +607,7 @@ export default function TextChatPage() {
     },
     []
   );
-
+  
   // Handle Toast Notifications
   const handleToastNotification = useCallback(
     ({ message }: { message: string }) => {
@@ -745,7 +630,7 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle Peer Searching (Additional Handler)
+  // Handle Peer Searching
   const handlePeerSearching = useCallback(
     ({ message }: { message: string }) => {
       setConnected(false);
@@ -799,25 +684,55 @@ export default function TextChatPage() {
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
-  // Handle Read Receipts (Additional Handler)
+  // Handle Read Receipts
   const handleMessageSeen = useCallback(
     ({ messageId }: { messageId: string }) => {
-      setMessages((prevMessages) => {
-        let updated = false;
-
-        // Only mark the latest message as seen
-        return prevMessages.map((msg, index) => {
-          if (msg.id === messageId && !updated) {
-            updated = true; // Mark the first match as seen
-            return { ...msg, seen: true };
-          }
-          return { ...msg, seen: false }; // Unmark others
-        });
-      });
+      setMessages((prevMessages) =>
+        prevMessages.map((msg) =>
+          msg.id === messageId ? { ...msg, seen: true } : msg
+        )
+      );
     },
     []
   );
 
+  // Handle Typing Indicators from Peer
+  const handleTypingFromPeer = useCallback(() => {
+    setIsTyping(true);
+  }, []);
+
+  const handleStopTypingFromPeer = useCallback(() => {
+    setIsTyping(false);
+  }, []);
+
+  // Handle Typing Indicators for Self
+  const handleTyping = useCallback(() => {
+    if (!connected || !currentRoom) return;
+
+    if (!isSelfTyping) {
+      setIsSelfTyping(true);
+      textSocket.emit('typing', { room: currentRoom });
+    }
+
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+
+    peerTypingTimeoutRef.current = setTimeout(() => {
+      setIsSelfTyping(false);
+      textSocket.emit('stopTyping', { room: currentRoom });
+    }, 1000); // Stop typing after 1 second of inactivity
+  }, [connected, currentRoom, textSocket]);
+
+  const handleStopTyping = useCallback(() => {
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+    setIsSelfTyping(false);
+    textSocket.emit('stopTyping', { room: currentRoom });
+  }, [textSocket, currentRoom]);
+
+  // Socket Event Handlers
   useEffect(() => {
     if (!textSocket) return;
 
@@ -827,12 +742,12 @@ export default function TextChatPage() {
     textSocket.on('noTextMatch', handleNoTextMatch);
     textSocket.on('textMessage', handleTextMessage);
     textSocket.on('typing', handleTypingFromPeer);
+    textSocket.on('stopTyping', handleStopTypingFromPeer);
     textSocket.on('reactionUpdate', handleReactionUpdate);
     textSocket.on('search_cancelled', handleSearchCancelled);
     textSocket.on('toastNotification', handleToastNotification);
     textSocket.on('peerSearching', handlePeerSearching);
     textSocket.on('peerDisconnected', handlePeerDisconnected);
-    textSocket.on('stopTyping', handleStopTypingFromPeer);
     textSocket.on('peerSearchingSelf', ({ message }: { message: string }) => {
       const toastId = 'peer-searching-self';
       toast.dismiss(toastId);
@@ -847,13 +762,13 @@ export default function TextChatPage() {
       textSocket.off('noTextMatch', handleNoTextMatch);
       textSocket.off('textMessage', handleTextMessage);
       textSocket.off('typing', handleTypingFromPeer);
+      textSocket.off('stopTyping', handleStopTypingFromPeer);
       textSocket.off('reactionUpdate', handleReactionUpdate);
       textSocket.off('search_cancelled', handleSearchCancelled);
       textSocket.off('toastNotification', handleToastNotification);
       textSocket.off('peerSearching', handlePeerSearching);
       textSocket.off('peerDisconnected', handlePeerDisconnected);
       textSocket.off('peerSearchingSelf');
-      textSocket.off('stopTyping', handleStopTypingFromPeer);
       textSocket.off('messageSeen', handleMessageSeen);
     };
   }, [
@@ -861,6 +776,7 @@ export default function TextChatPage() {
     handleNoTextMatch,
     handleTextMessage,
     handleTypingFromPeer,
+    handleStopTypingFromPeer,
     handleReactionUpdate,
     handleSearchCancelled,
     handleToastNotification,
@@ -868,13 +784,11 @@ export default function TextChatPage() {
     handlePeerDisconnected,
     handleMessageSeen,
     handlePeerMessageSeen,
-    handleStopTypingFromPeer,
-    textSocket,
   ]);
 
   // Handle Before Unload (User leaves the page)
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (connected && currentRoom) {
         textSocket.emit('nextTextChat', { room: currentRoom });
       }
@@ -888,147 +802,6 @@ export default function TextChatPage() {
       window.removeEventListener('unload', handleBeforeUnload);
     };
   }, [connected, currentRoom, textSocket]);
-
-  // Available Tags
-  const availableTags = useMemo(() => {
-    if (customTag) {
-      return [...defaultTags, customTag];
-    }
-    return defaultTags;
-  }, [customTag, defaultTags]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputMessage(e.target.value); // Update input value immediately
-    debouncedHandleTyping(); // Trigger debounced typing events
-  };
-
-  const debouncedHandleTyping = useDebounce(() => {
-    handleTyping(); // Trigger typing indicator
-    handleStopTyping(); // Ensure typing stops after a delay
-  }, 200);
-
-  // Toggle Tag Selection
-  const toggleTag = (tag: string) => {
-    setTags((prevTags) => {
-      let newTags = prevTags.includes(tag)
-        ? prevTags.filter((t) => t !== tag)
-        : [...prevTags, tag];
-
-      const totalTags =
-        newTags.length + (customTag && !newTags.includes(customTag) ? 1 : 0);
-
-      if (totalTags > 3) {
-        toast.error('You can select up to 3 tags in total.');
-        return prevTags;
-      }
-
-      return newTags;
-    });
-  };
-
-  // Add Custom Tag
-  const handleAddCustomTag = () => {
-    if (customTagInput.trim().length > 0) {
-      if (customTag) {
-        toast.error('Only one custom tag is allowed.');
-        return;
-      }
-
-      let tag = customTagInput.trim().substring(0, 10);
-
-      tag = DOMPurify.sanitize(tag, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
-      tag = tag.replace(/[^a-zA-Z0-9]/g, '');
-
-      if (tag.length === 0) {
-        toast.error('Invalid tag.');
-        return;
-      }
-
-      setCustomTag(tag);
-      setCustomTagInput('');
-
-      setTags((prevTags) => {
-        let newTags = [...prevTags, tag];
-
-        const totalTags = newTags.length;
-
-        if (totalTags > 3) {
-          toast.error('You can select up to 3 tags in total.');
-          return prevTags;
-        }
-
-        return newTags;
-      });
-    }
-  };
-
-  // Clear Messages on Disconnect
-  useEffect(() => {
-    if (!connected && !isSearching) {
-      setMessages([]);
-      setMatchedTags([]);
-    }
-  }, [connected, isSearching]);
-
-  // Scroll to Bottom on Messages Update
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  // Tooltip Handling
-  useEffect(() => {
-    if (isSearching && !tooltipShownRef.current) {
-      tooltipShownRef.current = true;
-      setShowTooltip(true);
-
-      const tooltipTimeout = setTimeout(() => {
-        setShowTooltip(false);
-      }, 5000);
-
-      return () => clearTimeout(tooltipTimeout);
-    }
-
-    if (!isSearching) {
-      tooltipShownRef.current = false;
-      setShowTooltip(false);
-    }
-  }, [isSearching]);
-
-  // Show Like Message Once
-  useEffect(() => {
-    const hasSeenMessage = localStorage.getItem('seenLikeMessage');
-    if (!hasSeenMessage) {
-      setShowLikeMessage(true);
-      localStorage.setItem('seenLikeMessage', 'true');
-
-      const timer = setTimeout(() => {
-        setShowLikeMessage(false);
-      }, 10000);
-
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // Handle Next Chat
-  const handleNext = useCallback(() => {
-    if (connected && currentRoom) {
-      setIsUserInitiatedDisconnect(true);
-      textSocket.emit('nextTextChat', { room: currentRoom });
-      setConnected(false);
-      setMessages([]);
-      setCurrentRoom('');
-      setIsDisconnected(false);
-      setIsSearching(false);
-      setNoUsersOnline(false);
-      setReplyTo(null);
-      setMatchedTags([]);
-      setFullChatHistory([])
-      startSearch();
-    } else {
-      startSearch();
-      setFullChatHistory([]);
-    }
-  }, [connected, currentRoom, startSearch, textSocket]);
 
   // Chat State
   const [chatState, setChatState] = useState<string>('idle');
@@ -1048,6 +821,7 @@ export default function TextChatPage() {
     setIsPeerSearching(false);
   }, []);
 
+  // Handle Send Message
   const handleSendMessage = useCallback(() => {
     if (!inputMessage.trim()) return;
 
@@ -1118,15 +892,30 @@ export default function TextChatPage() {
     textSocket,
   ]);
 
-  const handleTypingDebounced = useDebounce(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputMessage(e.target.value);
-      handleTyping(); // Trigger typing indicator
+  const handleKeyPress = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        handleSendMessage(); // Call your send message function
+      }
+    },
+    [handleSendMessage]
+  );
+  
+  // Handle Emoji Click
+  const handleEmojiClick = useCallback(
+    (emojiData: EmojiClickData, event: MouseEvent) => {
+      setInputMessage((prev) => prev + emojiData.emoji);
+      setShowEmojiPicker(false);
+      handleTyping(); // Emit typing indicator
       handleStopTyping(); // Ensure typing stops after a delay
     },
-    200
+    [handleTyping, handleStopTyping]
   );
 
+  // Reference to the message input for focusing
+  const messageInputRef = useRef<HTMLInputElement>(null);
+
+  // Typing Indicator Component
   interface TypingIndicatorProps {
     darkMode: boolean;
   }
@@ -1153,29 +942,26 @@ export default function TextChatPage() {
     )
   );
 
-  const handleEmojiClick = useCallback(
-    (emojiData: EmojiClickData, event: MouseEvent) => {
-      setInputMessage((prev) => prev + emojiData.emoji);
-      setShowEmojiPicker(false);
-      handleTypingDebounced(); // Emit typing when emoji is clicked
-    },
-    [handleTypingDebounced]
-  );
-  interface EmojiPickerProps {
+  MemoizedTypingIndicator.displayName = 'MemoizedTypingIndicator';
+
+  // Emoji Picker Component
+  interface EmojiPickerComponentProps {
     onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
     darkMode: boolean;
   }
 
   const MemoizedEmojiPicker = React.memo(
-    ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
+    ({ onEmojiClick, darkMode }: EmojiPickerComponentProps) => (
       <EmojiPicker
         onEmojiClick={onEmojiClick}
-        theme={darkMode ? Theme.DARK : Theme.LIGHT}
+        theme={darkMode ? EmojiTheme.DARK : EmojiTheme.LIGHT}
         width="100%"
         height={350}
       />
     )
   );
+
+  MemoizedEmojiPicker.displayName = 'MemoizedEmojiPicker';
 
   // Double Tap Handler
   const handleDoubleTap = useCallback(
@@ -1186,28 +972,16 @@ export default function TextChatPage() {
         )
       );
 
-      const message = messages.find((msg) => msg.id === messageId);
+      const message = messagesRef.current.find((msg) => msg.id === messageId);
       if (message) {
         textSocket.emit('reaction', {
-          room: currentRoom,
+          room: currentRoomRef.current,
           messageId,
           liked: !message.liked,
         });
       }
     },
-    [textSocket, currentRoom, messages]
-  );
-
-  // Optimize the data passed to the virtualized list
-  const listData = useMemo(
-    () => ({
-      messages,
-      onDoubleTap: handleDoubleTap,
-      onReply: handleReply,
-      darkMode,
-      onInView: handleInView,
-    }),
-    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
+    [textSocket]
   );
 
   const notifyPeerDisconnection = useCallback(() => {
@@ -1216,6 +990,7 @@ export default function TextChatPage() {
     }
   }, [currentRoom, textSocket]);
 
+  // Handle Back Navigation
   useEffect(() => {
     const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
       // Prevent navigation and show confirmation dialog
@@ -1252,6 +1027,7 @@ export default function TextChatPage() {
     };
   }, [notifyPeerDisconnection]);
 
+  // Handle Switch to Video Chat
   const handleSwitchToVideo = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
@@ -1280,10 +1056,7 @@ export default function TextChatPage() {
     setChatState,
   ]);
 
-  const handleNewMessageFromRecipient = useCallback((messageId: string) => {
-    setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
-  }, []);
-
+  // Handle Back Button in Header
   const handleBack = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
@@ -1291,8 +1064,8 @@ export default function TextChatPage() {
 
     if (confirmed) {
       // Notify the other user about the disconnection
-      if (currentRoom) {
-        textSocket.emit('peerDisconnected', { room: currentRoom });
+      if (currentRoomRef.current) {
+        textSocket.emit('peerDisconnected', { room: currentRoomRef.current });
       }
 
       // Clean up the current chat state
@@ -1306,8 +1079,9 @@ export default function TextChatPage() {
       // Redirect to Vimegle homepage
       window.location.href = '/';
     }
-  }, [currentRoom, textSocket]);
+  }, [currentRoomRef, textSocket]);
 
+  // Handle Next Chat with Confirmation
   const handleNextChat = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to move to the next chat? This will disconnect your current chat partner.'
@@ -1325,15 +1099,7 @@ export default function TextChatPage() {
     }
   }, [notifyPeerDisconnection, startSearch]);
 
-  const debouncedHandleInputChange = useDebounce(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputMessage(e.target.value);
-      handleTyping(); // Trigger typing indicator
-      handleStopTyping(); // Ensure typing stops after a delay
-    },
-    200
-  );
-
+  // Download Chat History
   const downloadChat = useCallback(() => {
     if (fullChatHistory.length === 0) {
       toast.error('No messages to download.');
@@ -1366,104 +1132,601 @@ export default function TextChatPage() {
     URL.revokeObjectURL(url);
   
     toast.success('Chat downloaded successfully!');
-  }, [fullChatHistory]);  
+  }, [fullChatHistory]);
+
+  // Memoize itemData to prevent unnecessary re-renders
+  const memoizedItemData = useMemo(
+    () => ({
+      messages,
+      onDoubleTap: handleDoubleTap,
+      onReply: handleReply,
+      darkMode,
+      onInView: handleInView,
+    }),
+    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
+  );
+
+  // Available Tags Toggle
+  const toggleTag = useCallback((tag: string) => {
+    setTags((prevTags) => {
+      let newTags = prevTags.includes(tag)
+        ? prevTags.filter((t) => t !== tag)
+        : [...prevTags, tag];
+
+      const totalTags =
+        newTags.length + (customTag && !newTags.includes(customTag) ? 1 : 0);
+
+      if (totalTags > 3) {
+        toast.error('You can select up to 3 tags in total.');
+        return prevTags;
+      }
+
+      return newTags;
+    });
+  }, [customTag]);
+
+  // Add Custom Tag
+  const handleAddCustomTag = useCallback(() => {
+    if (customTagInput.trim().length > 0) {
+      if (customTag) {
+        toast.error('Only one custom tag is allowed.');
+        return;
+      }
+
+      let tag = customTagInput.trim().substring(0, 10);
+
+      tag = DOMPurify.sanitize(tag, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+      tag = tag.replace(/[^a-zA-Z0-9]/g, '');
+
+      if (tag.length === 0) {
+        toast.error('Invalid tag.');
+        return;
+      }
+
+      setCustomTag(tag);
+      setCustomTagInput('');
+
+      setTags((prevTags) => {
+        let newTags = [...prevTags, tag];
+
+        const totalTags = newTags.length;
+
+        if (totalTags > 3) {
+          toast.error('You can select up to 3 tags in total.');
+          return prevTags;
+        }
+
+        return newTags;
+      });
+    }
+  }, [customTagInput, customTag]);
+
+  // Clear Messages on Disconnect
+  useEffect(() => {
+    if (!connected && !isSearching) {
+      setMessages([]);
+      setMatchedTags([]);
+    }
+  }, [connected, isSearching]);
+
+  // Scroll to Bottom on Messages Update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // Tooltip Handling
+  useEffect(() => {
+    if (isSearching && !tooltipShownRef.current) {
+      tooltipShownRef.current = true;
+      setShowTooltip(true);
+
+      const tooltipTimeout = setTimeout(() => {
+        setShowTooltip(false);
+      }, 5000);
+
+      return () => clearTimeout(tooltipTimeout);
+    }
+
+    if (!isSearching) {
+      tooltipShownRef.current = false;
+      setShowTooltip(false);
+    }
+  }, [isSearching]);
+
+  // Show Like Message Once
+  useEffect(() => {
+    const hasSeenMessage = localStorage.getItem('seenLikeMessage');
+    if (!hasSeenMessage) {
+      setShowLikeMessage(true);
+      localStorage.setItem('seenLikeMessage', 'true');
+
+      const timer = setTimeout(() => {
+        setShowLikeMessage(false);
+      }, 10000);
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Define getItemSize for VariableSizeList
+  const getItemSize = useCallback((index: number) => {
+    const message = messages[index];
+    const baseHeight = 60; // Base height for username, timestamp, etc.
+    let replyHeight = 0;
+    if (message.replyTo) {
+      replyHeight = 20; // Height for the reply header
+    }
+    // Estimate message text height based on character count
+    const charsPerLine = 40;
+    const lines = Math.ceil(message.text.length / charsPerLine);
+    const lineHeight = 20;
+    const textHeight = lines * lineHeight;
+
+    return baseHeight + replyHeight + textHeight + 40; // Additional padding
+  }, [messages]);
 
   return (
-    <DisclaimerProvder>
-    <div
-      ref={mainRef}
-      className={`flex flex-col h-screen relative ${
-        darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
-      }`}
-      onClick={handleUserInteraction}
-      onKeyDown={handleUserInteraction}
-      onMouseMove={handleUserInteraction}
-    >
-{/* Add Snowfall Effect */}
-{winterTheme && (
-  <Snowfall
-    style={{ 
-      position: 'fixed', 
-      zIndex: 0, // Set zIndex to a negative value
-      top: 0, 
-      left: 0, 
-      width: '100%', 
-      height: '100%' 
-    }}
-    snowflakeCount={
-      window.innerWidth <= 480
-        ? 10 // Fewer snowflakes for smaller screens
-        : window.innerWidth <= 768
-        ? 30 // Moderate snowflakes for tablets
-        : 50 // Higher snowflakes for larger screens
-    }
-  />
-)}
-
-
-      {/* Configure Toaster with top-center position */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 5000,
-          style: {
-            marginTop: '4rem', // Adjust the value based on your header height
-            zIndex: 9999, // Ensure the toast is above most UI elements
-          },
-        }}
-      />
-{/* Background Watermark */}
-<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-  <span
-    className={`text-4xl font-bold select-none transition-opacity duration-300 ${
-      winterTheme ? 'neon-text' : darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
-    }`}
-  >
-    Vimegle
-  </span>
-</div>
-
-
-
-      {/* Tooltip
-      <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence> */}
-
-      {/* Peer Searching Modal */}
-      <AnimatePresence>
-        {isPeerSearching && (
-          <PeerSearchingModal
-            onReturnToSearch={handleReturnToSearch}
-            darkMode={darkMode}
+    <DisclaimerProvider>
+      <div
+        ref={mainRef}
+        className={`flex flex-col h-screen relative ${
+          darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
+        }`}
+        onClick={handleUserInteraction}
+        onKeyDown={handleUserInteraction}
+        onMouseMove={handleUserInteraction}
+      >
+        {/* Add Snowfall Effect */}
+        {winterTheme && (
+          <Snowfall
+            style={{ 
+              position: 'fixed', 
+              zIndex: 0, // Set zIndex to a negative value
+              top: 0, 
+              left: 0, 
+              width: '100%', 
+              height: '100%' 
+            }}
+            snowflakeCount={
+              window.innerWidth <= 480
+                ? 10 // Fewer snowflakes for smaller screens
+                : window.innerWidth <= 768
+                ? 30 // Moderate snowflakes for tablets
+                : 50 // Higher snowflakes for larger screens
+            }
           />
         )}
-      </AnimatePresence>
+        
+        {/* Configure Toaster with top-center position */}
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 5000,
+            style: {
+              marginTop: '4rem', // Adjust the value based on your header height
+              zIndex: 9999, // Ensure the toast is above most UI elements
+            },
+          }}
+        />
 
-      {/* Searching Modal */}
-      <AnimatePresence>
-        {isSearching && (
-          <motion.div
-            key="searching-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
+        {/* Background Watermark */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span
+            className={`text-4xl font-bold select-none transition-opacity duration-300 ${
+              winterTheme ? 'neon-text' : darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
+            }`}
           >
+            Vimegle
+          </span>
+        </div>
+        
+        {/* Peer Searching Modal */}
+        <AnimatePresence>
+          {isPeerSearching && (
+            <PeerSearchingModal
+              onReturnToSearch={handleReturnToSearch}
+              darkMode={darkMode}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Searching Modal */}
+        <AnimatePresence>
+          {isSearching && (
             <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
+              key="searching-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
             >
-              <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
-              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
-                Searching for a match...
-              </p>
-              {tags.length > 0 && (
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
-                  Based on your tags: <strong>{tags.join(', ')}</strong>
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
+              >
+                <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
+                <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
+                  Searching for a match...
                 </p>
-              )}
+                {tags.length > 0 && (
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                    Based on your tags: <strong>{tags.join(', ')}</strong>
+                  </p>
+                )}
+                <Button
+                  onClick={() => {
+                    textSocket.emit('cancel_search');
+                    setIsSearching(false);
+                    setNoUsersOnline(false);
+                    setReplyTo(null);
+                    setMessages([]);
+                    toast('Search cancelled.');
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
+                  aria-label="Cancel Search"
+                >
+                  Cancel
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* No Users Online Modal */}
+        <AnimatePresence>
+          {noUsersOnline && (
+            <motion.div
+              key="no-users-modal"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
+              >
+                <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
+                  No Users Found
+                </p>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+                  We couldn't find any users matching your tags. Please try again
+                  with different tags or broaden your search.
+                </p>
+                <Button
+                  onClick={() => {
+                    setNoUsersOnline(false);
+                    startSearch();
+                  }}
+                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
+                >
+                  Retry Search
+                </Button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Disconnected Modal */}
+        <AnimatePresence>
+          {isDisconnected && (
+            <PeerDisconnectedModal
+              onStartNewChat={handleNextChat}
+              darkMode={darkMode}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Header */}
+        <header
+          className={`${
+            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          } border-b p-4 flex justify-between items-center shadow-sm`}
+        >
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={handleBack} // Handle back action
+              className={`cursor-pointer ${
+                darkMode
+                  ? 'text-white hover:text-gray-300'
+                  : 'text-gray-700 hover:text-gray-500'
+              } transition-colors`}
+              aria-label="Go Back"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
+              Vimegle
+            </h1>
+          </div>
+
+          <div className="flex space-x-4 relative">
+            {/* Settings Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`cursor-pointer ${
+                    darkMode
+                      ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                      : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                  } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`}
+                  aria-label="Open Settings"
+                >
+                  <Settings className="w-5 h-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                  darkMode
+                    ? 'bg-gray-800 text-gray-100'
+                    : 'bg-gray-50 text-gray-800'
+                }`}
+                style={{ zIndex: 1050 }} // Ensures this stays above other elements
+              >
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Settings</h4>
+                    <p className="text-xs text-gray-400">
+                      Customize your chat experience
+                    </p>
+                  </div>
+                  <Separator />
+                  {/* Dark Mode Toggle */}
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="dark-mode"
+                      className={`${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      } text-sm`}
+                    >
+                      Dark Mode
+                    </Label>
+                    <Switch
+                      id="dark-mode"
+                      checked={darkMode}
+                      onCheckedChange={setDarkMode}
+                      className={`cursor-pointer ${
+                        darkMode
+                          ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                          : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                      }`}
+                    />
+                  </div>
+                  {/* Sound Toggle */}
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="sound"
+                      className={`${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      } text-sm`}
+                    >
+                      Sound
+                    </Label>
+                    <Switch
+                      id="sound"
+                      checked={soundEnabled}
+                      onCheckedChange={setSoundEnabled}
+                      className={`cursor-pointer ${
+                        darkMode
+                          ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                          : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                      }`}
+                    />
+                  </div>
+                  {/* Download Chat Button */}
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="download-chat"
+                      className={`${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      } text-sm`}
+                    >
+                      Download Chat
+                    </Label>
+                    <Button
+                      id="download-chat"
+                      onClick={downloadChat}
+                      variant="ghost"
+                      size="sm"
+                      className={`cursor-pointer ${
+                        darkMode
+                          ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                          : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                      } rounded-full shadow-sm transition-colors duration-300`}
+                      aria-label="Download Chat"
+                    >
+                      Download
+                    </Button>
+                  </div>
+                  {/* Report Chat Button */}
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="report-chat"
+                      className={`${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      } text-sm`}
+                    >
+                      Report Chat
+                    </Label>
+                    <Button
+                      id="report-chat"
+                      onClick={debouncedHandleReportChat} // Use the debounced function
+                      disabled={isReporting} // Prevent interaction while processing
+                      variant="ghost"
+                      size="sm"
+                      className={`cursor-pointer ${
+                        darkMode
+                          ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                          : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                      } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
+                      aria-label="Report Chat"
+                    >
+                      {isReporting ? (
+                        <Loader2
+                          className="w-5 h-5 animate-spin mr-2"
+                          aria-hidden="true" // Accessibility improvement
+                        />
+                      ) : (
+                        'Report'
+                      )}
+                    </Button>
+                  </div>
+                  {/* Winter Theme Toggle */}
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="winter-theme"
+                      className={`${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      } text-sm`}
+                    >
+                      Winter Theme
+                    </Label>
+                    <Switch
+                      id="winter-theme"
+                      checked={winterTheme}
+                      onCheckedChange={setWinterTheme}
+                      className={`cursor-pointer ${
+                        darkMode
+                          ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                          : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                      }`}
+                    />
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className={`cursor-pointer ${
+                    darkMode
+                      ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
+                      : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
+                  } rounded-full p-3 sm:p-2 transition-all duration-300`}
+                  aria-label="Advanced Search"
+                  style={{
+                    fontSize: '1rem', // Increase font size for better visibility
+                    width: '48px', // Larger tap target
+                    height: '48px',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                sideOffset={5}
+                className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                  darkMode
+                    ? 'bg-gray-800 text-gray-200'
+                    : 'bg-white text-gray-800'
+                } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+              >
+                <h3
+                  className={`text-lg font-semibold mb-2 ${
+                    darkMode ? 'text-gray-200' : 'text-gray-800'
+                  }`}
+                >
+                  Select Tags
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {availableTags.map((tag) => (
+                    <div key={tag} className="relative inline-block">
+                      <Button
+                        variant={tags.includes(tag) ? 'default' : 'outline'}
+                        className={`cursor-pointer ${
+                          isTrending(tag) ? 'glowing' : ''
+                        } ${
+                          tags.includes(tag)
+                            ? 'bg-blue-500 text-white hover:bg-blue-600'
+                            : darkMode
+                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                            : 'border-gray-300 text-gray-800 hover:bg-gray-100'
+                        } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
+                        onClick={() => toggleTag(tag)}
+                      >
+                        {tag}
+                      </Button>
+                      {customTag === tag && (
+                        <button
+                          className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
+                            darkMode
+                              ? 'bg-red-500 text-white hover:bg-red-600'
+                              : 'bg-red-400 text-white hover:bg-red-500'
+                          } transition-colors duration-300`}
+                          onClick={() => {
+                            setCustomTag(null); // Clear the custom tag
+                            setTags((prevTags) =>
+                              prevTags.filter((t) => t !== tag)
+                            );
+                          }}
+                          aria-label={`Remove ${tag}`}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4">
+                  <Input
+                    value={customTagInput}
+                    onChange={(e) => setCustomTagInput(e.target.value)}
+                    placeholder="Add custom tag (max 10 letters)"
+                    maxLength={10}
+                    className={`mb-2 ${
+                      darkMode
+                        ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
+                        : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
+                    } rounded-md shadow-sm transition-colors duration-300`}
+                    aria-label="Custom Tag Input"
+                  />
+                  <Button
+                    onClick={handleAddCustomTag}
+                    className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
+                      darkMode
+                        ? 'bg-green-500 hover:bg-green-600 text-white'
+                        : 'bg-green-400 hover:bg-green-500 text-white'
+                    }`}
+                    aria-label="Add Custom Tag"
+                  >
+                    Add Custom Tag
+                  </Button>
+                </div>
+                <Button
+                  onClick={() => {
+                    setShowTagMenu(false);
+                    startSearch();
+                  }}
+                  className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
+                    darkMode
+                      ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                      : 'bg-pink-400 hover:bg-pink-500 text-white'
+                  }`}
+                  aria-label="Search with Tags"
+                >
+                  Search with Tags
+                </Button>
+              </PopoverContent>
+            </Popover>
+            {isSearching ? (
               <Button
                 onClick={() => {
                   textSocket.emit('cancel_search');
@@ -1475,625 +1738,199 @@ export default function TextChatPage() {
                 }}
                 variant="outline"
                 size="sm"
-                className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
+                className={`cursor-pointer ${
+                  darkMode
+                    ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                    : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
                 aria-label="Cancel Search"
               >
                 Cancel
               </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* No Users Online Modal */}
-      <AnimatePresence>
-        {noUsersOnline && (
-          <motion.div
-            key="no-users-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
-            >
-              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
-                No Users Found
-              </p>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
-                We couldn't find any users matching your tags. Please try again
-                with different tags or broaden your search.
-              </p>
+            ) : connected ? (
               <Button
-                onClick={() => {
-                  setNoUsersOnline(false);
-                  startSearch();
-                }}
-                className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
-              >
-                Retry Search
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Disconnected Modal */}
-      <AnimatePresence>
-        {isDisconnected && (
-          <PeerDisconnectedModal
-            onStartNewChat={handleNext}
-            darkMode={darkMode}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <header
-        className={`${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border-b p-4 flex justify-between items-center shadow-sm`}
-      >
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={handleBack} // Handle back action
-            className={`cursor-pointer ${
-              darkMode
-                ? 'text-white hover:text-gray-300'
-                : 'text-gray-700 hover:text-gray-500'
-            } transition-colors`}
-            aria-label="Go Back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
-            Vimegle
-          </h1>
-        </div>
-
-        <div className="flex space-x-4 relative">
-        <Popover>
-  <PopoverTrigger asChild>
-    <Button
-      variant="ghost"
-      size="sm"
-      className={`cursor-pointer ${
-        darkMode
-          ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-          : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-      } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`} // Increased padding
-      aria-label="Open Settings"
-      onClick={() => console.log('Settings button clicked')} // Debugging
-    >
-      <Settings className="w-5 h-5" />
-    </Button>
-  </PopoverTrigger>
-  <PopoverContent
-    className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg ${
-      darkMode
-        ? 'bg-gray-800 text-gray-100'
-        : 'bg-gray-50 text-gray-800'
-    }`}
-    style={{ zIndex: 1050 }} // Ensures this stays above other elements
-  >
-    <div className="grid gap-4">
-      <div className="space-y-2">
-        <h4 className="font-medium leading-none">Settings</h4>
-        <p className="text-xs text-gray-400">
-          Customize your chat experience
-        </p>
-      </div>
-      <Separator />
-      {/* Dark Mode Toggle */}
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="dark-mode"
-          className={`${
-            darkMode ? 'text-gray-200' : 'text-gray-700'
-          } text-sm`}
-        >
-          Dark Mode
-        </Label>
-        <Switch
-          id="dark-mode"
-          checked={darkMode}
-          onCheckedChange={setDarkMode}
-          className={`cursor-pointer ${
-            darkMode
-              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-          }`}
-        />
-      </div>
-      {/* Sound Toggle */}
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="sound"
-          className={`${
-            darkMode ? 'text-gray-200' : 'text-gray-700'
-          } text-sm`}
-        >
-          Sound
-        </Label>
-        <Switch
-          id="sound"
-          checked={soundEnabled}
-          onCheckedChange={setSoundEnabled}
-          className={`cursor-pointer ${
-            darkMode
-              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-          }`}
-        />
-      </div>
-      {/* Download Chat Button */}
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="download-chat"
-          className={`${
-            darkMode ? 'text-gray-200' : 'text-gray-700'
-          } text-sm`}
-        >
-          Download Chat
-        </Label>
-        <Button
-          id="download-chat"
-          onClick={downloadChat}
-          variant="ghost"
-          size="sm"
-          className={`cursor-pointer ${
-            darkMode
-              ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-              : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-          } rounded-full shadow-sm transition-colors duration-300`}
-          aria-label="Download Chat"
-        >
-          Download
-        </Button>
-      </div>
-      {/* Report Chat Button */}
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="report-chat"
-          className={`${
-            darkMode ? 'text-gray-200' : 'text-gray-700'
-          } text-sm`}
-        >
-          Report Chat
-        </Label>
-        <Button
-          id="report-chat"
-          onClick={debouncedHandleReportChat} // Use the debounced function
-          disabled={isReporting} // Prevent interaction while processing
-          variant="ghost"
-          size="sm"
-          className={`cursor-pointer ${
-            darkMode
-              ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-              : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-          } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
-          aria-label="Report Chat"
-        >
-          {isReporting ? (
-            <Loader2
-              className="w-5 h-5 animate-spin mr-2"
-              aria-hidden="true" // Accessibility improvement
-            />
-          ) : (
-            'Report'
-          )}
-        </Button>
-      </div>
-      {/* Winter Theme Toggle */}
-      <div className="flex items-center justify-between">
-        <Label
-          htmlFor="winter-theme"
-          className={`${
-            darkMode ? 'text-gray-200' : 'text-gray-700'
-          } text-sm`}
-        >
-          Winter Theme
-        </Label>
-        <Switch
-          id="winter-theme"
-          checked={winterTheme}
-          onCheckedChange={setWinterTheme}
-          className={`cursor-pointer ${
-            darkMode
-              ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-              : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-          }`}
-        />
-      </div>
-    </div>
-  </PopoverContent>
-</Popover>
-</div>
-
-
-        
-
-        <div className="flex items-center space-x-4">
-          <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
+                onClick={handleNextChat}
+                variant="outline"
+                size="sm"
                 className={`cursor-pointer ${
                   darkMode
-                    ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
-                    : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
-                } rounded-full p-3 sm:p-2 transition-all duration-300`}
-                aria-label="Advanced Search"
-                style={{
-                  fontSize: '1rem', // Increase font size for better visibility
-                  width: '48px', // Larger tap target
-                  height: '48px',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
+                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                    : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+                aria-label="Next Match"
               >
-                <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+                Next
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              sideOffset={5}
-              className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
-                darkMode
-                  ? 'bg-gray-800 text-gray-200'
-                  : 'bg-white text-gray-800'
-              } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
-            >
-              <h3
-                className={`text-lg font-semibold mb-2 ${
-                  darkMode ? 'text-gray-200' : 'text-gray-800'
-                }`}
-              >
-                Select Tags
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map((tag) => (
-                  <div key={tag} className="relative inline-block">
-            <Button
-                key={tag}
-                variant={tags.includes(tag) ? 'default' : 'outline'}
+            ) : (
+              <Button
+                onClick={startSearch}
+                variant="outline"
+                size="sm"
                 className={`cursor-pointer ${
-                    isTrending(tag) ? 'glowing' : ''
-                } ${
-                    tags.includes(tag)
-                        ? 'bg-blue-500 text-white hover:bg-blue-600'
-                        : darkMode
-                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                            : 'border-gray-300 text-gray-800 hover:bg-gray-100'
-                } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
-                onClick={() => toggleTag(tag)}
-            >
-                {tag}
-            </Button>
-                    {customTag === tag && (
-                      <button
-                        className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
-                          darkMode
-                            ? 'bg-red-500 text-white hover:bg-red-600'
-                            : 'bg-red-400 text-white hover:bg-red-500'
-                        } transition-colors duration-300`}
-                        onClick={() => {
-                          setCustomTag(null); // Clear the custom tag
-                          setTags((prevTags) =>
-                            prevTags.filter((t) => t !== tag)
-                          );
-                        }}
-                        aria-label={`Remove ${tag}`}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4">
-                <Input
-                  value={customTagInput}
-                  onChange={(e) => setCustomTagInput(e.target.value)}
-                  placeholder="Add custom tag (max 10 letters)"
-                  maxLength={10}
-                  className={`mb-2 ${
-                    darkMode
-                      ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
-                      : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
-                  } rounded-md shadow-sm transition-colors duration-300`}
-                  aria-label="Custom Tag Input"
-                />
-                <Button
-                  onClick={handleAddCustomTag}
-                  className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
-                    darkMode
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-green-400 hover:bg-green-500 text-white'
-                  }`}
-                  aria-label="Add Custom Tag"
+                  darkMode
+                    ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                    : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+                aria-label="Find Match"
+              >
+                Find
+              </Button>
+            )}
+          </div>
+        </header>
+
+        <main
+          className={`flex flex-col flex-1 overflow-hidden py-6 px-4 ${
+            darkMode
+              ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+              : 'bg-gradient-to-b from-gray-100 to-white'
+          }`}
+        >
+          {connected && (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Introductory Message */}
+              {showIntroMessage && (
+                <motion.div
+                  key="intro-message"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className={`p-4 rounded-lg mb-4 ${
+                    darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                  } shadow-inner`}
                 >
-                  Add Custom Tag
-                </Button>
-              </div>
-              <Button
-                onClick={() => {
-                  setShowTagMenu(false);
-                  startSearch();
-                }}
-                className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
-                  darkMode
-                    ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                    : 'bg-pink-400 hover:bg-pink-500 text-white'
-                }`}
-                aria-label="Search with Tags"
-              >
-                Search with Tags
-              </Button>
-            </PopoverContent>
-          </Popover>
-          {isSearching ? (
-            <Button
-              onClick={() => {
-                textSocket.emit('cancel_search');
-                setIsSearching(false);
-                setNoUsersOnline(false);
-                setReplyTo(null);
-                setMessages([]);
-                toast('Search cancelled.');
-              }}
-              variant="outline"
-              size="sm"
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-                  : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-              aria-label="Cancel Search"
-            >
-              Cancel
-            </Button>
-          ) : connected ? (
-            <Button
-              onClick={handleNextChat}
-              variant="outline"
-              size="sm"
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-                  : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-              aria-label="Next Match"
-            >
-              Next
-            </Button>
-          ) : (
-            <Button
-              onClick={startSearch}
-              variant="outline"
-              size="sm"
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-                  : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-              aria-label="Find Match"
-            >
-              Find
-            </Button>
-          )}
-        </div>
-      </header>
-
-      <main
-        className={`flex flex-col h-[100vh] overflow-hidden ${
-          darkMode
-            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
-            : 'bg-gradient-to-b from-gray-100 to-white'
-        }`}
-      >
-        {connected && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Scrollable Messages Area */}
-            <ScrollArea className="flex-1 px-4 pt-4 pb-2" ref={scrollAreaRef}>
-              <div className="flex flex-col gap-2">
-                <AnimatePresence initial={false}>
-                  {messages.map((msg) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      onDoubleTap={handleDoubleTap}
-                      onReply={handleReply}
-                      darkMode={darkMode}
-                      isSelf={msg.isSelf}
-                      onInView={(messageId, inView) =>
-                        handleInView(messageId, inView)
-                      }
-                    />
-                  ))}
-                  {showIntroMessage && (
-                    <motion.div
-                      key="intro-message"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ duration: 0.3 }}
-                      className={`p-4 rounded-lg ${
-                        darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-                      } shadow-inner`}
-                    >
-                      <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
-                        Welcome to Vimegle Text Chat!
-                      </h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        You're now connected with a random stranger. Say hello
-                        and start chatting!
-                      </p>
-                      {matchedTags.length > 0 && (
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                          Connected based on tags:{' '}
-                          <strong>{matchedTags.join(', ')}</strong>
-                        </p>
-                      )}
-                      {!matchedTags.length && (
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                          Connected to a stranger! Feel free to start the
-                          conversation.
-                        </p>
-                      )}
-                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Remember to be respectful and follow our community
-                        guidelines.
-                      </p>
-                    </motion.div>
+                  <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
+                    Welcome to Vimegle Text Chat!
+                  </h3>
+                  <p className="text-gray-700 dark:text-gray-300">
+                    You're now connected with a random stranger. Say hello and start
+                    chatting!
+                  </p>
+                  {matchedTags.length > 0 && (
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      Connected based on tags: <strong>{matchedTags.join(', ')}</strong>
+                    </p>
                   )}
-                </AnimatePresence>
-                <div ref={messagesEndRef} />
-              </div>
-            </ScrollArea>
-
-            {/* Input Box */}
-            <div
-              className={`relative px-4 py-2 ${
-                darkMode ? 'bg-gray-800' : 'bg-gray-100'
-              } flex-shrink-0`}
-            >
-              {replyTo && (
-                <ReplyPreview
-                  originalMessage={replyTo}
-                  onCancelReply={cancelReply}
-                />
+                  {!matchedTags.length && (
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                      Connected to a stranger! Feel free to start the conversation.
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                    Remember to be respectful and follow our community guidelines.
+                  </p>
+                </motion.div>
               )}
-              <div className="relative">
-                {/* Typing Indicator */}
-                {isTyping && !isSelfTyping && !replyTo && (
-                  <MemoizedTypingIndicator darkMode={darkMode} />
-                )}
 
-                <div className="relative">
-                  <Input
-                    id="message-input"
-                    type="text"
-                    value={inputMessage}
-                    onChange={handleInputChange} // Use debounced handler
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSendMessage();
-                    }}
-                    placeholder="Type a message..."
-                    disabled={!connected}
-                    autoComplete="off"
-                    className={`w-full ${
-                      darkMode
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                        : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
-                    } pr-24 pl-4 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                    aria-label="Message Input"
+              {/* Virtualized Messages Area */}
+              <div className="flex-1 relative overflow-y-auto custom-scrollbar">
+                <AutoSizer>
+                  {({ height, width }) => (
+                    <List
+                      ref={listRef}
+                      height={height}
+                      width={width}
+                      itemCount={messages.length}
+                      itemSize={getItemSize} // Use dynamic item size
+                      itemData={memoizedItemData}
+                      overscanCount={5} // Preload extra messages for smooth scrolling
+                    >
+                      {MessageListItem}
+                    </List>
+                  )}
+                </AutoSizer>
+              </div>
+
+              {/* Input Box */}
+              <div
+                className={`relative px-4 py-4 ${
+                  darkMode ? 'bg-gray-800' : 'bg-gray-100'
+                } flex-shrink-0`}
+              >
+                {replyTo && (
+                  <ReplyPreview
+                    originalMessage={replyTo}
+                    onCancelReply={cancelReply}
                   />
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => setShowEmojiPicker((prev) => !prev)}
-                      className={`${
-                        darkMode
-                          ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
-                      } rounded-full w-10 h-10 transition-colors duration-300`}
-                      aria-label="Toggle Emoji Picker"
-                    >
-                      <Smile className="w-5 h-5" />
-                    </Button>
-
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!connected || !inputMessage.trim()}
-                      size="icon"
-                      className={`${
-                        darkMode
-                          ? 'bg-blue-600 hover:bg-blue-700'
-                          : 'bg-blue-500 hover:bg-blue-600'
-                      } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
-                        !connected || !inputMessage.trim()
-                          ? 'opacity-50 cursor-not-allowed'
-                          : ''
-                      }`}
-                      aria-label="Send Message"
-                    >
-                      <Send className="w-5 h-5" />
-                    </Button>
-                  </div>
-                </div>
-
-                {showEmojiPicker && (
-                  <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
-                    <MemoizedEmojiPicker
-                      onEmojiClick={handleEmojiClick}
-                      darkMode={darkMode}
-                    />
-                  </div>
                 )}
+                <div className="relative">
+                  {/* Typing Indicator */}
+                  {isTyping && !isSelfTyping && !replyTo && (
+                    <MemoizedTypingIndicator darkMode={darkMode} />
+                  )}
+
+                  <div className="relative">
+                    <Input
+                      id="message-input"
+                      type="text"
+                      value={inputMessage}
+                      onChange={(e) => {
+                        setInputMessage(e.target.value);
+                        handleTyping(); // Trigger typing indicator
+                        handleStopTyping(); // Ensure typing stops after a delay
+                      }}
+                      onKeyDown={handleKeyPress}
+                      placeholder="Type a message..."
+                      disabled={!connected}
+                      autoComplete="off"
+                      ref={messageInputRef}
+                      className={`w-full ${
+                        darkMode
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                          : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+                      } pr-24 pl-4 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      aria-label="Message Input"
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setShowEmojiPicker((prev) => !prev)}
+                        className={`${
+                          darkMode
+                            ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+                        } rounded-full w-10 h-10 transition-colors duration-300`}
+                        aria-label="Toggle Emoji Picker"
+                      >
+                        <Smile className="w-5 h-5" />
+                      </Button>
+
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!connected || !inputMessage.trim()}
+                        size="icon"
+                        className={`${
+                          darkMode
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
+                          !connected || !inputMessage.trim()
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
+                        }`}
+                        aria-label="Send Message"
+                      >
+                        <Send className="w-5 h-5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
+                      <MemoizedEmojiPicker
+                        onEmojiClick={handleEmojiClick}
+                        darkMode={darkMode}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </main>
-
-      {/* <footer
-        className={`${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border-t p-4 flex justify-between items-center shadow-sm`}
-      >
-        <div className="flex space-x-4">
-          <Button
-            onClick={handleSwitchToVideo}
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } flex items-center space-x-2 rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-            aria-label="Switch to Video Chat"
-          >
-            <Video className="w-5 h-5" />
-            <span className="text-sm hidden sm:inline">Video</span>
-          </Button>
-        </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } rounded-full p-2 shadow-sm transition-colors duration-300`}
-            onClick={() => toast('Feature not implemented yet')}
-            aria-label="Flag"
-          >
-            <Flag className="w-5 h-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } rounded-full p-2 shadow-sm transition-colors duration-300`}
-            onClick={() => toast('Feature not implemented yet')}
-            aria-label="Alert"
-          >
-            <AlertTriangle className="w-5 h-5" />
-          </Button>
-        </div>
-      </footer> */}
-    </div>
-    </DisclaimerProvder>
+          )}
+        </main>
+      </div>
+    </DisclaimerProvider>
   );
 }
