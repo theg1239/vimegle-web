@@ -42,16 +42,14 @@ import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
-import { debounce, throttle } from 'lodash';
+import { debounce } from 'lodash';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
 
-// Constants for Manual Virtualization
-const ITEM_HEIGHT = 80; // Approximate height of each message in pixels
-const BUFFER = 5; // Number of extra messages to render above and below the visible area
+const ITEM_HEIGHT = 80; 
+const BUFFER = 5; 
 
-// Custom hook for debouncing
 function useDebounce(callback: Function, delay: number) {
   const timer = useRef<NodeJS.Timeout>();
 
@@ -74,8 +72,6 @@ function useDebounce(callback: Function, delay: number) {
   return debouncedFunction;
 }
 
-
-// Modals for Peer Searching and Disconnection
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
   darkMode: boolean;
@@ -151,7 +147,6 @@ const PeerDisconnectedModal: FC<{
   </motion.div>
 );
 
-// Reply Preview Component
 interface ReplyPreviewProps {
   originalMessage: Message;
   onCancelReply: () => void;
@@ -184,40 +179,7 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
   );
 };
 
-// Virtualized Message List Item
-const MessageListItem: FC<{
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    messages: Message[];
-    onDoubleTap: (messageId: string, isSelf: boolean) => void;
-    onReply: (message: Message) => void;
-    darkMode: boolean;
-    onInView: (messageId: string, inView: boolean) => void;
-  };
-}> = React.memo(({ index, style, data }) => {
-  const { messages, onDoubleTap, onReply, darkMode, onInView } = data;
-  const message = messages[index];
-
-  return (
-    <div style={style}>
-      <MessageBubble
-        key={message.id}
-        message={message}
-        onDoubleTap={onDoubleTap}
-        onReply={onReply}
-        darkMode={darkMode}
-        isSelf={message.isSelf}
-        onInView={(messageId, inView) => onInView(messageId, inView)}
-      />
-    </div>
-  );
-});
-
-MessageListItem.displayName = 'MessageListItem';
-
 export default function TextChatPage() {
-  // State Declarations
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -250,53 +212,26 @@ export default function TextChatPage() {
   const [isReporting, setIsReporting] = useState(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
   const [winterTheme, setWinterTheme] = useState<boolean>(false);
-  const [visibleRange, setVisibleRange] = useState<{ start: number; end: number }>({
-    start: 0,
-    end: BUFFER,
-  });
-  
-  const updateVisibleRange = () => {
-    if (!scrollAreaRef.current) return;
-    const scrollTop = scrollAreaRef.current.scrollTop;
-    const height = scrollAreaRef.current.offsetHeight;
-  
-    const start = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
-    const end = Math.min(
-      messages.length,
-      Math.ceil((scrollTop + height) / ITEM_HEIGHT) + BUFFER
-    );
-  
-    setVisibleRange({ start, end });
-  };
-  
-  // Attach a scroll listener
-  useEffect(() => {
-    const scrollArea = scrollAreaRef.current;
-    if (!scrollArea) return;
-  
-    scrollArea.addEventListener('scroll', updateVisibleRange);
-    updateVisibleRange(); // Initialize range
-  
-    return () => {
-      scrollArea.removeEventListener('scroll', updateVisibleRange);
-    };
-  }, [messages.length]);
-  
+  const [visibleRange, setVisibleRange] = useState<{ start: number; end: number }>(
+    {
+      start: 0,
+      end: BUFFER,
+    }
+  );
+
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
-  const [hideSeenForMessageIds, setHideSeenForMessageIds] = useState<
-    Set<string>
-  >(new Set());
+  const [hideSeenForMessageIds, setHideSeenForMessageIds] = useState<Set<string>>(
+    new Set()
+  );
 
-  // Refs for sound and interaction
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
 
-  // Update refs when state changes
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -313,45 +248,68 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
-  // Handle Typing from Peer
-  const handleTypingFromPeer = useCallback(() => {
-    setIsTyping(true);
+  const updateVisibleRange = () => {
+    if (!scrollAreaRef.current) return;
+    const scrollTop = scrollAreaRef.current.scrollTop;
+    const height = scrollAreaRef.current.offsetHeight;
 
-    // Clear existing timeout to prevent premature hiding
+    const start = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
+    const end = Math.min(
+      messages.length,
+      Math.ceil((scrollTop + height) / ITEM_HEIGHT) + BUFFER
+    );
+
+    setVisibleRange({ start, end });
+  };
+
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+
+    scrollArea.addEventListener('scroll', updateVisibleRange);
+    updateVisibleRange();
+
+    return () => {
+      scrollArea.removeEventListener('scroll', updateVisibleRange);
+    };
+  }, [messages.length]);
+
+  const handleTypingFromPeer = useCallback((data?: { sender?: string }) => {
+    const sender = data?.sender;
+    if (!sender || sender === textSocket.id) return; 
+    setIsTyping(true);
     if (peerTypingTimeoutRef.current) {
       clearTimeout(peerTypingTimeoutRef.current);
     }
-
-    // Set a new timeout to hide the typing indicator after a delay
     peerTypingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       peerTypingTimeoutRef.current = null;
-    }, 3000); // Adjust the delay as needed
+    }, 3000);
   }, []);
 
-  const handleStopTypingFromPeer = useCallback(() => {
+  const handleStopTypingFromPeer = useCallback((data?: { sender?: string }) => {
+    const sender = data?.sender;
+    if (!sender || sender === textSocket.id) return;
     if (peerTypingTimeoutRef.current) {
       clearTimeout(peerTypingTimeoutRef.current);
     }
     setIsTyping(false);
   }, []);
 
-  // Self Typing Event Handlers with Debouncing
   const handleTyping = useCallback(() => {
     if (connected && currentRoom) {
       setIsSelfTyping(true);
-      textSocket.emit('typing', { room: currentRoom });
+      textSocket.emit('typing', { room: currentRoom, sender: textSocket.id });
     }
-  }, [connected, currentRoom, textSocket]);
+  }, [connected, currentRoom]);
 
   const handleStopTyping = useCallback(() => {
     if (connected && currentRoom) {
       setIsSelfTyping(false);
-      textSocket.emit('stopTyping', { room: currentRoom });
+      textSocket.emit('stopTyping', { room: currentRoom, sender: textSocket.id });
     }
-  }, [connected, currentRoom, textSocket]);
+  }, [connected, currentRoom]);
 
-  // Debounced functions to optimize typing events
   const debouncedHandleTyping = useMemo(
     () => debounce(handleTyping, 300),
     [handleTyping]
@@ -362,7 +320,6 @@ export default function TextChatPage() {
     [handleStopTyping]
   );
 
-  // Effect to handle cleanup of debounced functions
   useEffect(() => {
     return () => {
       debouncedHandleTyping.cancel();
@@ -370,7 +327,6 @@ export default function TextChatPage() {
     };
   }, [debouncedHandleTyping, debouncedHandleStopTyping]);
 
-  // Sound Effects
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current) return;
     if (!hasInteractedRef.current) return;
@@ -410,14 +366,12 @@ export default function TextChatPage() {
     }
   }, []);
 
-  // User Interaction Handler
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
       setHasInteracted(true);
     }
   }, [hasInteracted]);
 
-  // Start Search Function
   const startSearch = useCallback(() => {
     setIsSearching(true);
     setSearchCancelled(false);
@@ -425,10 +379,8 @@ export default function TextChatPage() {
     setIsDisconnected(false);
     setShowIntroMessage(true);
     setReplyTo(null);
-    setMessages([]); // Clear messages when starting a new search
+    setMessages([]);
     setMatchedTags([]);
-
-    const normalizedTags = tags.map((tag) => tag.trim().toLowerCase());
 
     if (textSocket && textSocket.connected) {
       textSocket.emit('findTextMatch', { tags });
@@ -437,9 +389,8 @@ export default function TextChatPage() {
         textSocket?.emit('findTextMatch', { tags });
       });
     }
-  }, [tags, textSocket]);
+  }, [tags]);
 
-  // Reply Handling
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
     document.getElementById('message-input')?.focus();
@@ -449,29 +400,12 @@ export default function TextChatPage() {
     setReplyTo(null);
   }, []);
 
-  // Scroll to Bottom
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, []);
 
-  const renderMessages = () => {
-    return messages.slice(visibleRange.start, visibleRange.end).map((message, index) => (
-      <MessageBubble
-        key={message.id}
-        message={message}
-        onDoubleTap={handleDoubleTap}
-        onReply={handleReply}
-        darkMode={darkMode}
-        isSelf={message.isSelf}
-        onInView={(messageId, inView) => handleInView(messageId, inView)}
-      />
-    ));
-  };
-
-  
-  // Handle Text Match Event
   const handleTextMatch = useCallback(
     ({
       room,
@@ -483,32 +417,34 @@ export default function TextChatPage() {
       matchedTags?: string | string[];
     }) => {
       let tagsArray: string[] = [];
-
+  
       if (Array.isArray(matchedTags)) {
-        tagsArray = matchedTags;
-      } else if (typeof matchedTags === 'string' && matchedTags.trim() !== '') {
-        tagsArray = matchedTags.split(',').filter((tag) => tag.trim() !== '');
+        tagsArray = matchedTags.map(tag => tag.trim()).filter(tag => tag !== '');
+      } else if (typeof matchedTags === 'string') {
+        tagsArray = matchedTags
+          .split(',')
+          .map(tag => tag.trim())
+          .filter(tag => tag !== '');
       }
-
+  
       setMatchedTags(tagsArray);
       setShowIntroMessage(true);
-
+  
       const toastId = `text-match-${room}`;
-
+  
+      toast.dismiss(toastId);
       if (tagsArray.length > 0) {
-        toast.dismiss(toastId);
         toast.success(`Connected based on tags: ${tagsArray.join(', ')}`, {
           id: toastId,
         });
       } else {
-        toast.dismiss(toastId);
         toast.success('Connected to a stranger!', { id: toastId });
       }
-
+  
       if (soundEnabledRef.current && hasInteractedRef.current) {
         playNotificationSound();
       }
-
+  
       setConnected(true);
       setIsSearching(false);
       setCurrentRoom(room);
@@ -518,8 +454,8 @@ export default function TextChatPage() {
     },
     [playNotificationSound]
   );
+  
 
-  // Handle No Text Match
   const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
     setIsSearching(false);
     setNoUsersOnline(true);
@@ -531,36 +467,28 @@ export default function TextChatPage() {
     });
   }, []);
 
-  // Handle Search Cancelled
-  const handleSearchCancelled = useCallback(
-    ({ message }: { message: string }) => {
-      setIsSearching(false);
-      setSearchCancelled(true);
-      setFullChatHistory([]); // Reset chat history
+  const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
+    setIsSearching(false);
+    setSearchCancelled(true);
+    setFullChatHistory([]);
 
-      const toastId = 'search-cancelled';
-      toast.dismiss(toastId);
-      toast(message || 'Search cancelled.', { id: toastId });
-    },
-    []
-  );
+    const toastId = 'search-cancelled';
+    toast.dismiss(toastId);
+    toast(message || 'Search cancelled.', { id: toastId });
+  }, []);
 
-  // Handle In-View Messages for Read Receipts
   const handleInView = useCallback(
     (messageId: string, inView: boolean) => {
-      if (!inView) return; // Skip if the message is not in view
-
-      // Avoid unnecessary state updates
+      if (!inView) return;
       if (seenMessages.has(messageId)) return;
 
       setSeenMessages((prev) => new Set([...prev, messageId]));
 
-      // Update the specific message as seen
       setMessages((prevMessages) => {
         const messageIndex = prevMessages.findIndex(
           (msg) => msg.id === messageId && !msg.seen
         );
-        if (messageIndex === -1) return prevMessages; // No change needed
+        if (messageIndex === -1) return prevMessages;
 
         const updatedMessages = [...prevMessages];
         updatedMessages[messageIndex] = {
@@ -570,14 +498,11 @@ export default function TextChatPage() {
         return updatedMessages;
       });
 
-      // Notify the server only for newly seen messages
       textSocket.emit('messageSeen', { messageId, room: currentRoom });
-      //console.log(`Message ${messageId} seen and notified to the server.`);
     },
-    [currentRoom, textSocket, seenMessages]
+    [currentRoom, seenMessages]
   );
 
-  // Handle Text Message Event
   const handleTextMessage = useCallback(
     ({
       message,
@@ -603,24 +528,22 @@ export default function TextChatPage() {
         reactions: {},
         liked: false,
         replyTo: replyToMessage || null,
-        seen: false, // Default to unseen
+        seen: false,
       };
 
       setMessages((prev) => {
         if (prev.find((msg) => msg.id === messageId)) {
-          return prev; // Prevent duplicate messages
+          return prev;
         }
 
-        // Limit the number of messages to 1000
         const newMessages = [...prev, newMessage];
         if (newMessages.length > 1000) {
-          newMessages.shift(); // Remove the oldest message
+          newMessages.shift();
         }
         return newMessages;
       });
 
       if (!isSelf) {
-        // Automatically mark the latest message as seen
         if (scrollAreaRef.current) {
           const messageElement = document.getElementById(messageId);
           if (
@@ -633,13 +556,11 @@ export default function TextChatPage() {
         playMessageSound();
       }
 
-      // Scroll to bottom after adding a new message
       setTimeout(scrollToBottom, 100);
     },
-    [playMessageSound, messages, scrollToBottom, handleInView, textSocket]
+    [playMessageSound, messages, scrollToBottom, handleInView]
   );
 
-  // Handle Reaction Updates
   const handleReactionUpdate = useCallback(
     ({ messageId, liked }: { messageId: string; liked: boolean }) => {
       setMessages((prevMessages) =>
@@ -651,7 +572,6 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle Toast Notifications
   const handleToastNotification = useCallback(
     ({ message }: { message: string }) => {
       const toastId = `toast-${message}`;
@@ -661,44 +581,35 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle Peer Message Seen
-  const handlePeerMessageSeen = useCallback(
-    ({ messageId }: { messageId: string }) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === messageId ? { ...msg, seen: true } : msg
-        )
-      );
-    },
-    []
-  );
+  const handlePeerMessageSeen = useCallback(({ messageId }: { messageId: string }) => {
+    setMessages((prevMessages) =>
+      prevMessages.map((msg) =>
+        msg.id === messageId ? { ...msg, seen: true } : msg
+      )
+    );
+  }, []);
 
-  // Handle Peer Searching (Additional Handler)
-  const handlePeerSearching = useCallback(
-    ({ message }: { message: string }) => {
-      setConnected(false);
-      setMessages([]);
-      setCurrentRoom('');
-      setIsDisconnected(false);
-      setIsSearching(false);
-      setNoUsersOnline(false);
-      setReplyTo(null);
-      setMatchedTags([]);
+  const handlePeerSearching = useCallback(({ message }: { message: string }) => {
+    setConnected(false);
+    setMessages([]);
+    setCurrentRoom('');
+    setIsDisconnected(false);
+    setIsSearching(false);
+    setNoUsersOnline(false);
+    setReplyTo(null);
+    setMatchedTags([]);
 
-      const toastId = 'peer-searching';
-      toast.dismiss(toastId);
-      toast.error(
-        message || 'Your chat partner is searching for a new match.',
-        { id: toastId }
-      );
+    const toastId = 'peer-searching';
+    toast.dismiss(toastId);
+    toast.error(
+      message || 'Your chat partner is searching for a new match.',
+      { id: toastId }
+    );
 
-      if (soundEnabledRef.current && hasInteractedRef.current)
-        playDisconnectSound();
-    },
-    [playDisconnectSound]
-  );
+    if (soundEnabledRef.current && hasInteractedRef.current)
+      playDisconnectSound();
+  }, [playDisconnectSound]);
 
-  // Handle Peer Disconnected
   const handlePeerDisconnected = useCallback(
     ({ message }: { message: string }) => {
       if (isUserInitiatedDisconnect) {
@@ -712,7 +623,7 @@ export default function TextChatPage() {
       setCurrentRoom('');
       setReplyTo(null);
       setMatchedTags([]);
-      setChatState('idle'); // Reset to home screen
+      setChatState('idle');
 
       const toastId = 'peer-disconnected';
       toast.dismiss(toastId);
@@ -726,7 +637,6 @@ export default function TextChatPage() {
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
-  // Handle Read Receipts (Additional Handler)
   const handleMessageSeen = useCallback(
     ({ messageId }: { messageId: string }) => {
       setMessages((prevMessages) =>
@@ -738,7 +648,6 @@ export default function TextChatPage() {
     []
   );
 
-  // Register Socket Event Handlers
   useEffect(() => {
     if (!textSocket) return;
 
@@ -753,10 +662,9 @@ export default function TextChatPage() {
     textSocket.on('peerSearching', handlePeerSearching);
     textSocket.on('peerDisconnected', handlePeerDisconnected);
     textSocket.on('stopTyping', handleStopTypingFromPeer);
-    textSocket.on('messageSeen', handleMessageSeen); // Listen for 'messageSeen' events
+    textSocket.on('messageSeen', handleMessageSeen);
 
     return () => {
-      // Clean up Socket Event Handlers
       textSocket.off('peerMessageSeen', handlePeerMessageSeen);
       textSocket.off('textMatch', handleTextMatch);
       textSocket.off('noTextMatch', handleNoTextMatch);
@@ -786,7 +694,6 @@ export default function TextChatPage() {
     textSocket,
   ]);
 
-  // Handle Before Unload (User leaves the page)
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (connected && currentRoom) {
@@ -801,9 +708,8 @@ export default function TextChatPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('unload', handleBeforeUnload);
     };
-  }, [connected, currentRoom, textSocket]);
+  }, [connected, currentRoom]);
 
-  // Default Tags
   const defaultTags = useMemo(
     () => [
       'music',
@@ -823,7 +729,6 @@ export default function TextChatPage() {
     []
   );
 
-  // Available Tags
   const availableTags = useMemo(() => {
     if (customTag) {
       return [...defaultTags, customTag];
@@ -833,7 +738,6 @@ export default function TextChatPage() {
 
   const isTrending = (tag: string) => trendingTags.includes(tag);
 
-  // Toggle Tag Selection
   const toggleTag = (tag: string) => {
     setTags((prevTags) => {
       let newTags = prevTags.includes(tag)
@@ -852,7 +756,6 @@ export default function TextChatPage() {
     });
   };
 
-  // Add Custom Tag
   const handleAddCustomTag = useCallback(() => {
     if (customTagInput.trim().length > 0) {
       if (customTag) {
@@ -875,20 +778,16 @@ export default function TextChatPage() {
 
       setTags((prevTags) => {
         let newTags = [...prevTags, tag];
-
         const totalTags = newTags.length;
-
         if (totalTags > 3) {
           toast.error('You can select up to 3 tags in total.');
           return prevTags;
         }
-
         return newTags;
       });
     }
   }, [customTag, customTagInput]);
 
-  // Clear Messages on Disconnect
   useEffect(() => {
     if (!connected && !isSearching) {
       setMessages([]);
@@ -896,12 +795,10 @@ export default function TextChatPage() {
     }
   }, [connected, isSearching]);
 
-  // Scroll to Bottom on Messages Update
   useEffect(() => {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Tooltip Handling
   useEffect(() => {
     if (isSearching && !tooltipShownRef.current) {
       tooltipShownRef.current = true;
@@ -920,7 +817,6 @@ export default function TextChatPage() {
     }
   }, [isSearching]);
 
-  // Show Like Message Once
   useEffect(() => {
     const hasSeenMessage = localStorage.getItem('seenLikeMessage');
     if (!hasSeenMessage) {
@@ -935,7 +831,6 @@ export default function TextChatPage() {
     }
   }, []);
 
-  // Handle Next Chat
   const handleNext = useCallback(() => {
     if (connected && currentRoom) {
       setIsUserInitiatedDisconnect(true);
@@ -952,9 +847,8 @@ export default function TextChatPage() {
       startSearch();
       setFullChatHistory([]);
     }
-  }, [connected, currentRoom, startSearch, textSocket]);
+  }, [connected, currentRoom, startSearch]);
 
-  // Chat State
   const [chatState, setChatState] = useState<string>('idle');
 
   const handleReturnToSearch = useCallback(() => {
@@ -972,7 +866,6 @@ export default function TextChatPage() {
     setIsPeerSearching(false);
   }, []);
 
-  // Handle Send Message
   const handleSendMessage = useCallback(() => {
     if (!inputMessage.trim()) return;
 
@@ -1000,7 +893,6 @@ export default function TextChatPage() {
       replyTo: replyTo ? replyTo.id : undefined,
     });
 
-    // Reset seen status for the peer
     textSocket.emit('resetSeenStatus', { room: currentRoom });
 
     const newMessage: Message = {
@@ -1011,16 +903,14 @@ export default function TextChatPage() {
       reactions: {},
       liked: false,
       replyTo: replyTo || null,
-      seen: false, // Self messages are marked as unseen
+      seen: false,
     };
 
     setMessages((prev) => {
-      // Reset seen status for all messages
       const updated = prev.map((msg) => ({ ...msg, seen: false }));
-      // Limit the number of messages to 1000
       const newMessages = [...updated, newMessage];
       if (newMessages.length > 1000) {
-        newMessages.shift(); // Remove the oldest message
+        newMessages.shift();
       }
       return newMessages;
     });
@@ -1033,7 +923,6 @@ export default function TextChatPage() {
       playMessageSound();
     }
 
-    // Emit stop typing immediately after sending the message
     handleStopTyping();
 
     scrollToBottom();
@@ -1044,24 +933,21 @@ export default function TextChatPage() {
     playMessageSound,
     scrollToBottom,
     handleStopTyping,
-    textSocket,
-    isProfane,
+    isProfane
   ]);
 
-  // Handle Input Change with Optimized Typing Events
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputMessage(e.target.value);
-    debouncedHandleTyping(); // Emit typing event after debounce
-    debouncedHandleStopTyping(); // Emit stop typing after debounce
+    debouncedHandleTyping();
+    debouncedHandleStopTyping();
   };
 
-  // Handle Emoji Click
   const handleEmojiClick = useCallback(
     (emojiData: EmojiClickData, event: MouseEvent) => {
       setInputMessage((prev) => prev + emojiData.emoji);
       setShowEmojiPicker(false);
-      debouncedHandleTyping(); // Trigger typing when emoji is clicked
-      debouncedHandleStopTyping(); // Ensure typing stops after a delay
+      debouncedHandleTyping();
+      debouncedHandleStopTyping();
     },
     [debouncedHandleTyping, debouncedHandleStopTyping]
   );
@@ -1108,7 +994,6 @@ export default function TextChatPage() {
     )
   );
 
-  // Double Tap Handler
   const handleDoubleTap = useCallback(
     (messageId: string, isSelf: boolean) => {
       setMessages((prevMessages) =>
@@ -1126,35 +1011,21 @@ export default function TextChatPage() {
         });
       }
     },
-    [textSocket, currentRoom, messages]
-  );
-
-  // Optimize the data passed to the virtualized list
-  const listData = useMemo(
-    () => ({
-      messages,
-      onDoubleTap: handleDoubleTap,
-      onReply: handleReply,
-      darkMode,
-      onInView: handleInView,
-    }),
-    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
+    [messages, currentRoom]
   );
 
   const notifyPeerDisconnection = useCallback(() => {
     if (textSocket && currentRoom) {
       textSocket.emit('peerDisconnected', { room: currentRoom });
     }
-  }, [currentRoom, textSocket]);
+  }, [currentRoom]);
 
   useEffect(() => {
     const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
-      // Prevent navigation and show confirmation dialog
       const confirmationMessage =
         'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.';
       const confirmed = window.confirm(confirmationMessage);
       if (!confirmed) {
-        // Prevent navigation by re-adding the current state to the history stack
         if (event.type === 'popstate') {
           window.history.pushState(null, document.title, window.location.href);
         }
@@ -1169,15 +1040,12 @@ export default function TextChatPage() {
       }
     };
 
-    // Add event listeners for back navigation
     window.addEventListener('popstate', handleBackNavigation);
     window.addEventListener('beforeunload', handleBackNavigation);
 
-    // Push initial state to prevent direct back navigation
     window.history.pushState(null, document.title, window.location.href);
 
     return () => {
-      // Clean up event listeners on component unmount
       window.removeEventListener('popstate', handleBackNavigation);
       window.removeEventListener('beforeunload', handleBackNavigation);
     };
@@ -1189,10 +1057,9 @@ export default function TextChatPage() {
     );
 
     if (!confirmed) {
-      return; // Exit early if the user cancels
+      return;
     }
 
-    // If confirmed, proceed with the action
     notifyPeerDisconnection();
     setConnected(false);
     setMessages([]);
@@ -1200,7 +1067,7 @@ export default function TextChatPage() {
     setReplyTo(null);
     setMatchedTags([]);
     setChatState('idle');
-    window.location.href = '/video'; // Redirect to video chat
+    window.location.href = '/video';
   }, [
     notifyPeerDisconnection,
     setConnected,
@@ -1221,12 +1088,10 @@ export default function TextChatPage() {
     );
 
     if (confirmed) {
-      // Notify the other user about the disconnection
       if (currentRoom) {
         textSocket.emit('peerDisconnected', { room: currentRoom });
       }
 
-      // Clean up the current chat state
       setConnected(false);
       setMessages([]);
       setCurrentRoom('');
@@ -1234,10 +1099,9 @@ export default function TextChatPage() {
       setMatchedTags([]);
       setChatState('idle');
 
-      // Redirect to Vimegle homepage
       window.location.href = '/';
     }
-  }, [currentRoom, textSocket]);
+  }, [currentRoom]);
 
   const handleNextChat = useCallback(() => {
     const confirmed = window.confirm(
@@ -1256,7 +1120,6 @@ export default function TextChatPage() {
     }
   }, [notifyPeerDisconnection, startSearch]);
 
-  // Handle Download Chat
   const downloadChat = useCallback(() => {
     if (fullChatHistory.length === 0) {
       toast.error('No messages to download.');
@@ -1291,21 +1154,20 @@ export default function TextChatPage() {
     toast.success('Chat downloaded successfully!');
   }, [fullChatHistory]);
 
-  // Handle Report Chat
   const handleReportChat = useCallback(async () => {
-    if (isReporting) return; // Prevent multiple clicks if already reporting
+    if (isReporting) return;
 
     if (!currentRoom || fullChatHistory.length === 0) {
       toast.error('No active chat to report.');
       return;
     }
 
-    setIsReporting(true); // Disable button immediately
+    setIsReporting(true);
 
     const reportData = {
       room: currentRoom,
       socketId: textSocket.id,
-      sessionId: Cookies.get('sessionId'), // Ensure sessionId is fetched
+      sessionId: Cookies.get('sessionId'),
       messages: fullChatHistory.map((msg) => ({
         id: msg.id,
         text: msg.text,
@@ -1335,23 +1197,21 @@ export default function TextChatPage() {
       console.error('Error sending report:', error);
       toast.error('Failed to send report.');
     } finally {
-      setIsReporting(false); // Reset processing state
+      setIsReporting(false);
     }
-  }, [currentRoom, fullChatHistory, textSocket, isReporting]);
+  }, [currentRoom, fullChatHistory, isReporting]);
 
   const debouncedHandleReportChat = useMemo(
     () => debounce(handleReportChat, 2000),
     [handleReportChat]
   );
 
-  // Ensure Report Chat cleanup
   useEffect(() => {
     return () => {
       debouncedHandleReportChat.cancel();
     };
   }, [debouncedHandleReportChat]);
 
-  // Handle Read Receipts emission
   useEffect(() => {
     if (messages.length > 0) {
       setFullChatHistory((prevHistory) => [
@@ -1360,30 +1220,6 @@ export default function TextChatPage() {
       ]);
     }
   }, [messages]);
-
-  // Tooltip Component (Previously commented out)
-  /*
-  const Tooltip: FC = () => (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
-      transition={{ duration: 0.5 }}
-      className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
-    >
-      <p>We value your feedback!</p>
-      <Link
-        href="/feedback"
-        className="underline text-sm"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Click here to provide feedback
-      </Link>
-    </motion.div>
-  );
-  */
- 
 
   return (
     <DisclaimerProvder>
@@ -1396,12 +1232,11 @@ export default function TextChatPage() {
         onKeyDown={handleUserInteraction}
         onMouseMove={handleUserInteraction}
       >
-        {/* Snowfall Effect */}
         {winterTheme && (
           <Snowfall
             style={{
               position: 'fixed',
-              zIndex: 0, // Ensure it stays behind all content
+              zIndex: 0,
               top: 0,
               left: 0,
               width: '100%',
@@ -1409,27 +1244,25 @@ export default function TextChatPage() {
             }}
             snowflakeCount={
               window.innerWidth <= 480
-                ? 10 // Fewer snowflakes for smaller screens
+                ? 10
                 : window.innerWidth <= 768
-                ? 30 // Moderate snowflakes for tablets
-                : 50 // Higher snowflakes for larger screens
+                ? 30
+                : 50
             }
           />
         )}
 
-        {/* Toaster Configuration */}
         <Toaster
           position="top-center"
           toastOptions={{
             duration: 5000,
             style: {
-              marginTop: '4rem', // Adjust the value based on your header height
-              zIndex: 9999, // Ensure the toast is above most UI elements
+              marginTop: '4rem',
+              zIndex: 9999,
             },
           }}
         />
 
-        {/* Background Watermark */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span
             className={`text-4xl font-bold select-none transition-opacity duration-300 ${
@@ -1444,10 +1277,6 @@ export default function TextChatPage() {
           </span>
         </div>
 
-        {/* Tooltip (Previously commented out) */}
-        {/* <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence> */}
-
-        {/* Peer Searching Modal */}
         <AnimatePresence>
           {isPeerSearching && (
             <PeerSearchingModal
@@ -1457,7 +1286,6 @@ export default function TextChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Searching Modal */}
         <AnimatePresence>
           {isSearching && (
             <motion.div
@@ -1504,7 +1332,6 @@ export default function TextChatPage() {
           )}
         </AnimatePresence>
 
-        {/* No Users Online Modal */}
         <AnimatePresence>
           {noUsersOnline && (
             <motion.div
@@ -1542,7 +1369,6 @@ export default function TextChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Disconnected Modal */}
         <AnimatePresence>
           {isDisconnected && (
             <PeerDisconnectedModal
@@ -1552,7 +1378,6 @@ export default function TextChatPage() {
           )}
         </AnimatePresence>
 
-        {/* Header */}
         <header
           className={`${
             darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
@@ -1560,7 +1385,7 @@ export default function TextChatPage() {
         >
           <div className="flex items-center space-x-3">
             <button
-              onClick={handleBack} // Handle back action
+              onClick={handleBack}
               className={`cursor-pointer ${
                 darkMode
                   ? 'text-white hover:text-gray-300'
@@ -1585,9 +1410,8 @@ export default function TextChatPage() {
                     darkMode
                       ? 'text-white hover:text-gray-300 hover:bg-gray-700'
                       : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-                  } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`} // Increased padding
+                  } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`}
                   aria-label="Open Settings"
-                  onClick={() => console.log('Settings button clicked')} // Debugging
                 >
                   <Settings className="w-5 h-5" />
                 </Button>
@@ -1598,7 +1422,7 @@ export default function TextChatPage() {
                     ? 'bg-gray-800 text-gray-100'
                     : 'bg-gray-50 text-gray-800'
                 }`}
-                style={{ zIndex: 1050 }} // Ensures this stays above other elements
+                style={{ zIndex: 1050 }}
               >
                 <div className="grid gap-4">
                   <div className="space-y-2">
@@ -1608,7 +1432,6 @@ export default function TextChatPage() {
                     </p>
                   </div>
                   <Separator />
-                  {/* Dark Mode Toggle */}
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="dark-mode"
@@ -1629,7 +1452,6 @@ export default function TextChatPage() {
                       }`}
                     />
                   </div>
-                  {/* Sound Toggle */}
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="sound"
@@ -1650,7 +1472,6 @@ export default function TextChatPage() {
                       }`}
                     />
                   </div>
-                  {/* Download Chat Button */}
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="download-chat"
@@ -1675,7 +1496,6 @@ export default function TextChatPage() {
                       Download
                     </Button>
                   </div>
-                  {/* Report Chat Button */}
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="report-chat"
@@ -1687,8 +1507,8 @@ export default function TextChatPage() {
                     </Label>
                     <Button
                       id="report-chat"
-                      onClick={debouncedHandleReportChat} // Use the debounced function
-                      disabled={isReporting} // Prevent interaction while processing
+                      onClick={debouncedHandleReportChat}
+                      disabled={isReporting}
                       variant="ghost"
                       size="sm"
                       className={`cursor-pointer ${
@@ -1701,14 +1521,13 @@ export default function TextChatPage() {
                       {isReporting ? (
                         <Loader2
                           className="w-5 h-5 animate-spin mr-2"
-                          aria-hidden="true" // Accessibility improvement
+                          aria-hidden="true"
                         />
                       ) : (
                         'Report'
                       )}
                     </Button>
                   </div>
-                  {/* Winter Theme Toggle */}
                   <div className="flex items-center justify-between">
                     <Label
                       htmlFor="winter-theme"
@@ -1746,8 +1565,8 @@ export default function TextChatPage() {
                   } rounded-full p-3 sm:p-2 transition-all duration-300`}
                   aria-label="Advanced Search"
                   style={{
-                    fontSize: '1rem', // Increase font size for better visibility
-                    width: '48px', // Larger tap target
+                    fontSize: '1rem',
+                    width: '48px',
                     height: '48px',
                     display: 'flex',
                     justifyContent: 'center',
@@ -1800,7 +1619,7 @@ export default function TextChatPage() {
                               : 'bg-red-400 text-white hover:bg-red-500'
                           } transition-colors duration-300`}
                           onClick={() => {
-                            setCustomTag(null); // Clear the custom tag
+                            setCustomTag(null);
                             setTags((prevTags) =>
                               prevTags.filter((t) => t !== tag)
                             );
@@ -1916,7 +1735,6 @@ export default function TextChatPage() {
         >
           {connected && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Scrollable Messages Area with Manual Virtualization */}
               <ScrollArea className="flex-1 px-4 pt-4 pb-2" ref={scrollAreaRef}>
                 <div
                   style={{
@@ -1924,7 +1742,6 @@ export default function TextChatPage() {
                     position: 'relative',
                   }}
                 >
-                  {/* Spacer before the visible messages */}
                   <div
                     style={{
                       position: 'absolute',
@@ -1935,7 +1752,6 @@ export default function TextChatPage() {
                     }}
                   />
 
-                  {/* Render only visible messages */}
                   <div
                     style={{
                       position: 'absolute',
@@ -1944,7 +1760,17 @@ export default function TextChatPage() {
                       width: '100%',
                     }}
                   >
-                    {renderMessages()}
+                    {messages.slice(visibleRange.start, visibleRange.end).map((message) => (
+                      <MessageBubble
+                        key={message.id}
+                        message={message}
+                        onDoubleTap={handleDoubleTap}
+                        onReply={handleReply}
+                        darkMode={darkMode}
+                        isSelf={message.isSelf}
+                        onInView={(messageId, inView) => handleInView(messageId, inView)}
+                      />
+                    ))}
                     {showIntroMessage && (
                       <motion.div
                         key="intro-message"
@@ -1969,7 +1795,7 @@ export default function TextChatPage() {
                             <strong>{matchedTags.join(', ')}</strong>
                           </p>
                         )}
-                        {!matchedTags.length && (
+                        {matchedTags.length === 0 && (
                           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                             Connected to a stranger! Feel free to start the
                             conversation.
@@ -1981,9 +1807,9 @@ export default function TextChatPage() {
                         </p>
                       </motion.div>
                     )}
+                    <div ref={messagesEndRef} />
                   </div>
 
-                  {/* Spacer after the visible messages */}
                   <div
                     style={{
                       position: 'absolute',
@@ -1996,20 +1822,15 @@ export default function TextChatPage() {
                 </div>
               </ScrollArea>
 
-              {/* Input Box */}
               <div
                 className={`relative px-4 py-2 ${
                   darkMode ? 'bg-gray-800' : 'bg-gray-100'
                 } flex-shrink-0`}
               >
                 {replyTo && (
-                  <ReplyPreview
-                    originalMessage={replyTo}
-                    onCancelReply={cancelReply}
-                  />
+                  <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
                 )}
                 <div className="relative">
-                  {/* Typing Indicator */}
                   {isTyping && !isSelfTyping && !replyTo && (
                     <MemoizedTypingIndicator darkMode={darkMode} />
                   )}
@@ -2019,7 +1840,7 @@ export default function TextChatPage() {
                       id="message-input"
                       type="text"
                       value={inputMessage}
-                      onChange={handleInputChange} // Optimized handler
+                      onChange={handleInputChange}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleSendMessage();
                       }}
@@ -2081,60 +1902,6 @@ export default function TextChatPage() {
             </div>
           )}
         </main>
-
-        {/* Footer (Commented Out Previously) */}
-        {/* 
-        <footer
-          className={`${
-            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          } border-t p-4 flex justify-between items-center shadow-sm`}
-        >
-          <div className="flex space-x-4">
-            <Button
-              onClick={handleSwitchToVideo}
-              variant="ghost"
-              size="sm"
-              className={`${
-                darkMode
-                  ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                  : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-              } flex items-center space-x-2 rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-              aria-label="Switch to Video Chat"
-            >
-              <Video className="w-5 h-5" />
-              <span className="text-sm hidden sm:inline">Video</span>
-            </Button>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`${
-                darkMode
-                  ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                  : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-              } rounded-full p-2 shadow-sm transition-colors duration-300`}
-              onClick={() => toast('Feature not implemented yet')}
-              aria-label="Flag"
-            >
-              <Flag className="w-5 h-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={`${
-                darkMode
-                  ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                  : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-              } rounded-full p-2 shadow-sm transition-colors duration-300`}
-              onClick={() => toast('Feature not implemented yet')}
-              aria-label="Alert"
-            >
-              <AlertTriangle className="w-5 h-5" />
-            </Button>
-          </div>
-        </footer>
-        */}
       </div>
     </DisclaimerProvder>
   );
