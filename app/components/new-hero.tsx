@@ -42,23 +42,16 @@ export default function HeroSection() {
           <p className="text-sm sm:text-base mb-2 sm:mb-4 text-center max-w-[200px] sm:max-w-md">
             Talk with your voice.
           </p>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="border-yellow-500 text-yellow-300 hover:bg-yellow-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
-                >
-                  Try Voice Chat
-                  <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent align="center" side="bottom" sideOffset={5}>
-                <p>New! Coming Soon!</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <Link href="/voice">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-yellow-500 text-yellow-300 hover:bg-yellow-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
+            >
+              Try Voice Chat
+              <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
+            </Button>
+          </Link>
         </div>
 
         {/* Video Chat Section */}
