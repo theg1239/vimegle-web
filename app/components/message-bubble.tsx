@@ -14,15 +14,16 @@ interface MessageBubbleProps {
   darkMode: boolean;
   isSelf: boolean;
   onInView: (messageId: string, inView: boolean) => void;
+  showSeen?: boolean; // Added this to show "Seen" only for the last seen message
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
-  ({ message, onDoubleTap, onReply, darkMode, isSelf, onInView }) => {
+  ({ message, onDoubleTap, onReply, darkMode, isSelf, onInView, showSeen = false }) => {
     const swipeRef = useRef(null);
 
     const { ref, inView } = useInView({
       threshold: 0.5,
-      triggerOnce: true,
+      triggerOnce: false,
     });
 
     useEffect(() => {
@@ -52,25 +53,25 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
         className={`flex ${isSelf ? 'flex-row-reverse' : 'flex-row'} items-start mb-4 group relative`}
+        id={message.id}
       >
-        <div className="relative max-w-[80%]">
-          {/* Reply Metadata */}
+        <div ref={ref} className="relative max-w-[80%]">
           {message.replyTo && (
-  <div
-    className={`text-xs mb-1 ${
-      darkMode ? 'text-gray-400' : 'text-gray-600'
-    }`}
-  >
-    {message.isSelf ? (
-      message.replyTo.isSelf
-        ? 'You replied to yourself'
-        : 'You replied to them'
-    ) : message.replyTo.isSelf
-      ? 'They replied to you'
-      : 'They replied to themselves'}
-  </div>
-)}
-          {/* Message Bubble */}
+            <div
+              className={`text-xs mb-1 ${
+                darkMode ? 'text-gray-400' : 'text-gray-600'
+              }`}
+            >
+              {message.isSelf ? (
+                message.replyTo.isSelf
+                  ? 'You replied to yourself'
+                  : 'You replied to them'
+              ) : message.replyTo.isSelf
+                ? 'They replied to you'
+                : 'They replied to themselves'}
+            </div>
+          )}
+
           <div
             className={`inline-block rounded-2xl p-3 relative ${
               isSelf
@@ -83,7 +84,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
             }`}
             onDoubleClick={() => onDoubleTap(message.id, isSelf)}
           >
-                        {message.replyTo && (
+            {message.replyTo && (
               <div
                 className={`text-xs mb-2 ${
                   darkMode ? 'text-gray-300' : 'text-gray-700'
@@ -93,23 +94,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
                 {message.replyTo.text.length > 20 ? '...' : ''}
               </div>
             )}
-            <span
-              className={`${
-                isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
-              } break-words`}
-              style={{
-                wordBreak: 'break-word',
-                whiteSpace: 'pre-wrap',
-                overflowWrap: 'break-word',
-              }}
-            >
-              <Twemoji
-                text={message.text}
-                options={{
-                  className: 'inline-block align-middle',
-                }}
-              />
-            </span>
+<span
+  className={`${
+    isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
+  } break-words`}
+  style={{
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'break-word',
+  }}
+>
+  {message.text}
+</span>
+
             <span
               className={`text-xs ${
                 isSelf
@@ -126,8 +123,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
             </span>
           </div>
 
-          {/* Seen Status */}
-          {isSelf && message.seen && (
+          {showSeen && (
             <div
               className={`text-xs mt-1 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
@@ -137,7 +133,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
             </div>
           )}
 
-          {/* Like Indicator */}
           <AnimatePresence>
             {message.liked && (
               <motion.div
@@ -145,7 +140,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.5 }}
                 transition={{ duration: 0.3 }}
-                className={`absolute ${isSelf ? '-left-2' : '-right-2'} -bottom-2 z-10`}
+                className={`absolute ${
+                  isSelf ? '-left-2' : '-right-2'
+                } -bottom-2 z-10`}
               >
                 <div className="rounded-full p-1 shadow-md">
                   <Heart className="w-5 h-5 text-red-500 fill-current" />
@@ -155,7 +152,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
           </AnimatePresence>
         </div>
 
-        {/* Reply Button */}
         <Button
           variant="ghost"
           size="icon"
