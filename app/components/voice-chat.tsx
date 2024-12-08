@@ -181,7 +181,7 @@ const VoiceChannel: React.FC<VoiceChannelProps> = ({
 
       {/* Hidden Audio Elements */}
       <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-      <audio ref={localAudioRef} autoPlay playsInline className="hidden" />
+     {/* <audio ref={localAudioRef} autoPlay playsInline className="hidden" /> */}
     </div>
   );
 };
