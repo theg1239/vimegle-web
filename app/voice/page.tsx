@@ -287,6 +287,29 @@ export default function ChatPage() {
             { urls: 'stun:stun.3.google.com:19302' },
             { urls: 'stun:stun.4.google.com:19302' },
             { urls: 'stun:stun.5.google.com:19302' },
+            {
+              urls: "stun:stun.relay.metered.ca:80",
+            },
+            {
+              urls: "turn:in.relay.metered.ca:80",
+              username: "ea3c2864313d350337600e99",
+              credential: "mqdG5tqvqJ7Obrzr",
+            },
+            {
+              urls: "turn:in.relay.metered.ca:80?transport=tcp",
+              username: "ea3c2864313d350337600e99",
+              credential: "mqdG5tqvqJ7Obrzr",
+            },
+            {
+              urls: "turn:in.relay.metered.ca:443",
+              username: "ea3c2864313d350337600e99",
+              credential: "mqdG5tqvqJ7Obrzr",
+            },
+            {
+              urls: "turns:in.relay.metered.ca:443?transport=tcp",
+              username: "ea3c2864313d350337600e99",
+              credential: "mqdG5tqvqJ7Obrzr",
+            },
           ],
         },
       });
@@ -604,30 +627,30 @@ export default function ChatPage() {
           </div>
         )}
 
-{chatState === 'idle' && (
-  <div className="flex flex-col items-center justify-center h-full text-center text-white space-y-6">
-    <h1 className="text-5xl font-bold">
-      <span
-        style={{
-          background: 'linear-gradient(to right, #f87171, #ec4899)', // red-400 to pink-600
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-        }}
-      >
-        Vimegle
-      </span>
-    </h1>
-    <Button
-      variant="secondary"
-      className="bg-gray-700 hover:bg-gray-600 text-white"
-      onClick={startSearch}
-      aria-label="Find Voice Match"
-    >
-      <Users className="w-5 h-5 mr-2" />
-      Find Voice Match
-    </Button>
-  </div>
-)}
+        {chatState === 'idle' && (
+          <div className="flex flex-col items-center justify-center h-full text-center text-white space-y-6">
+            <h1 className="text-5xl font-bold">
+              <span
+                style={{
+                  background: 'linear-gradient(to right, #f87171, #ec4899)', // red-400 to pink-600
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Vimegle
+              </span>
+            </h1>
+            <Button
+              variant="secondary"
+              className="bg-gray-700 hover:bg-gray-600 text-white"
+              onClick={startSearch}
+              aria-label="Find Voice Match"
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Find Voice Match
+            </Button>
+          </div>
+        )}
 
         {chatState === 'connected' && remoteUser && (
           <VoiceChannel
@@ -645,6 +668,11 @@ export default function ChatPage() {
             deafened={deafened}
           />
         )}
+
+        {/* Experimental Feature Message */}
+        <div className="absolute bottom-5 w-full text-center text-white text-sm">
+          This feature is still experimental.
+        </div>
       </main>
 
       {/* Overlay Modals */}
