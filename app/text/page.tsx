@@ -842,16 +842,21 @@ export default function TextChatPage() {
       return;
     }
 
-    const sanitizedMessage = DOMPurify.sanitize(inputMessage, {
+    let tempMessage = inputMessage
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  
+    const sanitizedMessage = DOMPurify.sanitize(tempMessage, {
       ALLOWED_TAGS: [],
       ALLOWED_ATTR: [],
     });
-
-    const messageId = uuidv4();
+  
     const decodedMessage = sanitizedMessage
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&');
+  
+    const messageId = uuidv4();
 
     textSocket.emit('textMessage', {
       room: currentRoom,

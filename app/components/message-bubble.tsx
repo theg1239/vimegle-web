@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Twemoji } from 'react-emoji-render';
 import { Heart, MessageCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Message } from '@/types/messageTypes';
@@ -14,7 +13,7 @@ interface MessageBubbleProps {
   darkMode: boolean;
   isSelf: boolean;
   onInView: (messageId: string, inView: boolean) => void;
-  showSeen?: boolean; // Added this to show "Seen" only for the last seen message
+  showSeen?: boolean;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
@@ -52,6 +51,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
+        // Allow horizontal swipes on mobile without browser interference
+        style={{ touchAction: 'pan-y' }}
         className={`flex ${isSelf ? 'flex-row-reverse' : 'flex-row'} items-start mb-4 group relative`}
         id={message.id}
       >
@@ -94,18 +95,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
                 {message.replyTo.text.length > 20 ? '...' : ''}
               </div>
             )}
-<span
-  className={`${
-    isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
-  } break-words`}
-  style={{
-    wordBreak: 'break-word',
-    whiteSpace: 'pre-wrap',
-    overflowWrap: 'break-word',
-  }}
->
-  {message.text}
-</span>
+            <span
+              className={`${
+                isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
+              } break-words`}
+              style={{
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap',
+                overflowWrap: 'break-word',
+              }}
+            >
+              {message.text}
+            </span>
 
             <span
               className={`text-xs ${
@@ -155,7 +156,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         <Button
           variant="ghost"
           size="icon"
-          className={`${isSelf ? 'mr-2' : 'ml-2'} opacity-0 group-hover:opacity-100 transition-opacity`}
+          // Added `self-center` to vertically center the button
+          className={`${isSelf ? 'mr-2' : 'ml-2'} opacity-0 group-hover:opacity-100 transition-opacity self-center`}
           onClick={() => onReply(message)}
           aria-label="Reply to message"
         >
