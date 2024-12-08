@@ -58,7 +58,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ stream, isRemote }) =
       ref={canvasRef}
       width={200}
       height={50}
-      className="rounded-md bg-gray-800"
+      className="rounded-md bg-black"
     />
   );
 };
