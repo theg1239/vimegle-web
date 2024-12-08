@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { geolocation } from '@vercel/functions';
 
-const ALLOWED_COUNTRY = 'UNKNOWN';
+const ALLOWED_COUNTRY = 'IN';
 
 export const config = {
   matcher: '/((?!_next/static|_next/image|favicon.ico).*)',
@@ -32,9 +32,9 @@ export default function middleware(request: NextRequest) {
   }
 
   if (country === 'UNKNOWN') {
-    ////console.log('Visitor country is UNKNOWN, treating as disallowed.');
+    console.log('Visitor country is UNKNOWN, treating as disallowed.');
   } else {
-    //console.log(`Non-allowed visitor detected from country: ${country}`);
+    console.log(`Non-allowed visitor detected from country: ${country}`);
   }
 
   request.nextUrl.pathname = '/error';
