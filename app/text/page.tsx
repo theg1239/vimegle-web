@@ -1,5 +1,3 @@
-// src/app/pages/TextChatPage.tsx
-
 'use client';
 
 import React, {
@@ -11,10 +9,9 @@ import React, {
   FC,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { VariableSizeList as List, ListChildComponentProps } from 'react-window'; // Use VariableSizeList
-import AutoSizer from 'react-virtualized-auto-sizer'; // For automatic sizing
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
+import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   ArrowLeft,
@@ -31,10 +28,10 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { textSocket } from '@/lib/socket';
-import EmojiPicker, { EmojiClickData, Theme as EmojiTheme } from 'emoji-picker-react';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { v4 as uuidv4 } from 'uuid';
 import DOMPurify from 'dompurify';
-import { MemoizedMessageBubble } from '@/app/components/message-bubble';
+import { MessageBubble } from '@/app/components/message-bubble';
 import { Message } from '@/types/messageTypes';
 import {
   Popover,
@@ -45,11 +42,40 @@ import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
-import { debounce } from 'lodash';
-import DisclaimerProvider from '@/app/components/disclaimer-provider';
-import Cookies from 'js-cookie'; 
+import { debounce, throttle } from 'lodash';
+import DisclaimerProvder from '@/app/components/disclaimer-provider';
+import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
 
+// Constants for Manual Virtualization
+const ITEM_HEIGHT = 80; // Approximate height of each message in pixels
+const BUFFER = 5; // Number of extra messages to render above and below the visible area
+
+// Custom hook for debouncing
+function useDebounce(callback: Function, delay: number) {
+  const timer = useRef<NodeJS.Timeout>();
+
+  const debouncedFunction = useCallback(
+    (...args: any[]) => {
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => {
+        callback(...args);
+      }, delay);
+    },
+    [callback, delay]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  return debouncedFunction;
+}
+
+
+// Modals for Peer Searching and Disconnection
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
   darkMode: boolean;
@@ -157,49 +183,41 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
     </div>
   );
 };
-// ... [Other components: PeerSearchingModal, PeerDisconnectedModal, ReplyPreview]
 
 // Virtualized Message List Item
-const MessageListItem: FC<ListChildComponentProps<{
-  messages: Message[];
-  onDoubleTap: (messageId: string, isSelf: boolean) => void;
-  onReply: (message: Message) => void;
-  darkMode: boolean;
-  onInView: (messageId: string, inView: boolean) => void;
-}>> = React.memo(({ index, style, data }) => {
+const MessageListItem: FC<{
+  index: number;
+  style: React.CSSProperties;
+  data: {
+    messages: Message[];
+    onDoubleTap: (messageId: string, isSelf: boolean) => void;
+    onReply: (message: Message) => void;
+    darkMode: boolean;
+    onInView: (messageId: string, inView: boolean) => void;
+  };
+}> = React.memo(({ index, style, data }) => {
   const { messages, onDoubleTap, onReply, darkMode, onInView } = data;
   const message = messages[index];
 
   return (
     <div style={style}>
-      <MemoizedMessageBubble
+      <MessageBubble
+        key={message.id}
         message={message}
         onDoubleTap={onDoubleTap}
         onReply={onReply}
         darkMode={darkMode}
         isSelf={message.isSelf}
-        onInView={(messageId, inView) => data.onInView(messageId, inView)}
+        onInView={(messageId, inView) => onInView(messageId, inView)}
       />
     </div>
-  );
-}, (prevProps, nextProps) => {
-  const prevMessage = prevProps.data.messages[prevProps.index];
-  const nextMessage = nextProps.data.messages[nextProps.index];
-  return (
-    prevMessage.id === nextMessage.id &&
-    prevMessage.text === nextMessage.text &&
-    prevMessage.liked === nextMessage.liked &&
-    prevMessage.seen === nextMessage.seen &&
-    prevMessage.isSelf === nextMessage.isSelf &&
-    prevProps.data.darkMode === nextProps.data.darkMode
   );
 });
 
 MessageListItem.displayName = 'MessageListItem';
 
-// Main TextChatPage Component
 export default function TextChatPage() {
-  // State Variables
+  // State Declarations
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -208,6 +226,7 @@ export default function TextChatPage() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showIntroMessage, setShowIntroMessage] = useState<boolean>(true);
   const [currentRoom, setCurrentRoom] = useState<string>('');
   const [hasInteracted, setHasInteracted] = useState<boolean>(false);
@@ -223,15 +242,46 @@ export default function TextChatPage() {
   const [customTag, setCustomTag] = useState<string | null>(null);
   const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false);
   const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSelfTyping, setIsSelfTyping] = useState<boolean>(false);
+  const [isSelfTyping, setIsSelfTyping] = useState(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
   const mainRef = useRef<HTMLDivElement>(null);
-  const listRef = useRef<List>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [isReporting, setIsReporting] = useState(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
   const [winterTheme, setWinterTheme] = useState<boolean>(false);
-  const messagesRef = useRef<Message[]>(messages);
+  const [visibleRange, setVisibleRange] = useState<{ start: number; end: number }>({
+    start: 0,
+    end: BUFFER,
+  });
+  
+  const updateVisibleRange = () => {
+    if (!scrollAreaRef.current) return;
+    const scrollTop = scrollAreaRef.current.scrollTop;
+    const height = scrollAreaRef.current.offsetHeight;
+  
+    const start = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - BUFFER);
+    const end = Math.min(
+      messages.length,
+      Math.ceil((scrollTop + height) / ITEM_HEIGHT) + BUFFER
+    );
+  
+    setVisibleRange({ start, end });
+  };
+  
+  // Attach a scroll listener
+  useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+  
+    scrollArea.addEventListener('scroll', updateVisibleRange);
+    updateVisibleRange(); // Initialize range
+  
+    return () => {
+      scrollArea.removeEventListener('scroll', updateVisibleRange);
+    };
+  }, [messages.length]);
+  
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
@@ -239,17 +289,14 @@ export default function TextChatPage() {
     Set<string>
   >(new Set());
 
-  // Update refs when state changes
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
+  // Refs for sound and interaction
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
 
+  // Update refs when state changes
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -266,37 +313,62 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
-  // Available Tags
-  const defaultTags = useMemo(
-    () => [
-      'music',
-      'movies',
-      'books',
-      'sports',
-      'technology',
-      'art',
-      'gaming',
-      'cooking',
-      'fitness',
-      'vellore',
-      'ap',
-      'chennai',
-      'bhopal',
-    ],
-    []
-  );
+  // Handle Typing from Peer
+  const handleTypingFromPeer = useCallback(() => {
+    setIsTyping(true);
 
-  const availableTags = useMemo(() => {
-    if (customTag) {
-      return [...defaultTags, customTag];
+    // Clear existing timeout to prevent premature hiding
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
     }
-    return defaultTags;
-  }, [customTag, defaultTags]);
 
-  const isTrending = useCallback(
-    (tag: string) => trendingTags.includes(tag),
-    [trendingTags]
+    // Set a new timeout to hide the typing indicator after a delay
+    peerTypingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      peerTypingTimeoutRef.current = null;
+    }, 3000); // Adjust the delay as needed
+  }, []);
+
+  const handleStopTypingFromPeer = useCallback(() => {
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+    setIsTyping(false);
+  }, []);
+
+  // Self Typing Event Handlers with Debouncing
+  const handleTyping = useCallback(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(true);
+      textSocket.emit('typing', { room: currentRoom });
+    }
+  }, [connected, currentRoom, textSocket]);
+
+  const handleStopTyping = useCallback(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(false);
+      textSocket.emit('stopTyping', { room: currentRoom });
+    }
+  }, [connected, currentRoom, textSocket]);
+
+  // Debounced functions to optimize typing events
+  const debouncedHandleTyping = useMemo(
+    () => debounce(handleTyping, 300),
+    [handleTyping]
   );
+
+  const debouncedHandleStopTyping = useMemo(
+    () => debounce(handleStopTyping, 500),
+    [handleStopTyping]
+  );
+
+  // Effect to handle cleanup of debounced functions
+  useEffect(() => {
+    return () => {
+      debouncedHandleTyping.cancel();
+      debouncedHandleStopTyping.cancel();
+    };
+  }, [debouncedHandleTyping, debouncedHandleStopTyping]);
 
   // Sound Effects
   const playNotificationSound = useCallback(() => {
@@ -338,59 +410,6 @@ export default function TextChatPage() {
     }
   }, []);
 
-  // Debounced Report Chat Handler
-  const handleReportChat = useCallback(async () => {
-    if (isReporting) return; // Prevent multiple clicks if already reporting
-
-    if (!currentRoom || fullChatHistory.length === 0) {
-      toast.error('No active chat to report.');
-      return;
-    }
-
-    setIsReporting(true); // Disable button immediately
-
-    const reportData = {
-      room: currentRoom,
-      socketId: textSocket.id,
-      sessionId: Cookies.get('sessionId'), // Ensure sessionId is fetched
-      messages: fullChatHistory.map((msg) => ({
-        id: msg.id,
-        text: msg.text,
-        isSelf: msg.isSelf,
-        timestamp: msg.timestamp,
-        replyTo: msg.replyTo
-          ? { id: msg.replyTo.id, text: msg.replyTo.text }
-          : null,
-      })),
-    };
-
-    try {
-      const response = await fetch('/api/report', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(reportData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send report.');
-      }
-
-      toast.success('Report sent successfully.');
-    } catch (error) {
-      console.error('Error sending report:', error);
-      toast.error('Failed to send report.');
-    } finally {
-      setIsReporting(false); // Reset processing state
-    }
-  }, [currentRoom, fullChatHistory, textSocket, isReporting]);
-
-  const debouncedHandleReportChat = useMemo(
-    () => debounce(handleReportChat, 2000),
-    [handleReportChat]
-  );
-
   // User Interaction Handler
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
@@ -412,10 +431,10 @@ export default function TextChatPage() {
     const normalizedTags = tags.map((tag) => tag.trim().toLowerCase());
 
     if (textSocket && textSocket.connected) {
-      textSocket.emit('findTextMatch', { tags: normalizedTags });
+      textSocket.emit('findTextMatch', { tags });
     } else {
       textSocket?.once('connect', () => {
-        textSocket?.emit('findTextMatch', { tags: normalizedTags });
+        textSocket?.emit('findTextMatch', { tags });
       });
     }
   }, [tags, textSocket]);
@@ -423,7 +442,7 @@ export default function TextChatPage() {
   // Reply Handling
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
-    messageInputRef.current?.focus();
+    document.getElementById('message-input')?.focus();
   }, []);
 
   const cancelReply = useCallback(() => {
@@ -432,11 +451,26 @@ export default function TextChatPage() {
 
   // Scroll to Bottom
   const scrollToBottom = useCallback(() => {
-    if (listRef.current) {
-      listRef.current.scrollToItem(messages.length - 1, 'end');
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages.length]);
+  }, []);
 
+  const renderMessages = () => {
+    return messages.slice(visibleRange.start, visibleRange.end).map((message, index) => (
+      <MessageBubble
+        key={message.id}
+        message={message}
+        onDoubleTap={handleDoubleTap}
+        onReply={handleReply}
+        darkMode={darkMode}
+        isSelf={message.isSelf}
+        onInView={(messageId, inView) => handleInView(messageId, inView)}
+      />
+    ));
+  };
+
+  
   // Handle Text Match Event
   const handleTextMatch = useCallback(
     ({
@@ -511,7 +545,7 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle In View (Read Receipts)
+  // Handle In-View Messages for Read Receipts
   const handleInView = useCallback(
     (messageId: string, inView: boolean) => {
       if (!inView) return; // Skip if the message is not in view
@@ -537,9 +571,10 @@ export default function TextChatPage() {
       });
 
       // Notify the server only for newly seen messages
-      textSocket.emit('messageSeen', { messageId, room: currentRoomRef.current });
+      textSocket.emit('messageSeen', { messageId, room: currentRoom });
+      //console.log(`Message ${messageId} seen and notified to the server.`);
     },
-    [seenMessages, textSocket]
+    [currentRoom, textSocket, seenMessages]
   );
 
   // Handle Text Message Event
@@ -558,7 +593,7 @@ export default function TextChatPage() {
       const isSelf = sender === textSocket.id;
       let replyToMessage: Message | undefined;
       if (replyToId) {
-        replyToMessage = messagesRef.current.find((msg) => msg.id === replyToId);
+        replyToMessage = messages.find((msg) => msg.id === replyToId);
       }
       const newMessage: Message = {
         id: messageId,
@@ -586,14 +621,22 @@ export default function TextChatPage() {
 
       if (!isSelf) {
         // Automatically mark the latest message as seen
-        handleInView(messageId, true);
+        if (scrollAreaRef.current) {
+          const messageElement = document.getElementById(messageId);
+          if (
+            messageElement &&
+            messageElement.getBoundingClientRect().top < window.innerHeight
+          ) {
+            handleInView(messageId, true);
+          }
+        }
         playMessageSound();
       }
 
       // Scroll to bottom after adding a new message
       setTimeout(scrollToBottom, 100);
     },
-    [playMessageSound, handleInView, textSocket, scrollToBottom]
+    [playMessageSound, messages, scrollToBottom, handleInView, textSocket]
   );
 
   // Handle Reaction Updates
@@ -607,7 +650,7 @@ export default function TextChatPage() {
     },
     []
   );
-  
+
   // Handle Toast Notifications
   const handleToastNotification = useCallback(
     ({ message }: { message: string }) => {
@@ -630,7 +673,7 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle Peer Searching
+  // Handle Peer Searching (Additional Handler)
   const handlePeerSearching = useCallback(
     ({ message }: { message: string }) => {
       setConnected(false);
@@ -640,7 +683,6 @@ export default function TextChatPage() {
       setIsSearching(false);
       setNoUsersOnline(false);
       setReplyTo(null);
-      setIsPeerSearching(true);
       setMatchedTags([]);
 
       const toastId = 'peer-searching';
@@ -684,7 +726,7 @@ export default function TextChatPage() {
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
-  // Handle Read Receipts
+  // Handle Read Receipts (Additional Handler)
   const handleMessageSeen = useCallback(
     ({ messageId }: { messageId: string }) => {
       setMessages((prevMessages) =>
@@ -696,63 +738,21 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle Typing Indicators from Peer
-  const handleTypingFromPeer = useCallback(() => {
-    setIsTyping(true);
-  }, []);
-
-  const handleStopTypingFromPeer = useCallback(() => {
-    setIsTyping(false);
-  }, []);
-
-  // Handle Typing Indicators for Self
-  const handleTyping = useCallback(() => {
-    if (!connected || !currentRoom) return;
-
-    if (!isSelfTyping) {
-      setIsSelfTyping(true);
-      textSocket.emit('typing', { room: currentRoom });
-    }
-
-    if (peerTypingTimeoutRef.current) {
-      clearTimeout(peerTypingTimeoutRef.current);
-    }
-
-    peerTypingTimeoutRef.current = setTimeout(() => {
-      setIsSelfTyping(false);
-      textSocket.emit('stopTyping', { room: currentRoom });
-    }, 1000); // Stop typing after 1 second of inactivity
-  }, [connected, currentRoom, textSocket]);
-
-  const handleStopTyping = useCallback(() => {
-    if (peerTypingTimeoutRef.current) {
-      clearTimeout(peerTypingTimeoutRef.current);
-    }
-    setIsSelfTyping(false);
-    textSocket.emit('stopTyping', { room: currentRoom });
-  }, [textSocket, currentRoom]);
-
-  // Socket Event Handlers
+  // Register Socket Event Handlers
   useEffect(() => {
     if (!textSocket) return;
 
-    // Register Socket Event Handlers
     textSocket.on('peerMessageSeen', handlePeerMessageSeen);
     textSocket.on('textMatch', handleTextMatch);
     textSocket.on('noTextMatch', handleNoTextMatch);
     textSocket.on('textMessage', handleTextMessage);
     textSocket.on('typing', handleTypingFromPeer);
-    textSocket.on('stopTyping', handleStopTypingFromPeer);
     textSocket.on('reactionUpdate', handleReactionUpdate);
     textSocket.on('search_cancelled', handleSearchCancelled);
     textSocket.on('toastNotification', handleToastNotification);
     textSocket.on('peerSearching', handlePeerSearching);
     textSocket.on('peerDisconnected', handlePeerDisconnected);
-    textSocket.on('peerSearchingSelf', ({ message }: { message: string }) => {
-      const toastId = 'peer-searching-self';
-      toast.dismiss(toastId);
-      toast(message || 'You have initiated a new search.', { id: toastId });
-    });
+    textSocket.on('stopTyping', handleStopTypingFromPeer);
     textSocket.on('messageSeen', handleMessageSeen); // Listen for 'messageSeen' events
 
     return () => {
@@ -762,33 +762,33 @@ export default function TextChatPage() {
       textSocket.off('noTextMatch', handleNoTextMatch);
       textSocket.off('textMessage', handleTextMessage);
       textSocket.off('typing', handleTypingFromPeer);
-      textSocket.off('stopTyping', handleStopTypingFromPeer);
       textSocket.off('reactionUpdate', handleReactionUpdate);
       textSocket.off('search_cancelled', handleSearchCancelled);
       textSocket.off('toastNotification', handleToastNotification);
       textSocket.off('peerSearching', handlePeerSearching);
       textSocket.off('peerDisconnected', handlePeerDisconnected);
-      textSocket.off('peerSearchingSelf');
+      textSocket.off('stopTyping', handleStopTypingFromPeer);
       textSocket.off('messageSeen', handleMessageSeen);
     };
   }, [
+    handlePeerMessageSeen,
     handleTextMatch,
     handleNoTextMatch,
     handleTextMessage,
     handleTypingFromPeer,
-    handleStopTypingFromPeer,
     handleReactionUpdate,
     handleSearchCancelled,
     handleToastNotification,
     handlePeerSearching,
     handlePeerDisconnected,
     handleMessageSeen,
-    handlePeerMessageSeen,
+    handleStopTypingFromPeer,
+    textSocket,
   ]);
 
   // Handle Before Unload (User leaves the page)
   useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+    const handleBeforeUnload = () => {
       if (connected && currentRoom) {
         textSocket.emit('nextTextChat', { room: currentRoom });
       }
@@ -802,6 +802,157 @@ export default function TextChatPage() {
       window.removeEventListener('unload', handleBeforeUnload);
     };
   }, [connected, currentRoom, textSocket]);
+
+  // Default Tags
+  const defaultTags = useMemo(
+    () => [
+      'music',
+      'movies',
+      'books',
+      'sports',
+      'technology',
+      'art',
+      'gaming',
+      'cooking',
+      'fitness',
+      'vellore',
+      'ap',
+      'chennai',
+      'bhopal',
+    ],
+    []
+  );
+
+  // Available Tags
+  const availableTags = useMemo(() => {
+    if (customTag) {
+      return [...defaultTags, customTag];
+    }
+    return defaultTags;
+  }, [customTag, defaultTags]);
+
+  const isTrending = (tag: string) => trendingTags.includes(tag);
+
+  // Toggle Tag Selection
+  const toggleTag = (tag: string) => {
+    setTags((prevTags) => {
+      let newTags = prevTags.includes(tag)
+        ? prevTags.filter((t) => t !== tag)
+        : [...prevTags, tag];
+
+      const totalTags =
+        newTags.length + (customTag && !newTags.includes(customTag) ? 1 : 0);
+
+      if (totalTags > 3) {
+        toast.error('You can select up to 3 tags in total.');
+        return prevTags;
+      }
+
+      return newTags;
+    });
+  };
+
+  // Add Custom Tag
+  const handleAddCustomTag = useCallback(() => {
+    if (customTagInput.trim().length > 0) {
+      if (customTag) {
+        toast.error('Only one custom tag is allowed.');
+        return;
+      }
+
+      let tag = customTagInput.trim().substring(0, 10);
+
+      tag = DOMPurify.sanitize(tag, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+      tag = tag.replace(/[^a-zA-Z0-9]/g, '');
+
+      if (tag.length === 0) {
+        toast.error('Invalid tag.');
+        return;
+      }
+
+      setCustomTag(tag);
+      setCustomTagInput('');
+
+      setTags((prevTags) => {
+        let newTags = [...prevTags, tag];
+
+        const totalTags = newTags.length;
+
+        if (totalTags > 3) {
+          toast.error('You can select up to 3 tags in total.');
+          return prevTags;
+        }
+
+        return newTags;
+      });
+    }
+  }, [customTag, customTagInput]);
+
+  // Clear Messages on Disconnect
+  useEffect(() => {
+    if (!connected && !isSearching) {
+      setMessages([]);
+      setMatchedTags([]);
+    }
+  }, [connected, isSearching]);
+
+  // Scroll to Bottom on Messages Update
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  // Tooltip Handling
+  useEffect(() => {
+    if (isSearching && !tooltipShownRef.current) {
+      tooltipShownRef.current = true;
+      setShowTooltip(true);
+
+      const tooltipTimeout = setTimeout(() => {
+        setShowTooltip(false);
+      }, 5000);
+
+      return () => clearTimeout(tooltipTimeout);
+    }
+
+    if (!isSearching) {
+      tooltipShownRef.current = false;
+      setShowTooltip(false);
+    }
+  }, [isSearching]);
+
+  // Show Like Message Once
+  useEffect(() => {
+    const hasSeenMessage = localStorage.getItem('seenLikeMessage');
+    if (!hasSeenMessage) {
+      setShowLikeMessage(true);
+      localStorage.setItem('seenLikeMessage', 'true');
+
+      const timer = setTimeout(() => {
+        setShowLikeMessage(false);
+      }, 10000);
+
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Handle Next Chat
+  const handleNext = useCallback(() => {
+    if (connected && currentRoom) {
+      setIsUserInitiatedDisconnect(true);
+      textSocket.emit('nextTextChat', { room: currentRoom });
+      setConnected(false);
+      setMessages([]);
+      setCurrentRoom('');
+      setIsDisconnected(false);
+      setReplyTo(null);
+      setMatchedTags([]);
+      setFullChatHistory([]);
+      startSearch();
+    } else {
+      startSearch();
+      setFullChatHistory([]);
+    }
+  }, [connected, currentRoom, startSearch, textSocket]);
 
   // Chat State
   const [chatState, setChatState] = useState<string>('idle');
@@ -882,6 +1033,9 @@ export default function TextChatPage() {
       playMessageSound();
     }
 
+    // Emit stop typing immediately after sending the message
+    handleStopTyping();
+
     scrollToBottom();
   }, [
     inputMessage,
@@ -889,33 +1043,29 @@ export default function TextChatPage() {
     replyTo,
     playMessageSound,
     scrollToBottom,
+    handleStopTyping,
     textSocket,
+    isProfane,
   ]);
 
-  const handleKeyPress = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') {
-        handleSendMessage(); // Call your send message function
-      }
-    },
-    [handleSendMessage]
-  );
-  
+  // Handle Input Change with Optimized Typing Events
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputMessage(e.target.value);
+    debouncedHandleTyping(); // Emit typing event after debounce
+    debouncedHandleStopTyping(); // Emit stop typing after debounce
+  };
+
   // Handle Emoji Click
   const handleEmojiClick = useCallback(
     (emojiData: EmojiClickData, event: MouseEvent) => {
       setInputMessage((prev) => prev + emojiData.emoji);
       setShowEmojiPicker(false);
-      handleTyping(); // Emit typing indicator
-      handleStopTyping(); // Ensure typing stops after a delay
+      debouncedHandleTyping(); // Trigger typing when emoji is clicked
+      debouncedHandleStopTyping(); // Ensure typing stops after a delay
     },
-    [handleTyping, handleStopTyping]
+    [debouncedHandleTyping, debouncedHandleStopTyping]
   );
 
-  // Reference to the message input for focusing
-  const messageInputRef = useRef<HTMLInputElement>(null);
-
-  // Typing Indicator Component
   interface TypingIndicatorProps {
     darkMode: boolean;
   }
@@ -942,26 +1092,21 @@ export default function TextChatPage() {
     )
   );
 
-  MemoizedTypingIndicator.displayName = 'MemoizedTypingIndicator';
-
-  // Emoji Picker Component
-  interface EmojiPickerComponentProps {
+  interface EmojiPickerProps {
     onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
     darkMode: boolean;
   }
 
   const MemoizedEmojiPicker = React.memo(
-    ({ onEmojiClick, darkMode }: EmojiPickerComponentProps) => (
+    ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
       <EmojiPicker
         onEmojiClick={onEmojiClick}
-        theme={darkMode ? EmojiTheme.DARK : EmojiTheme.LIGHT}
+        theme={darkMode ? Theme.DARK : Theme.LIGHT}
         width="100%"
         height={350}
       />
     )
   );
-
-  MemoizedEmojiPicker.displayName = 'MemoizedEmojiPicker';
 
   // Double Tap Handler
   const handleDoubleTap = useCallback(
@@ -972,16 +1117,28 @@ export default function TextChatPage() {
         )
       );
 
-      const message = messagesRef.current.find((msg) => msg.id === messageId);
+      const message = messages.find((msg) => msg.id === messageId);
       if (message) {
         textSocket.emit('reaction', {
-          room: currentRoomRef.current,
+          room: currentRoom,
           messageId,
           liked: !message.liked,
         });
       }
     },
-    [textSocket]
+    [textSocket, currentRoom, messages]
+  );
+
+  // Optimize the data passed to the virtualized list
+  const listData = useMemo(
+    () => ({
+      messages,
+      onDoubleTap: handleDoubleTap,
+      onReply: handleReply,
+      darkMode,
+      onInView: handleInView,
+    }),
+    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
   );
 
   const notifyPeerDisconnection = useCallback(() => {
@@ -990,7 +1147,6 @@ export default function TextChatPage() {
     }
   }, [currentRoom, textSocket]);
 
-  // Handle Back Navigation
   useEffect(() => {
     const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
       // Prevent navigation and show confirmation dialog
@@ -1027,7 +1183,6 @@ export default function TextChatPage() {
     };
   }, [notifyPeerDisconnection]);
 
-  // Handle Switch to Video Chat
   const handleSwitchToVideo = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
@@ -1056,7 +1211,10 @@ export default function TextChatPage() {
     setChatState,
   ]);
 
-  // Handle Back Button in Header
+  const handleNewMessageFromRecipient = useCallback((messageId: string) => {
+    setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
+  }, []);
+
   const handleBack = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
@@ -1064,8 +1222,8 @@ export default function TextChatPage() {
 
     if (confirmed) {
       // Notify the other user about the disconnection
-      if (currentRoomRef.current) {
-        textSocket.emit('peerDisconnected', { room: currentRoomRef.current });
+      if (currentRoom) {
+        textSocket.emit('peerDisconnected', { room: currentRoom });
       }
 
       // Clean up the current chat state
@@ -1079,9 +1237,8 @@ export default function TextChatPage() {
       // Redirect to Vimegle homepage
       window.location.href = '/';
     }
-  }, [currentRoomRef, textSocket]);
+  }, [currentRoom, textSocket]);
 
-  // Handle Next Chat with Confirmation
   const handleNextChat = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to move to the next chat? This will disconnect your current chat partner.'
@@ -1099,26 +1256,26 @@ export default function TextChatPage() {
     }
   }, [notifyPeerDisconnection, startSearch]);
 
-  // Download Chat History
+  // Handle Download Chat
   const downloadChat = useCallback(() => {
     if (fullChatHistory.length === 0) {
       toast.error('No messages to download.');
       return;
     }
-  
+
     let chatContent = '';
-  
+
     fullChatHistory.forEach((msg) => {
       const timestamp = new Date(msg.timestamp).toLocaleString();
       const sender = msg.isSelf ? 'You' : 'Stranger';
       chatContent += `[${timestamp}] ${sender}: ${msg.text}\n`;
-  
+
       if (msg.replyTo) {
         const replySender = msg.replyTo.isSelf ? 'You' : 'Stranger';
         chatContent += `    ↳ [${new Date(msg.replyTo.timestamp).toLocaleString()}] ${replySender}: ${msg.replyTo.text}\n`;
       }
     });
-  
+
     const blob = new Blob([chatContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -1130,143 +1287,106 @@ export default function TextChatPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  
+
     toast.success('Chat downloaded successfully!');
   }, [fullChatHistory]);
 
-  // Memoize itemData to prevent unnecessary re-renders
-  const memoizedItemData = useMemo(
-    () => ({
-      messages,
-      onDoubleTap: handleDoubleTap,
-      onReply: handleReply,
-      darkMode,
-      onInView: handleInView,
-    }),
-    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
+  // Handle Report Chat
+  const handleReportChat = useCallback(async () => {
+    if (isReporting) return; // Prevent multiple clicks if already reporting
+
+    if (!currentRoom || fullChatHistory.length === 0) {
+      toast.error('No active chat to report.');
+      return;
+    }
+
+    setIsReporting(true); // Disable button immediately
+
+    const reportData = {
+      room: currentRoom,
+      socketId: textSocket.id,
+      sessionId: Cookies.get('sessionId'), // Ensure sessionId is fetched
+      messages: fullChatHistory.map((msg) => ({
+        id: msg.id,
+        text: msg.text,
+        isSelf: msg.isSelf,
+        timestamp: msg.timestamp,
+        replyTo: msg.replyTo
+          ? { id: msg.replyTo.id, text: msg.replyTo.text }
+          : null,
+      })),
+    };
+
+    try {
+      const response = await fetch('/api/report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reportData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send report.');
+      }
+
+      toast.success('Report sent successfully.');
+    } catch (error) {
+      console.error('Error sending report:', error);
+      toast.error('Failed to send report.');
+    } finally {
+      setIsReporting(false); // Reset processing state
+    }
+  }, [currentRoom, fullChatHistory, textSocket, isReporting]);
+
+  const debouncedHandleReportChat = useMemo(
+    () => debounce(handleReportChat, 2000),
+    [handleReportChat]
   );
 
-  // Available Tags Toggle
-  const toggleTag = useCallback((tag: string) => {
-    setTags((prevTags) => {
-      let newTags = prevTags.includes(tag)
-        ? prevTags.filter((t) => t !== tag)
-        : [...prevTags, tag];
-
-      const totalTags =
-        newTags.length + (customTag && !newTags.includes(customTag) ? 1 : 0);
-
-      if (totalTags > 3) {
-        toast.error('You can select up to 3 tags in total.');
-        return prevTags;
-      }
-
-      return newTags;
-    });
-  }, [customTag]);
-
-  // Add Custom Tag
-  const handleAddCustomTag = useCallback(() => {
-    if (customTagInput.trim().length > 0) {
-      if (customTag) {
-        toast.error('Only one custom tag is allowed.');
-        return;
-      }
-
-      let tag = customTagInput.trim().substring(0, 10);
-
-      tag = DOMPurify.sanitize(tag, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
-      tag = tag.replace(/[^a-zA-Z0-9]/g, '');
-
-      if (tag.length === 0) {
-        toast.error('Invalid tag.');
-        return;
-      }
-
-      setCustomTag(tag);
-      setCustomTagInput('');
-
-      setTags((prevTags) => {
-        let newTags = [...prevTags, tag];
-
-        const totalTags = newTags.length;
-
-        if (totalTags > 3) {
-          toast.error('You can select up to 3 tags in total.');
-          return prevTags;
-        }
-
-        return newTags;
-      });
-    }
-  }, [customTagInput, customTag]);
-
-  // Clear Messages on Disconnect
+  // Ensure Report Chat cleanup
   useEffect(() => {
-    if (!connected && !isSearching) {
-      setMessages([]);
-      setMatchedTags([]);
-    }
-  }, [connected, isSearching]);
+    return () => {
+      debouncedHandleReportChat.cancel();
+    };
+  }, [debouncedHandleReportChat]);
 
-  // Scroll to Bottom on Messages Update
+  // Handle Read Receipts emission
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  // Tooltip Handling
-  useEffect(() => {
-    if (isSearching && !tooltipShownRef.current) {
-      tooltipShownRef.current = true;
-      setShowTooltip(true);
-
-      const tooltipTimeout = setTimeout(() => {
-        setShowTooltip(false);
-      }, 5000);
-
-      return () => clearTimeout(tooltipTimeout);
+    if (messages.length > 0) {
+      setFullChatHistory((prevHistory) => [
+        ...prevHistory,
+        ...messages.slice(prevHistory.length),
+      ]);
     }
-
-    if (!isSearching) {
-      tooltipShownRef.current = false;
-      setShowTooltip(false);
-    }
-  }, [isSearching]);
-
-  // Show Like Message Once
-  useEffect(() => {
-    const hasSeenMessage = localStorage.getItem('seenLikeMessage');
-    if (!hasSeenMessage) {
-      setShowLikeMessage(true);
-      localStorage.setItem('seenLikeMessage', 'true');
-
-      const timer = setTimeout(() => {
-        setShowLikeMessage(false);
-      }, 10000);
-
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // Define getItemSize for VariableSizeList
-  const getItemSize = useCallback((index: number) => {
-    const message = messages[index];
-    const baseHeight = 60; // Base height for username, timestamp, etc.
-    let replyHeight = 0;
-    if (message.replyTo) {
-      replyHeight = 20; // Height for the reply header
-    }
-    // Estimate message text height based on character count
-    const charsPerLine = 40;
-    const lines = Math.ceil(message.text.length / charsPerLine);
-    const lineHeight = 20;
-    const textHeight = lines * lineHeight;
-
-    return baseHeight + replyHeight + textHeight + 40; // Additional padding
   }, [messages]);
 
+  // Tooltip Component (Previously commented out)
+  /*
+  const Tooltip: FC = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 20 }}
+      transition={{ duration: 0.5 }}
+      className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
+    >
+      <p>We value your feedback!</p>
+      <Link
+        href="/feedback"
+        className="underline text-sm"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Click here to provide feedback
+      </Link>
+    </motion.div>
+  );
+  */
+ 
+
   return (
-    <DisclaimerProvider>
+    <DisclaimerProvder>
       <div
         ref={mainRef}
         className={`flex flex-col h-screen relative ${
@@ -1276,16 +1396,16 @@ export default function TextChatPage() {
         onKeyDown={handleUserInteraction}
         onMouseMove={handleUserInteraction}
       >
-        {/* Add Snowfall Effect */}
+        {/* Snowfall Effect */}
         {winterTheme && (
           <Snowfall
-            style={{ 
-              position: 'fixed', 
-              zIndex: 0, // Set zIndex to a negative value
-              top: 0, 
-              left: 0, 
-              width: '100%', 
-              height: '100%' 
+            style={{
+              position: 'fixed',
+              zIndex: 0, // Ensure it stays behind all content
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
             }}
             snowflakeCount={
               window.innerWidth <= 480
@@ -1296,8 +1416,8 @@ export default function TextChatPage() {
             }
           />
         )}
-        
-        {/* Configure Toaster with top-center position */}
+
+        {/* Toaster Configuration */}
         <Toaster
           position="top-center"
           toastOptions={{
@@ -1313,13 +1433,20 @@ export default function TextChatPage() {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span
             className={`text-4xl font-bold select-none transition-opacity duration-300 ${
-              winterTheme ? 'neon-text' : darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
+              winterTheme
+                ? 'neon-text'
+                : darkMode
+                ? 'opacity-5 text-white'
+                : 'opacity-10 text-gray-500'
             }`}
           >
             Vimegle
           </span>
         </div>
-        
+
+        {/* Tooltip (Previously commented out) */}
+        {/* <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence> */}
+
         {/* Peer Searching Modal */}
         <AnimatePresence>
           {isPeerSearching && (
@@ -1419,7 +1546,7 @@ export default function TextChatPage() {
         <AnimatePresence>
           {isDisconnected && (
             <PeerDisconnectedModal
-              onStartNewChat={handleNextChat}
+              onStartNewChat={handleNext}
               darkMode={darkMode}
             />
           )}
@@ -1449,7 +1576,6 @@ export default function TextChatPage() {
           </div>
 
           <div className="flex space-x-4 relative">
-            {/* Settings Popover */}
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -1459,14 +1585,15 @@ export default function TextChatPage() {
                     darkMode
                       ? 'text-white hover:text-gray-300 hover:bg-gray-700'
                       : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-                  } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`}
+                  } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`} // Increased padding
                   aria-label="Open Settings"
+                  onClick={() => console.log('Settings button clicked')} // Debugging
                 >
                   <Settings className="w-5 h-5" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg ${
                   darkMode
                     ? 'bg-gray-800 text-gray-100'
                     : 'bg-gray-50 text-gray-800'
@@ -1650,6 +1777,7 @@ export default function TextChatPage() {
                   {availableTags.map((tag) => (
                     <div key={tag} className="relative inline-block">
                       <Button
+                        key={tag}
                         variant={tags.includes(tag) ? 'default' : 'outline'}
                         className={`cursor-pointer ${
                           isTrending(tag) ? 'glowing' : ''
@@ -1780,7 +1908,7 @@ export default function TextChatPage() {
         </header>
 
         <main
-          className={`flex flex-col flex-1 overflow-hidden py-6 px-4 ${
+          className={`flex flex-col h-[100vh] overflow-hidden ${
             darkMode
               ? 'bg-gradient-to-b from-gray-800 to-gray-900'
               : 'bg-gradient-to-b from-gray-100 to-white'
@@ -1788,63 +1916,89 @@ export default function TextChatPage() {
         >
           {connected && (
             <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Introductory Message */}
-              {showIntroMessage && (
-                <motion.div
-                  key="intro-message"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className={`p-4 rounded-lg mb-4 ${
-                    darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-                  } shadow-inner`}
+              {/* Scrollable Messages Area with Manual Virtualization */}
+              <ScrollArea className="flex-1 px-4 pt-4 pb-2" ref={scrollAreaRef}>
+                <div
+                  style={{
+                    height: `${messages.length * ITEM_HEIGHT}px`,
+                    position: 'relative',
+                  }}
                 >
-                  <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
-                    Welcome to Vimegle Text Chat!
-                  </h3>
-                  <p className="text-gray-700 dark:text-gray-300">
-                    You're now connected with a random stranger. Say hello and start
-                    chatting!
-                  </p>
-                  {matchedTags.length > 0 && (
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      Connected based on tags: <strong>{matchedTags.join(', ')}</strong>
-                    </p>
-                  )}
-                  {!matchedTags.length && (
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      Connected to a stranger! Feel free to start the conversation.
-                    </p>
-                  )}
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    Remember to be respectful and follow our community guidelines.
-                  </p>
-                </motion.div>
-              )}
+                  {/* Spacer before the visible messages */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: `${visibleRange.start * ITEM_HEIGHT}px`,
+                    }}
+                  />
 
-              {/* Virtualized Messages Area */}
-              <div className="flex-1 relative overflow-y-auto custom-scrollbar">
-                <AutoSizer>
-                  {({ height, width }) => (
-                    <List
-                      ref={listRef}
-                      height={height}
-                      width={width}
-                      itemCount={messages.length}
-                      itemSize={getItemSize} // Use dynamic item size
-                      itemData={memoizedItemData}
-                      overscanCount={5} // Preload extra messages for smooth scrolling
-                    >
-                      {MessageListItem}
-                    </List>
-                  )}
-                </AutoSizer>
-              </div>
+                  {/* Render only visible messages */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: `${visibleRange.start * ITEM_HEIGHT}px`,
+                      left: 0,
+                      width: '100%',
+                    }}
+                  >
+                    {renderMessages()}
+                    {showIntroMessage && (
+                      <motion.div
+                        key="intro-message"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.3 }}
+                        className={`p-4 rounded-lg ${
+                          darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                        } shadow-inner`}
+                      >
+                        <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
+                          Welcome to Vimegle Text Chat!
+                        </h3>
+                        <p className="text-gray-700 dark:text-gray-300">
+                          You're now connected with a random stranger. Say hello
+                          and start chatting!
+                        </p>
+                        {matchedTags.length > 0 && (
+                          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            Connected based on tags:{' '}
+                            <strong>{matchedTags.join(', ')}</strong>
+                          </p>
+                        )}
+                        {!matchedTags.length && (
+                          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                            Connected to a stranger! Feel free to start the
+                            conversation.
+                          </p>
+                        )}
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Remember to be respectful and follow our community
+                          guidelines.
+                        </p>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Spacer after the visible messages */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: `${visibleRange.end * ITEM_HEIGHT}px`,
+                      left: 0,
+                      width: '100%',
+                      height: `${(messages.length - visibleRange.end) * ITEM_HEIGHT}px`,
+                    }}
+                  />
+                </div>
+              </ScrollArea>
 
               {/* Input Box */}
               <div
-                className={`relative px-4 py-4 ${
+                className={`relative px-4 py-2 ${
                   darkMode ? 'bg-gray-800' : 'bg-gray-100'
                 } flex-shrink-0`}
               >
@@ -1865,16 +2019,13 @@ export default function TextChatPage() {
                       id="message-input"
                       type="text"
                       value={inputMessage}
-                      onChange={(e) => {
-                        setInputMessage(e.target.value);
-                        handleTyping(); // Trigger typing indicator
-                        handleStopTyping(); // Ensure typing stops after a delay
+                      onChange={handleInputChange} // Optimized handler
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSendMessage();
                       }}
-                      onKeyDown={handleKeyPress}
                       placeholder="Type a message..."
                       disabled={!connected}
                       autoComplete="off"
-                      ref={messageInputRef}
                       className={`w-full ${
                         darkMode
                           ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
@@ -1930,7 +2081,61 @@ export default function TextChatPage() {
             </div>
           )}
         </main>
+
+        {/* Footer (Commented Out Previously) */}
+        {/* 
+        <footer
+          className={`${
+            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+          } border-t p-4 flex justify-between items-center shadow-sm`}
+        >
+          <div className="flex space-x-4">
+            <Button
+              onClick={handleSwitchToVideo}
+              variant="ghost"
+              size="sm"
+              className={`${
+                darkMode
+                  ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                  : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+              } flex items-center space-x-2 rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+              aria-label="Switch to Video Chat"
+            >
+              <Video className="w-5 h-5" />
+              <span className="text-sm hidden sm:inline">Video</span>
+            </Button>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`${
+                darkMode
+                  ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                  : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+              } rounded-full p-2 shadow-sm transition-colors duration-300`}
+              onClick={() => toast('Feature not implemented yet')}
+              aria-label="Flag"
+            >
+              <Flag className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`${
+                darkMode
+                  ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                  : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+              } rounded-full p-2 shadow-sm transition-colors duration-300`}
+              onClick={() => toast('Feature not implemented yet')}
+              aria-label="Alert"
+            >
+              <AlertTriangle className="w-5 h-5" />
+            </Button>
+          </div>
+        </footer>
+        */}
       </div>
-    </DisclaimerProvider>
+    </DisclaimerProvder>
   );
 }

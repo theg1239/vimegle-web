@@ -4,6 +4,7 @@ import Cookies from 'js-cookie';
 
 const TEXT_NAMESPACE = '/text';
 const DEFAULT_NAMESPACE = '/';
+const VOICE_NAMESPACE = '/voice'; 
 
 const SOCKET_URL =
   process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
@@ -12,6 +13,7 @@ declare global {
   interface Window {
     textSocket: Socket;
     defaultSocket: Socket;
+    voiceSocket: Socket; 
   }
 }
 
@@ -106,7 +108,7 @@ if (typeof window !== 'undefined') {
   }
 
   if (!window.defaultSocket) {
-    //console.log('Initializing new Socket.io client for default namespace');
+    console.log('Initializing new Socket.io client for default namespace');
 
     window.defaultSocket = io(`${SOCKET_URL}${DEFAULT_NAMESPACE}`, {
       transports: ['websocket'],
@@ -189,11 +191,98 @@ if (typeof window !== 'undefined') {
       );
     });
   }
+
+  if (!window.voiceSocket) {
+    console.log('Initializing new Socket.io client for /voiceChat namespace');
+
+    window.voiceSocket = io(`${SOCKET_URL}${VOICE_NAMESPACE}`, {
+      transports: ['websocket'],
+      upgrade: false,
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      auth: {
+        sessionId: savedSessionId || '',
+      },
+    });
+
+    let isBannedVoice = false; 
+
+    window.voiceSocket.on('connect', () => {
+      console.log('Voice Socket connected:', window.voiceSocket.id);
+      isBannedVoice = false;
+    });
+
+    window.voiceSocket.on('session', ({ sessionId }) => {
+      console.log('Received sessionId from server (voice):', sessionId);
+      Cookies.set(SESSION_COOKIE_NAME, sessionId, {
+        expires: 7, 
+        sameSite: 'lax', 
+        secure: true, 
+        path: '/', 
+      });
+      window.voiceSocket.auth = { sessionId };
+      window.voiceSocket.connect();
+    });
+
+    window.voiceSocket.on('partnerBanned', ({ message }) => {
+      console.log('Partner was banned (voice):', message);
+      toast.error(message);
+    });
+
+    window.voiceSocket.on('duplicateConnection', ({ message }) => {
+      toast.error(message);
+    });
+
+    window.voiceSocket.on('banned', ({ message }) => {
+      console.log('Received banned event (voice):', message);
+      toast.error(message);
+      isBannedVoice = true; 
+      window.voiceSocket.io.opts.reconnection = false; 
+      window.voiceSocket.disconnect(); 
+    });
+
+    window.voiceSocket.on('connect_error', (error) => {
+      console.error('Connection Error (Voice Chat):', error);
+      toast.error(
+        'Connection Error (Voice Chat). Please check your internet and try again.'
+      );
+    });
+
+    window.voiceSocket.on('disconnect', (reason: string) => {
+      console.log('Voice Socket disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        console.log('Reconnecting Voice Socket...');
+        if (!isBannedVoice) { 
+          window.voiceSocket.connect();
+        }
+      }
+    });
+
+    window.voiceSocket.on('reconnect_attempt', () => {
+      if (isBannedVoice) {
+        console.log('Banned user (voice) is not attempting to reconnect.');
+        window.voiceSocket.io.opts.reconnection = false; 
+      } else {
+        console.log('Voice Socket reconnecting...');
+      }
+    });
+
+    window.voiceSocket.on('reconnect_failed', () => {
+      toast.error(
+        'Unable to reconnect to the Voice Chat server. Please refresh the page.'
+      );
+    });
+  }
 }
 
 const textSocket: Socket =
   typeof window !== 'undefined' ? window.textSocket : ({} as Socket);
 const defaultSocket: Socket =
   typeof window !== 'undefined' ? window.defaultSocket : ({} as Socket);
+const voiceSocket: Socket =
+  typeof window !== 'undefined' ? window.voiceSocket : ({} as Socket); 
 
-export { textSocket, defaultSocket };
+export { textSocket, defaultSocket, voiceSocket };
