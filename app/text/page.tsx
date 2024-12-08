@@ -43,13 +43,18 @@ import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
 
-// Custom scrollbar hide styles
 const noScrollbarStyle: React.CSSProperties = {
   scrollbarWidth: 'none',
   msOverflowStyle: 'none',
 };
-  
-const ITEM_HEIGHT = 80; // Approximate per-message height
+
+const hideScrollbarCSS = `
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+`;
+
+const ITEM_HEIGHT = 80;
 
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
@@ -244,7 +249,6 @@ export default function TextChatPage() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showIntroMessage, setShowIntroMessage] = useState<boolean>(true);
   const [currentRoom, setCurrentRoom] = useState<string>('');
   const [hasInteracted, setHasInteracted] = useState<boolean>(false);
@@ -277,6 +281,8 @@ export default function TextChatPage() {
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
+
+  const listRef = useRef<List>(null); // Ref for the react-window List
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -401,13 +407,6 @@ export default function TextChatPage() {
     setReplyTo(null);
   }, []);
 
-  const scrollToBottom = useCallback(() => {
-    // When using react-window, scrolling to bottom is trickier.
-    // We'll rely on the list's scrollToItem. We'll do it after mount.
-    // After messages update, we scroll to bottom if connected.
-    // We'll handle this after rendering the list with itemCount=messages.length.
-  }, []);
-
   const handleTextMatch = useCallback(
     ({
       room,
@@ -521,6 +520,13 @@ export default function TextChatPage() {
         seen: false,
       };
 
+     setFullChatHistory((prevHistory) => {
+      if (prevHistory.some((m) => m.id === messageId)) {
+         return prevHistory;
+       }
+       return [...prevHistory, newMessage];
+     });
+
       setMessages(prev => {
         if (prev.find((msg) => msg.id === messageId)) return prev;
         const updated = [...prev, newMessage];
@@ -532,7 +538,9 @@ export default function TextChatPage() {
         playMessageSound();
       }
 
-      // We'll scroll after render using the list ref.
+      if (listRef.current) {
+        listRef.current.scrollToItem(messages.length, 'end');
+      }
     },
     [messages, playMessageSound]
   );
@@ -865,6 +873,13 @@ export default function TextChatPage() {
       seen: false,
     };
 
+      setFullChatHistory((prevHistory) => {
+           if (prevHistory.some((m) => m.id === messageId)) {
+             return prevHistory;
+           }
+           return [...prevHistory, newMessage];
+         });
+
     setMessages(prev => {
       const updated = prev.map(msg => ({ ...msg, seen: false }));
       const newMessages = [...updated, newMessage];
@@ -881,8 +896,11 @@ export default function TextChatPage() {
     }
 
     handleStopTyping();
-    // We'll scroll after the list updates.
-  }, [inputMessage, currentRoom, replyTo, isProfane, playMessageSound, handleStopTyping]);
+
+    if (listRef.current) {
+      listRef.current.scrollToItem(messages.length, 'end');
+    }
+  }, [inputMessage, currentRoom, replyTo, isProfane, playMessageSound, handleStopTyping, messages.length]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputMessage(e.target.value);
@@ -915,6 +933,10 @@ export default function TextChatPage() {
           messageId,
           liked: !message.liked,
         });
+      }
+
+      if (listRef.current) {
+        listRef.current.scrollToItem(messages.length, 'end');
       }
     },
     [messages, currentRoom]
@@ -1093,15 +1115,6 @@ export default function TextChatPage() {
     };
   }, [debouncedHandleReportChat]);
 
-  useEffect(() => {
-    if (messages.length > 0) {
-      setFullChatHistory(prevHistory => [
-        ...prevHistory,
-        ...messages.slice(prevHistory.length),
-      ]);
-    }
-  }, [messages]);
-
   const lastSeenMessageId = useMemo(() => {
     const selfSeenMessages = messages
       .filter(m => m.isSelf && m.seen)
@@ -1109,92 +1122,458 @@ export default function TextChatPage() {
     return selfSeenMessages.length > 0 ? selfSeenMessages[0].id : null;
   }, [messages]);
 
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollToItem(messages.length - 1, 'end');
+    }
+  }, [messages]);
+
   return (
-    <DisclaimerProvder>
-      <div
-        ref={mainRef}
-        className={`flex flex-col h-screen relative ${
-          darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
-        }`}
-        onClick={handleUserInteraction}
-        onKeyDown={handleUserInteraction}
-        onMouseMove={handleUserInteraction}
-      >
-        {winterTheme && (
-          <Snowfall
-            style={{
-              position: 'fixed',
-              zIndex: 0,
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-            }}
-            snowflakeCount={
-              window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 30 : 50
-            }
-          />
-        )}
-
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 5000,
-            style: {
-              marginTop: '4rem',
-              zIndex: 9999,
-            },
-          }}
-        />
-
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span
-            className={`text-4xl font-bold select-none transition-opacity duration-300 ${
-              winterTheme
-                ? 'neon-text'
-                : darkMode
-                ? 'opacity-5 text-white'
-                : 'opacity-10 text-gray-500'
-            }`}
-          >
-            Vimegle
-          </span>
-        </div>
-
-        <AnimatePresence>
-          {isPeerSearching && (
-            <PeerSearchingModal
-              onReturnToSearch={handleReturnToSearch}
-              darkMode={darkMode}
+    <>
+      <style>{hideScrollbarCSS}</style>
+      <DisclaimerProvder>
+        <div
+          ref={mainRef}
+          className={`flex flex-col h-screen relative ${
+            darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
+          }`}
+          onClick={handleUserInteraction}
+          onKeyDown={handleUserInteraction}
+          onMouseMove={handleUserInteraction}
+        >
+          {winterTheme && (
+            <Snowfall
+              style={{
+                position: 'fixed',
+                zIndex: 0,
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+              }}
+              snowflakeCount={
+                window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 30 : 50
+              }
             />
           )}
-        </AnimatePresence>
 
-        <AnimatePresence>
-          {isSearching && (
-            <motion.div
-              key="searching-modal"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 5000,
+              style: {
+                marginTop: '4rem',
+                zIndex: 9999,
+              },
+            }}
+          />
+
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span
+              className={`text-4xl font-bold select-none transition-opacity duration-300 ${
+                winterTheme
+                  ? 'neon-text'
+                  : darkMode
+                  ? 'opacity-5 text-white'
+                  : 'opacity-10 text-gray-500'
+              }`}
             >
+              Vimegle
+            </span>
+          </div>
+
+          <AnimatePresence>
+            {isPeerSearching && (
+              <PeerSearchingModal
+                onReturnToSearch={handleReturnToSearch}
+                darkMode={darkMode}
+              />
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {isSearching && (
               <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
+                key="searching-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
               >
-                <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
-                <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
-                  Searching for a match...
-                </p>
-                {tags.length > 0 && (
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
-                    Based on your tags: <strong>{tags.join(', ')}</strong>
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
+                >
+                  <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
+                  <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
+                    Searching for a match...
                   </p>
-                )}
+                  {tags.length > 0 && (
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                      Based on your tags: <strong>{tags.join(', ')}</strong>
+                    </p>
+                  )}
+                  <Button
+                    onClick={() => {
+                      textSocket.emit('cancel_search');
+                      setIsSearching(false);
+                      setNoUsersOnline(false);
+                      setReplyTo(null);
+                      setMessages([]);
+                      toast('Search cancelled.');
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
+                    aria-label="Cancel Search"
+                  >
+                    Cancel
+                  </Button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {noUsersOnline && (
+              <motion.div
+                key="no-users-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
+                >
+                  <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
+                    No Users Found
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+                    We couldn't find any users matching your tags. Please try again
+                    with different tags or broaden your search.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setNoUsersOnline(false);
+                      startSearch();
+                    }}
+                    className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
+                  >
+                    Retry Search
+                  </Button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {isDisconnected && (
+              <PeerDisconnectedModal
+                onStartNewChat={handleNext}
+                darkMode={darkMode}
+              />
+            )}
+          </AnimatePresence>
+
+          <header
+            className={`${
+              darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            } border-b p-4 flex justify-between items-center shadow-sm`}
+          >
+            {/* Header left side */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleBack}
+                className={`cursor-pointer ${
+                  darkMode
+                    ? 'text-white hover:text-gray-300'
+                    : 'text-gray-700 hover:text-gray-500'
+                } transition-colors`}
+                aria-label="Go Back"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
+                Vimegle
+              </h1>
+            </div>
+
+            {/* Header right side */}
+            <div className="flex space-x-4 relative">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`cursor-pointer ${
+                      darkMode
+                        ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                        : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                    } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`}
+                    aria-label="Open Settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg ${
+                    darkMode
+                      ? 'bg-gray-800 text-gray-100'
+                      : 'bg-gray-50 text-gray-800'
+                  }`}
+                  style={{ zIndex: 1050 }}
+                >
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">Settings</h4>
+                      <p className="text-xs text-gray-400">
+                        Customize your chat experience
+                      </p>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="dark-mode"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Dark Mode
+                      </Label>
+                      <Switch
+                        id="dark-mode"
+                        checked={darkMode}
+                        onCheckedChange={setDarkMode}
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                            : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="sound"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Sound
+                      </Label>
+                      <Switch
+                        id="sound"
+                        checked={soundEnabled}
+                        onCheckedChange={setSoundEnabled}
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                            : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="download-chat"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Download Chat
+                      </Label>
+                      <Button
+                        id="download-chat"
+                        onClick={downloadChat}
+                        variant="ghost"
+                        size="sm"
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                            : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                        } rounded-full shadow-sm transition-colors duration-300`}
+                        aria-label="Download Chat"
+                      >
+                        Download
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="report-chat"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Report Chat
+                      </Label>
+                      <Button
+                        id="report-chat"
+                        onClick={debouncedHandleReportChat}
+                        disabled={isReporting}
+                        variant="ghost"
+                        size="sm"
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                            : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                        } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
+                        aria-label="Report Chat"
+                      >
+                        {isReporting ? (
+                          <Loader2 className="w-5 h-5 animate-spin mr-2" aria-hidden="true" />
+                        ) : (
+                          'Report'
+                        )}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="winter-theme"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Winter Theme
+                      </Label>
+                      <Switch
+                        id="winter-theme"
+                        checked={winterTheme}
+                        onCheckedChange={setWinterTheme}
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                            : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className={`cursor-pointer ${
+                      darkMode
+                        ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
+                        : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
+                    } rounded-full p-3 sm:p-2 transition-all duration-300`}
+                    aria-label="Advanced Search"
+                    style={{
+                      fontSize: '1rem',
+                      width: '48px',
+                      height: '48px',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  sideOffset={5}
+                  className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                    darkMode ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-800'
+                  } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+                >
+                  <h3
+                    className={`text-lg font-semibold mb-2 ${
+                      darkMode ? 'text-gray-200' : 'text-gray-800'
+                    }`}
+                  >
+                    Select Tags
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {availableTags.map(tag => (
+                      <div key={tag} className="relative inline-block">
+                        <Button
+                          key={tag}
+                          variant={tags.includes(tag) ? 'default' : 'outline'}
+                          className={`cursor-pointer ${
+                            isTrending(tag) ? 'glowing' : ''
+                          } ${
+                            tags.includes(tag)
+                              ? 'bg-blue-500 text-white hover:bg-blue-600'
+                              : darkMode
+                              ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                              : 'border-gray-300 text-gray-800 hover:bg-gray-100'
+                          } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
+                          onClick={() => toggleTag(tag)}
+                        >
+                          {tag}
+                        </Button>
+                        {customTag === tag && (
+                          <button
+                            className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
+                              darkMode
+                                ? 'bg-red-500 text-white hover:bg-red-600'
+                                : 'bg-red-400 text-white hover:bg-red-500'
+                            } transition-colors duration-300`}
+                            onClick={() => {
+                              setCustomTag(null);
+                              setTags(prevTags => prevTags.filter(t => t !== tag));
+                            }}
+                            aria-label={`Remove ${tag}`}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <Input
+                      value={customTagInput}
+                      onChange={e => setCustomTagInput(e.target.value)}
+                      placeholder="Add custom tag (max 10 letters)"
+                      maxLength={10}
+                      className={`mb-2 ${
+                        darkMode
+                          ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
+                          : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
+                      } rounded-md shadow-sm transition-colors duration-300`}
+                      aria-label="Custom Tag Input"
+                    />
+                    <Button
+                      onClick={handleAddCustomTag}
+                      className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
+                        darkMode
+                          ? 'bg-green-500 hover:bg-green-600 text-white'
+                          : 'bg-green-400 hover:bg-green-500 text-white'
+                      }`}
+                      aria-label="Add Custom Tag"
+                    >
+                      Add Custom Tag
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setShowTagMenu(false);
+                      startSearch();
+                    }}
+                    className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
+                      darkMode
+                        ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                        : 'bg-pink-400 hover:bg-pink-500 text-white'
+                    }`}
+                    aria-label="Search with Tags"
+                  >
+                    Search with Tags
+                  </Button>
+                </PopoverContent>
+              </Popover>
+              {isSearching ? (
                 <Button
                   onClick={() => {
                     textSocket.emit('cancel_search');
@@ -1206,547 +1585,190 @@ export default function TextChatPage() {
                   }}
                   variant="outline"
                   size="sm"
-                  className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
+                  className={`cursor-pointer ${
+                    darkMode
+                      ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                      : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                  } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
                   aria-label="Cancel Search"
                 >
                   Cancel
                 </Button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {noUsersOnline && (
-            <motion.div
-              key="no-users-modal"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
-            >
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
-              >
-                <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
-                  No Users Found
-                </p>
-                <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
-                  We couldn't find any users matching your tags. Please try again
-                  with different tags or broaden your search.
-                </p>
+              ) : connected ? (
                 <Button
-                  onClick={() => {
-                    setNoUsersOnline(false);
-                    startSearch();
-                  }}
-                  className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
-                >
-                  Retry Search
-                </Button>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isDisconnected && (
-            <PeerDisconnectedModal
-              onStartNewChat={handleNext}
-              darkMode={darkMode}
-            />
-          )}
-        </AnimatePresence>
-
-        <header
-          className={`${
-            darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-          } border-b p-4 flex justify-between items-center shadow-sm`}
-        >
-          {/* Header left side */}
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={handleBack}
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'text-white hover:text-gray-300'
-                  : 'text-gray-700 hover:text-gray-500'
-              } transition-colors`}
-              aria-label="Go Back"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
-              Vimegle
-            </h1>
-          </div>
-
-          {/* Header right side */}
-          <div className="flex space-x-4 relative">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="ghost"
+                  onClick={handleNextChat}
+                  variant="outline"
                   size="sm"
                   className={`cursor-pointer ${
                     darkMode
-                      ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                      : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-                  } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`}
-                  aria-label="Open Settings"
+                      ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                      : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                  } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+                  aria-label="Next Match"
                 >
-                  <Settings className="w-5 h-5" />
+                  Next
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg ${
-                  darkMode
-                    ? 'bg-gray-800 text-gray-100'
-                    : 'bg-gray-50 text-gray-800'
-                }`}
-                style={{ zIndex: 1050 }}
-              >
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <h4 className="font-medium leading-none">Settings</h4>
-                    <p className="text-xs text-gray-400">
-                      Customize your chat experience
-                    </p>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="dark-mode"
-                      className={`${
-                        darkMode ? 'text-gray-200' : 'text-gray-700'
-                      } text-sm`}
-                    >
-                      Dark Mode
-                    </Label>
-                    <Switch
-                      id="dark-mode"
-                      checked={darkMode}
-                      onCheckedChange={setDarkMode}
-                      className={`cursor-pointer ${
-                        darkMode
-                          ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                          : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="sound"
-                      className={`${
-                        darkMode ? 'text-gray-200' : 'text-gray-700'
-                      } text-sm`}
-                    >
-                      Sound
-                    </Label>
-                    <Switch
-                      id="sound"
-                      checked={soundEnabled}
-                      onCheckedChange={setSoundEnabled}
-                      className={`cursor-pointer ${
-                        darkMode
-                          ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                          : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="download-chat"
-                      className={`${
-                        darkMode ? 'text-gray-200' : 'text-gray-700'
-                      } text-sm`}
-                    >
-                      Download Chat
-                    </Label>
-                    <Button
-                      id="download-chat"
-                      onClick={downloadChat}
-                      variant="ghost"
-                      size="sm"
-                      className={`cursor-pointer ${
-                        darkMode
-                          ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                          : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-                      } rounded-full shadow-sm transition-colors duration-300`}
-                      aria-label="Download Chat"
-                    >
-                      Download
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="report-chat"
-                      className={`${
-                        darkMode ? 'text-gray-200' : 'text-gray-700'
-                      } text-sm`}
-                    >
-                      Report Chat
-                    </Label>
-                    <Button
-                      id="report-chat"
-                      onClick={debouncedHandleReportChat}
-                      disabled={isReporting}
-                      variant="ghost"
-                      size="sm"
-                      className={`cursor-pointer ${
-                        darkMode
-                          ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                          : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-                      } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
-                      aria-label="Report Chat"
-                    >
-                      {isReporting ? (
-                        <Loader2 className="w-5 h-5 animate-spin mr-2" aria-hidden="true" />
-                      ) : (
-                        'Report'
-                      )}
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor="winter-theme"
-                      className={`${
-                        darkMode ? 'text-gray-200' : 'text-gray-700'
-                      } text-sm`}
-                    >
-                      Winter Theme
-                    </Label>
-                    <Switch
-                      id="winter-theme"
-                      checked={winterTheme}
-                      onCheckedChange={setWinterTheme}
-                      className={`cursor-pointer ${
-                        darkMode
-                          ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                          : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-                      }`}
-                    />
-                  </div>
-                </div>
-                </PopoverContent>
-            </Popover>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
-              <PopoverTrigger asChild>
+              ) : (
                 <Button
-                  variant="ghost"
+                  onClick={startSearch}
+                  variant="outline"
+                  size="sm"
                   className={`cursor-pointer ${
                     darkMode
-                      ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
-                      : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
-                  } rounded-full p-3 sm:p-2 transition-all duration-300`}
-                  aria-label="Advanced Search"
-                  style={{
-                    fontSize: '1rem',
-                    width: '48px',
-                    height: '48px',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}
+                      ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                      : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+                  aria-label="Find Match"
                 >
-                  <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+                  Find
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                sideOffset={5}
-                className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
-                  darkMode ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-800'
-                } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
-              >
-                <h3
-                  className={`text-lg font-semibold mb-2 ${
-                    darkMode ? 'text-gray-200' : 'text-gray-800'
-                  }`}
-                >
-                  Select Tags
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {availableTags.map(tag => (
-                    <div key={tag} className="relative inline-block">
-                      <Button
-                        key={tag}
-                        variant={tags.includes(tag) ? 'default' : 'outline'}
-                        className={`cursor-pointer ${
-                          isTrending(tag) ? 'glowing' : ''
-                        } ${
-                          tags.includes(tag)
-                            ? 'bg-blue-500 text-white hover:bg-blue-600'
-                            : darkMode
-                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                            : 'border-gray-300 text-gray-800 hover:bg-gray-100'
-                        } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
-                        onClick={() => toggleTag(tag)}
-                      >
-                        {tag}
-                      </Button>
-                      {customTag === tag && (
-                        <button
-                          className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
-                            darkMode
-                              ? 'bg-red-500 text-white hover:bg-red-600'
-                              : 'bg-red-400 text-white hover:bg-red-500'
-                          } transition-colors duration-300`}
-                          onClick={() => {
-                            setCustomTag(null);
-                            setTags(prevTags => prevTags.filter(t => t !== tag));
-                          }}
-                          aria-label={`Remove ${tag}`}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <Input
-                    value={customTagInput}
-                    onChange={e => setCustomTagInput(e.target.value)}
-                    placeholder="Add custom tag (max 10 letters)"
-                    maxLength={10}
-                    className={`mb-2 ${
-                      darkMode
-                        ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
-                        : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
-                    } rounded-md shadow-sm transition-colors duration-300`}
-                    aria-label="Custom Tag Input"
-                  />
-                  <Button
-                    onClick={handleAddCustomTag}
-                    className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
-                      darkMode
-                        ? 'bg-green-500 hover:bg-green-600 text-white'
-                        : 'bg-green-400 hover:bg-green-500 text-white'
-                    }`}
-                    aria-label="Add Custom Tag"
-                  >
-                    Add Custom Tag
-                  </Button>
-                </div>
-                <Button
-                  onClick={() => {
-                    setShowTagMenu(false);
-                    startSearch();
-                  }}
-                  className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
-                    darkMode
-                      ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                      : 'bg-pink-400 hover:bg-pink-500 text-white'
-                  }`}
-                  aria-label="Search with Tags"
-                >
-                  Search with Tags
-                </Button>
-                </PopoverContent>
-            </Popover>
-            {isSearching ? (
-              <Button
-                onClick={() => {
-                  textSocket.emit('cancel_search');
-                  setIsSearching(false);
-                  setNoUsersOnline(false);
-                  setReplyTo(null);
-                  setMessages([]);
-                  toast('Search cancelled.');
-                }}
-                variant="outline"
-                size="sm"
-                className={`cursor-pointer ${
-                  darkMode
-                    ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-                    : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-                } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-                aria-label="Cancel Search"
-              >
-                Cancel
-              </Button>
-            ) : connected ? (
-              <Button
-                onClick={handleNextChat}
-                variant="outline"
-                size="sm"
-                className={`cursor-pointer ${
-                  darkMode
-                    ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-                    : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-                } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-                aria-label="Next Match"
-              >
-                Next
-              </Button>
-            ) : (
-              <Button
-                onClick={startSearch}
-                variant="outline"
-                size="sm"
-                className={`cursor-pointer ${
-                  darkMode
-                    ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-                    : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-                } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-                aria-label="Find Match"
-              >
-                Find
-              </Button>
-            )}
-          </div>
-        </header>
-
-        <main
-          className={`flex flex-col h-[100vh] overflow-hidden ${
-            darkMode
-              ? 'bg-gradient-to-b from-gray-800 to-gray-900'
-              : 'bg-gradient-to-b from-gray-100 to-white'
-          }`}
-        >
-          {connected && (
-            <div className="flex-1 flex flex-col overflow-hidden">
-              {/* Wrapper to add padding around messages so they don't hug the screen edges */}
-              <div className="flex-1 relative px-4 no-scrollbar" style={noScrollbarStyle}>
-                <AutoSizer>
-                  {({ width, height }) => (
-                    <List
-                      height={height - 20} // Give some vertical room for input area
-                      itemCount={messages.length}
-                      itemSize={ITEM_HEIGHT}
-                      width={width - 0} // full width available
-                      itemData={{
-                        messages,
-                        onDoubleTap: handleDoubleTap,
-                        onReply: handleReply,
-                        darkMode,
-                        onInView: handleInView,
-                        lastSeenMessageId: lastSeenMessageId,
-                      }}
-                      style={{ overflowX: 'hidden', ...noScrollbarStyle }}
-                    >
-                      {MessageListItem}
-                    </List>
-                  )}
-                </AutoSizer>
-
-                {showIntroMessage && messages.length === 0 && (
-                  <motion.div
-                    key="intro-message"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.3 }}
-                    className={`p-4 rounded-lg ${
-                      darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-                    } shadow-inner absolute top-4 left-4 right-4 z-20`}
-                  >
-                    <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
-                      Welcome to Vimegle Text Chat!
-                    </h3>
-                    <p className="text-gray-700 dark:text-gray-300">
-                      You're now connected with a random stranger. Say hello and start chatting!
-                    </p>
-                    {matchedTags.length > 0 && (
-                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Connected based on tags: <strong>{matchedTags.join(', ')}</strong>
-                      </p>
-                    )}
-                    {matchedTags.length === 0 && (
-                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Connected to a stranger! Feel free to start the conversation.
-                      </p>
-                    )}
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                      Remember to be respectful and follow our community guidelines.
-                    </p>
-                  </motion.div>
-                )}
-              </div>
-
-              <div
-                className={`relative px-4 py-2 ${
-                  darkMode ? 'bg-gray-800' : 'bg-gray-100'
-                } flex-shrink-0`}
-              >
-                {replyTo && (
-                  <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
-                )}
-
-                {/* If typing and not self typing and no reply, show typing indicator above input */}
-                {isTyping && !isSelfTyping && !replyTo && (
-                  <div className="mb-2">
-                    <MemoizedTypingIndicator darkMode={darkMode} />
-                  </div>
-                )}
-
-                <div className="relative flex items-center space-x-2">
-                  <Input
-                    id="message-input"
-                    type="text"
-                    value={inputMessage}
-                    onChange={handleInputChange}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleSendMessage();
-                    }}
-                    placeholder="Type a message..."
-                    disabled={!connected}
-                    autoComplete="off"
-                    className={`w-full ${
-                      darkMode
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                        : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
-                    } pr-24 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                    aria-label="Message Input"
-                  />
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => setShowEmojiPicker(prev => !prev)}
-                    className={`${
-                      darkMode
-                        ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                        : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
-                    } rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center`}
-                    aria-label="Toggle Emoji Picker"
-                  >
-                    <Smile className="w-6 h-6" />
-                  </Button>
-
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!connected || !inputMessage.trim()}
-                    size="icon"
-                    className={`${
-                      darkMode
-                        ? 'bg-blue-600 hover:bg-blue-700'
-                        : 'bg-blue-500 hover:bg-blue-600'
-                    } text-white rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
-                      !connected || !inputMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    aria-label="Send Message"
-                  >
-                    <Send className="w-6 h-6" />
-                  </Button>
-                </div>
-                {showEmojiPicker && (
-                  <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
-                    <MemoizedEmojiPicker onEmojiClick={handleEmojiClick} darkMode={darkMode} />
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-          )}
-        </main>
-      </div>
-    </DisclaimerProvder>
+          </header>
+
+          <main
+            className={`flex flex-col h-[100vh] overflow-hidden ${
+              darkMode
+                ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+                : 'bg-gradient-to-b from-gray-100 to-white'
+            }`}
+          >
+            {connected && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div
+                  className="flex-1 relative px-4 no-scrollbar"
+                  style={noScrollbarStyle}
+                >
+                  <AutoSizer>
+                    {({ width, height }) => (
+                      <List
+                        ref={listRef} 
+                        height={height}
+                        itemCount={messages.length}
+                        itemSize={ITEM_HEIGHT}
+                        width={width}
+                        itemData={{
+                          messages,
+                          onDoubleTap: handleDoubleTap,
+                          onReply: handleReply,
+                          darkMode,
+                          onInView: handleInView,
+                          lastSeenMessageId: lastSeenMessageId,
+                        }}
+                        style={{ overflowX: 'hidden', ...noScrollbarStyle }}
+                      >
+                        {MessageListItem}
+                      </List>
+                    )}
+                  </AutoSizer>
+
+                  {showIntroMessage && messages.length === 0 && (
+                    <motion.div
+                      key="intro-message"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
+                      className={`p-4 rounded-lg ${
+                        darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
+                      } shadow-inner absolute top-4 left-4 right-4 z-20`}
+                    >
+                      <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
+                        Welcome to Vimegle Text Chat!
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        You're now connected with a random stranger. Say hello and start chatting!
+                      </p>
+                      {matchedTags.length > 0 && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Connected based on tags: <strong>{matchedTags.join(', ')}</strong>
+                        </p>
+                      )}
+                      {matchedTags.length === 0 && (
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                          Connected to a stranger! Feel free to start the conversation.
+                        </p>
+                      )}
+                      <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                        Remember to be respectful and follow our community guidelines.
+                      </p>
+                    </motion.div>
+                  )}
+                </div>
+
+                <div
+                  className={`relative px-4 py-2 ${
+                    darkMode ? 'bg-gray-900' : 'bg-gray-100'
+                  } flex-shrink-0`}
+                >
+                  {replyTo && (
+                    <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
+                  )}
+
+                  {isTyping && !isSelfTyping && !replyTo && (
+                    <div className="mb-2">
+                      <MemoizedTypingIndicator darkMode={darkMode} />
+                    </div>
+                  )}
+
+                  <div className="relative flex items-center space-x-2">
+                  <Input
+  id="message-input"
+  type="text"
+  value={inputMessage}
+  onChange={handleInputChange}
+  onKeyDown={e => {
+    if (e.key === 'Enter') handleSendMessage();
+  }}
+  placeholder="Type a message..."
+  disabled={!connected}
+  autoComplete="off"
+  className={`w-full ${
+    darkMode
+      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+      : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+  } pr-4 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+  aria-label="Message Input"
+/>
+
+<Button
+  size="icon"
+  onClick={() => setShowEmojiPicker(prev => !prev)}
+  className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+    darkMode ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-200'
+  }`}
+  aria-label="Toggle Emoji Picker"
+>
+  <Smile className="w-5 h-5" />
+</Button>
+
+
+                    <Button
+  onClick={handleSendMessage}
+  disabled={!connected || !inputMessage.trim()}
+  size="icon"
+  className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+    darkMode ? 'text-white' : 'text-gray-700'
+  } ${!connected || !inputMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+  aria-label="Send Message"
+>
+  <Send className="w-5 h-5" />
+</Button>
+
+
+
+                  </div>
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
+                      <MemoizedEmojiPicker onEmojiClick={handleEmojiClick} darkMode={darkMode} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      </DisclaimerProvder>
+    </>
   );
 }
