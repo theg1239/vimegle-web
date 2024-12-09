@@ -300,7 +300,7 @@ export default function TextChatPage() {
   const tooltipShownRef = useRef<boolean>(false);
 
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
-  
+
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -495,29 +495,38 @@ export default function TextChatPage() {
     toast(message || 'Search cancelled.', { id: toastId });
   }, []);
 
-  // Handle Message Visibility (Seen)
-  const handleInView = useCallback(
-    (messageId: string, inView: boolean) => {
-      if (!inView) return;
-      if (seenMessages.has(messageId)) return;
+const handleInView = useCallback(
+  (messageId: string, inView: boolean) => {
+    if (!inView) return;
+    if (seenMessages.has(messageId)) return;
 
-      setSeenMessages(prev => new Set([...prev, messageId]));
+    setSeenMessages((prev) => new Set([...prev, messageId]));
 
-      setMessages(prevMessages => {
-        const messageIndex = prevMessages.findIndex(
-          (msg) => msg.id === messageId && !msg.seen
-        );
-        if (messageIndex === -1) return prevMessages;
+    setMessages((prevMessages) => {
+      const messageIndex = prevMessages.findIndex(
+        (msg) => msg.id === messageId && !msg.seen
+      );
+      if (messageIndex === -1) return prevMessages;
 
-        const updated = [...prevMessages];
-        updated[messageIndex] = { ...updated[messageIndex], seen: true };
-        return updated;
+      const updated = [...prevMessages];
+      updated[messageIndex] = { ...updated[messageIndex], seen: true };
+      return updated;
+    });
+
+    textSocket.emit('messageSeen', { messageId, room: currentRoom });
+
+    // Auto-scroll to the message with offset for visibility
+    if (virtuosoRef.current) {
+      const index = messages.findIndex((msg) => msg.id === messageId);
+      virtuosoRef.current.scrollToIndex({
+        index: index + 1, // Scroll past the seen message
+        align: 'center', // Ensure the seen message is well-aligned
+        behavior: 'smooth',
       });
-
-      textSocket.emit('messageSeen', { messageId, room: currentRoom });
-    },
-    [currentRoom, seenMessages]
-  );
+    }
+  },
+  [currentRoom, seenMessages, messages]
+);
 
   // Handle Incoming Text Messages
   const handleTextMessage = useCallback(
