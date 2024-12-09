@@ -95,9 +95,6 @@ export default function ChatPage() {
     socketRef.current?.emit('join-room', roomID, socketRef.current.id);
   }
 
-  /**
-   * Handles incoming signaling data.
-   */
   const handleSignal = useCallback(({ room: signalRoom, data }: { room: string; data: any }) => {
     if (!signalRoom) return;
     if (signalRoom !== roomRef.current) return;
@@ -644,7 +641,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-black">
       <Toaster position="bottom-center" />
-      <header className="bg-gray-800 backdrop-blur-sm p-6 flex justify-between items-center z-50">
+      <header className="bg-black backdrop-blur-sm p-6 flex justify-between items-center z-50">
         <div className="flex items-center space-x-4">
           <button
             onClick={() => {
