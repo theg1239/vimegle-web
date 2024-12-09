@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Twemoji } from 'react-emoji-render';
 import { Heart, MessageCircle } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Message } from '@/types/messageTypes';
@@ -14,15 +13,16 @@ interface MessageBubbleProps {
   darkMode: boolean;
   isSelf: boolean;
   onInView: (messageId: string, inView: boolean) => void;
+  showSeen?: boolean;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
-  ({ message, onDoubleTap, onReply, darkMode, isSelf, onInView }) => {
+  ({ message, onDoubleTap, onReply, darkMode, isSelf, onInView, showSeen = false }) => {
     const swipeRef = useRef(null);
 
     const { ref, inView } = useInView({
       threshold: 0.5,
-      triggerOnce: true,
+      triggerOnce: false,
     });
 
     useEffect(() => {
@@ -33,7 +33,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
 
     const bind = useGesture(
       {
-        onDrag: ({ down, movement: [mx], direction: [xDir], velocity }) => {
+        onDrag: ({ movement: [mx], direction: [xDir], velocity }) => {
           const trigger = velocity > 0.2 && Math.abs(mx) > 50;
           if (trigger && xDir > 0) {
             onReply(message);
@@ -51,27 +51,37 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        className={`mb-2 ${isSelf ? 'ml-auto' : 'mr-auto'} max-w-[80%] relative group`}
+        // Allow horizontal swipes on mobile without browser interference
+        style={{ touchAction: 'pan-y' }}
+        className={`flex ${isSelf ? 'flex-row-reverse' : 'flex-row'} items-start mb-4 group relative`}
+        id={message.id}
       >
-        <div ref={ref} className="relative">
+        <div ref={ref} className="relative max-w-[80%]">
           {message.replyTo && (
             <div
               className={`text-xs mb-1 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
               }`}
             >
-              {isSelf ? 'You replied to them' : 'They replied to you'}
+              {message.isSelf ? (
+                message.replyTo.isSelf
+                  ? 'You replied to yourself'
+                  : 'You replied to them'
+              ) : message.replyTo.isSelf
+                ? 'They replied to you'
+                : 'They replied to themselves'}
             </div>
           )}
+
           <div
             className={`inline-block rounded-2xl p-3 relative ${
               isSelf
                 ? darkMode
-                  ? 'bg-blue-600'
-                  : 'bg-blue-500'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-blue-500 text-white'
                 : darkMode
-                  ? 'bg-gray-700'
-                  : 'bg-gray-300'
+                ? 'bg-gray-700 text-white'
+                : 'bg-gray-300 text-black'
             }`}
             onDoubleClick={() => onDoubleTap(message.id, isSelf)}
           >
@@ -95,20 +105,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
                 overflowWrap: 'break-word',
               }}
             >
-              <Twemoji
-                text={message.text}
-                options={{
-                  className: 'inline-block align-middle',
-                }}
-              />
+              {message.text}
             </span>
+
             <span
               className={`text-xs ${
                 isSelf
                   ? 'text-gray-300'
                   : darkMode
-                    ? 'text-gray-400'
-                    : 'text-gray-600'
+                  ? 'text-gray-400'
+                  : 'text-gray-600'
               } mt-1 block`}
             >
               {message.timestamp.toLocaleTimeString([], {
@@ -117,7 +123,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
               })}
             </span>
           </div>
-          {isSelf && message.seen && (
+
+          {showSeen && (
             <div
               className={`text-xs mt-1 ${
                 darkMode ? 'text-gray-400' : 'text-gray-600'
@@ -126,6 +133,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
               Seen
             </div>
           )}
+
           <AnimatePresence>
             {message.liked && (
               <motion.div
@@ -137,21 +145,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
                   isSelf ? '-left-2' : '-right-2'
                 } -bottom-2 z-10`}
               >
-                <div className={`rounded-full p-1 shadow-md `}>
+                <div className="rounded-full p-1 shadow-md">
                   <Heart className="w-5 h-5 text-red-500 fill-current" />
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+
         <Button
           variant="ghost"
           size="icon"
-          className={`absolute ${
-            isSelf ? 'left-0' : 'right-0'
-          } top-1/2 transform -translate-y-1/2 ${
-            isSelf ? '-translate-x-full' : 'translate-x-full'
-          } opacity-0 group-hover:opacity-100 transition-opacity`}
+          // Added `self-center` to vertically center the button
+          className={`${isSelf ? 'mr-2' : 'ml-2'} opacity-0 group-hover:opacity-100 transition-opacity self-center`}
           onClick={() => onReply(message)}
           aria-label="Reply to message"
         >

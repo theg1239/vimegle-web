@@ -9,26 +9,19 @@ import React, {
   FC,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FixedSizeList as List } from 'react-window'; // Import react-window
-import AutoSizer from 'react-virtualized-auto-sizer'; // For automatic sizing
+import { Virtuoso } from 'react-virtuoso'; // Import Virtuoso
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
-import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { Toaster, toast } from 'react-hot-toast';
 import {
   ArrowLeft,
   Send,
   Smile,
-  Video,
-  Flag,
-  AlertTriangle,
   Settings,
   Loader2,
   SparklesIcon,
   X as CloseIcon,
-  Check,
 } from 'lucide-react';
-import Link from 'next/link';
 import { textSocket } from '@/lib/socket';
 import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -44,54 +37,46 @@ import { Separator } from '@/app/components/ui/separator';
 import { Switch } from '@/app/components/ui/switch';
 import { Label } from '@/app/components/ui/label';
 import { isProfane } from '@/lib/profanity';
-import { chunk } from 'lodash';
+import { debounce } from 'lodash';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
+import Cookies from 'js-cookie';
+import Snowfall from 'react-snowfall';
+import { VirtuosoHandle } from 'react-virtuoso';
 
-// Custom hook for debouncing
-function useDebounce(callback: Function, delay: number) {
-  const timer = useRef<NodeJS.Timeout>();
-
-  const debouncedFunction = useCallback(
-    (...args: any[]) => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => {
-        callback(...args);
-      }, delay);
-    },
-    [callback, delay]
-  );
+// Dynamic Viewport Height Handling
+const useViewportHeight = () => {
+  const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      if (mainRef.current) {
+        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
+      }
+    };
+
+    setVh();
+    window.addEventListener('resize', setVh);
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      window.removeEventListener('resize', setVh);
     };
   }, []);
 
-  return debouncedFunction;
+  return mainRef;
+};
+
+const hideScrollbarCSS = `
+.virtuoso-scrollbar::-webkit-scrollbar {
+  display: none;
 }
+.virtuoso-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+`;
 
-// // Tooltip Component
-// const Tooltip: FC = () => (
-//   <motion.div
-//     initial={{ opacity: 0, y: 20 }}
-//     animate={{ opacity: 1, y: 0 }}
-//     exit={{ opacity: 0, y: 20 }}
-//     transition={{ duration: 0.5 }}
-//     className="fixed top-16 right-5 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 max-w-xs"
-//   >
-//     <p>We value your feedback!</p>
-//     <Link
-//       href="/feedback"
-//       className="underline text-sm"
-//       target="_blank"
-//       rel="noopener noreferrer"
-//     >
-//       Click here to provide feedback
-//     </Link>
-//   </motion.div>
-// );
-
-// Modals for Peer Searching and Disconnection
+// Modal Components
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
   darkMode: boolean;
@@ -183,7 +168,7 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
         <span className="text-sm font-semibold">
           {originalMessage.isSelf ? 'You' : 'Stranger'}
         </span>
-        <p className="text-sm text-gray-700 dark:text-gray-200">
+        <p className="text-sm text-gray-700 dark:text-gray-200 break-words">
           {originalMessage.text}
         </p>
       </div>
@@ -200,38 +185,78 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
   );
 };
 
-// Virtualized Message List Item
-const MessageListItem: FC<{
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    messages: Message[];
-    onDoubleTap: (messageId: string, isSelf: boolean) => void;
-    onReply: (message: Message) => void;
-    darkMode: boolean;
-    onInView: (messageId: string, inView: boolean) => void;
-  };
-}> = React.memo(({ index, style, data }) => {
-  const { messages, onDoubleTap, onReply, darkMode, onInView } = data;
-  const message = messages[index];
-
-  return (
-    <div style={style}>
-      <MessageBubble
-        key={message.id}
-        message={message}
-        onDoubleTap={onDoubleTap}
-        onReply={onReply}
-        darkMode={darkMode}
-        isSelf={message.isSelf}
-        onInView={onInView}
-      />
+// Typing Indicator Component
+interface TypingIndicatorProps {
+  darkMode: boolean;
+}
+const MemoizedTypingIndicator = React.memo(
+  ({ darkMode }: TypingIndicatorProps) => (
+    <div className="text-xs text-gray-500 dark:text-gray-300 flex items-center space-x-1 z-50 mb-2">
+      <span>Stranger is typing</span>
+      <div className="flex space-x-1">
+        <div className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"></div>
+        <div
+          className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+          style={{ animationDelay: '0.2s' }}
+        ></div>
+        <div
+          className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
+          style={{ animationDelay: '0.4s' }}
+        ></div>
+      </div>
     </div>
-  );
-});
+  )
+);
+MemoizedTypingIndicator.displayName = 'MemoizedTypingIndicator';
 
+// Emoji Picker Component
+interface EmojiPickerProps {
+  onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
+  darkMode: boolean;
+}
+const MemoizedEmojiPicker = React.memo(
+  ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
+    <EmojiPicker
+      onEmojiClick={onEmojiClick}
+      theme={darkMode ? Theme.DARK : Theme.LIGHT}
+      width="100%"
+      height={350}
+    />
+  )
+);
+MemoizedEmojiPicker.displayName = 'MemoizedEmojiPicker';
+
+// Message List Item Component
+interface MessageListItemProps {
+  message: Message;
+  onDoubleTap: (messageId: string, isSelf: boolean) => void;
+  onReply: (message: Message) => void;
+  darkMode: boolean;
+  onInView: (messageId: string, inView: boolean) => void;
+  showSeen: boolean;
+}
+
+const MessageListItem: React.FC<MessageListItemProps> = React.memo(
+  ({ message, onDoubleTap, onReply, darkMode, onInView, showSeen }) => {
+    return (
+      <div>
+        <MessageBubble
+          key={message.id}
+          message={message}
+          onDoubleTap={onDoubleTap}
+          onReply={onReply}
+          darkMode={darkMode}
+          isSelf={message.isSelf}
+          onInView={onInView}
+          showSeen={showSeen}
+        />
+      </div>
+    );
+  }
+);
 MessageListItem.displayName = 'MessageListItem';
 
+// Main TextChatPage Component
 export default function TextChatPage() {
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -241,7 +266,6 @@ export default function TextChatPage() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [darkMode, setDarkMode] = useState<boolean>(true);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showIntroMessage, setShowIntroMessage] = useState<boolean>(true);
   const [currentRoom, setCurrentRoom] = useState<string>('');
   const [hasInteracted, setHasInteracted] = useState<boolean>(false);
@@ -259,125 +283,23 @@ export default function TextChatPage() {
   const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSelfTyping, setIsSelfTyping] = useState(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
-  const mainRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const mainRef = useViewportHeight();
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
+  const [isReporting, setIsReporting] = useState(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
+  const [winterTheme, setWinterTheme] = useState<boolean>(false);
+
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
-  const [hideSeenForMessageIds, setHideSeenForMessageIds] = useState<
-    Set<string>
-  >(new Set());
 
-  // Refs for sound and interaction
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
 
-  const handleTypingFromPeer = useCallback(() => {
-    setIsTyping(true);
-
-    // Clear existing timeout to prevent premature hiding
-    if (peerTypingTimeoutRef.current) {
-      clearTimeout(peerTypingTimeoutRef.current);
-    }
-
-    // Set a new timeout to hide the typing indicator after a delay
-    peerTypingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      peerTypingTimeoutRef.current = null;
-    }, 3000); // Adjust the delay as needed
-  }, []);
-
-  const handleStopTypingFromPeer = useCallback(() => {
-    if (peerTypingTimeoutRef.current) {
-      clearTimeout(peerTypingTimeoutRef.current);
-    }
-    setIsTyping(false);
-  }, []);
-
-  // Self Typing Event Handlers
-  const handleTyping = useDebounce(() => {
-    if (connected && currentRoom) {
-      setIsSelfTyping(true);
-      textSocket.emit('typing', { room: currentRoom });
-    }
-  }, 300);
-
-  const handleStopTyping = useDebounce(() => {
-    if (connected && currentRoom) {
-      setIsSelfTyping(false);
-      textSocket.emit('stopTyping', { room: currentRoom });
-    }
-  }, 2000);
-
-  const defaultTags = useMemo(
-    () => [
-      'music',
-      'movies',
-      'books',
-      'sports',
-      'technology',
-      'art',
-      'gaming',
-      'cooking',
-      'fitness',
-      'vellore',
-      'ap',
-      'chennai',
-      'bhopal'
-    ],
-    []
-  );
-
-  const isTrending = (tag: string) => trendingTags.includes(tag);
-
-  // Handle updates to trending tags from the socket
-  useEffect(() => {
-    if (!textSocket) return;
-
-    const handleTrendingTagsUpdate = (updatedTags: string[]) => {
-      setTrendingTags(updatedTags);
-    };
-
-    // Listen for trending tags updates
-    textSocket.on('trendingTagsUpdate', handleTrendingTagsUpdate);
-
-    // Cleanup
-    return () => {
-      textSocket.off('trendingTagsUpdate', handleTrendingTagsUpdate);
-    };
-  }, [textSocket]);
-
-  useEffect(() => {
-    const resizeHandler = () => {
-      if (mainRef.current) {
-        const vh = window.innerHeight * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
-        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
-      }
-    };
-
-    resizeHandler();
-    window.addEventListener('resize', resizeHandler);
-
-    return () => {
-      window.removeEventListener('resize', resizeHandler);
-    };
-  }, []);
-
-  useEffect(() => {
-    // Append new messages to the full history
-    if (messages.length > 0) {
-      setFullChatHistory((prevHistory) => [
-        ...prevHistory,
-        ...messages.slice(prevHistory.length),
-      ]);
-    }
-  }, [messages]);
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -395,54 +317,90 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
-  // Sound Effects
+  // Handle Typing Indicators from Peer
+  const handleTypingFromPeer = useCallback((data?: { sender?: string }) => {
+    if (!data?.sender || data.sender === textSocket.id) return;
+    setIsTyping(true);
+    if (peerTypingTimeoutRef.current) clearTimeout(peerTypingTimeoutRef.current);
+    peerTypingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      peerTypingTimeoutRef.current = null;
+    }, 3000);
+  }, []);
+
+  const handleStopTypingFromPeer = useCallback((data?: { sender?: string }) => {
+    if (!data?.sender || data.sender === textSocket.id) return;
+    if (peerTypingTimeoutRef.current) {
+      clearTimeout(peerTypingTimeoutRef.current);
+    }
+    setIsTyping(false);
+  }, []);
+
+  // Handle Self Typing
+  const handleTyping = useCallback(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(true);
+      textSocket.emit('typing', { room: currentRoom, sender: textSocket.id });
+    }
+  }, [connected, currentRoom]);
+
+  const handleStopTyping = useCallback(() => {
+    if (connected && currentRoom) {
+      setIsSelfTyping(false);
+      textSocket.emit('stopTyping', { room: currentRoom, sender: textSocket.id });
+    }
+  }, [connected, currentRoom]);
+
+  const debouncedHandleTyping = useMemo(
+    () => debounce(handleTyping, 300),
+    [handleTyping]
+  );
+
+  const debouncedHandleStopTyping = useMemo(
+    () => debounce(handleStopTyping, 500),
+    [handleStopTyping]
+  );
+
+  useEffect(() => {
+    return () => {
+      debouncedHandleTyping.cancel();
+      debouncedHandleStopTyping.cancel();
+    };
+  }, [debouncedHandleTyping, debouncedHandleStopTyping]);
+
+  // Sound Functions
   const playNotificationSound = useCallback(() => {
-    if (!soundEnabledRef.current) return;
-    if (!hasInteractedRef.current) return;
+    if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
       const audio = new Audio('/sounds/notification.mp3');
-      audio.play().catch((err) => {
-        console.error('Error playing notification sound:', err);
-      });
-    } catch (err) {
-      console.error('Error playing notification sound:', err);
-    }
+      audio.play().catch(() => {});
+    } catch {}
   }, []);
 
   const playMessageSound = useCallback(() => {
-    if (!soundEnabledRef.current) return;
-    if (!hasInteractedRef.current) return;
+    if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
       const audio = new Audio('/sounds/message.mp3');
-      audio.play().catch((err) => {
-        console.error('Error playing message sound:', err);
-      });
-    } catch (err) {
-      console.error('Error playing message sound:', err);
-    }
+      audio.play().catch(() => {});
+    } catch {}
   }, []);
 
   const playDisconnectSound = useCallback(() => {
-    if (!soundEnabledRef.current) return;
-    if (!hasInteractedRef.current) return;
+    if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
       const audio = new Audio('/sounds/disconnect.mp3');
-      audio.play().catch((err) => {
-        console.error('Error playing disconnect sound:', err);
-      });
-    } catch (err) {
-      console.error('Error playing disconnect sound:', err);
-    }
+      audio.play().catch(() => {});
+    } catch {}
   }, []);
 
-  // User Interaction Handler
+  // User Interaction Detection
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
       setHasInteracted(true);
     }
   }, [hasInteracted]);
 
-  // Start Search Function
+  // Start Search for Chat Match
   const startSearch = useCallback(() => {
     setIsSearching(true);
     setSearchCancelled(false);
@@ -450,10 +408,8 @@ export default function TextChatPage() {
     setIsDisconnected(false);
     setShowIntroMessage(true);
     setReplyTo(null);
-    setMessages([]); // Clear messages when starting a new search
+    setMessages([]);
     setMatchedTags([]);
-
-    const normalizedTags = tags.map((tag) => tag.trim().toLowerCase());
 
     if (textSocket && textSocket.connected) {
       textSocket.emit('findTextMatch', { tags });
@@ -464,7 +420,7 @@ export default function TextChatPage() {
     }
   }, [tags]);
 
-  // Reply Handling
+  // Handle Reply to a Message
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
     document.getElementById('message-input')?.focus();
@@ -474,14 +430,7 @@ export default function TextChatPage() {
     setReplyTo(null);
   }, []);
 
-  // Scroll to Bottom
-  const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, []);
-
-  // Handle Text Match Event
+  // Handle Successful Text Match
   const handleTextMatch = useCallback(
     ({
       room,
@@ -495,23 +444,19 @@ export default function TextChatPage() {
       let tagsArray: string[] = [];
 
       if (Array.isArray(matchedTags)) {
-        tagsArray = matchedTags;
-      } else if (typeof matchedTags === 'string' && matchedTags.trim() !== '') {
-        tagsArray = matchedTags.split(',').filter((tag) => tag.trim() !== '');
+        tagsArray = matchedTags.map(tag => tag.trim()).filter(tag => tag !== '');
+      } else if (typeof matchedTags === 'string') {
+        tagsArray = matchedTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
       }
 
       setMatchedTags(tagsArray);
       setShowIntroMessage(true);
 
       const toastId = `text-match-${room}`;
-
+      toast.dismiss(toastId);
       if (tagsArray.length > 0) {
-        toast.dismiss(toastId);
-        toast.success(`Connected based on tags: ${tagsArray.join(', ')}`, {
-          id: toastId,
-        });
+        toast.success(`Connected based on tags: ${tagsArray.join(', ')}`, { id: toastId });
       } else {
-        toast.dismiss(toastId);
         toast.success('Connected to a stranger!', { id: toastId });
       }
 
@@ -529,64 +474,61 @@ export default function TextChatPage() {
     [playNotificationSound]
   );
 
-  // Handle No Text Match
+  // Handle No Text Match Found
   const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
     setIsSearching(false);
     setNoUsersOnline(true);
 
     const toastId = 'no-text-match';
     toast.dismiss(toastId);
-    toast.error(message || 'No users found with matching tags.', {
-      id: toastId,
-    });
+    toast.error(message || 'No users found with matching tags.', { id: toastId });
   }, []);
 
-  const handleSearchCancelled = useCallback(
-    ({ message }: { message: string }) => {
-      setIsSearching(false);
-      setSearchCancelled(true);
-      setFullChatHistory([]); // Reset chat history
-  
-      const toastId = 'search-cancelled';
-      toast.dismiss(toastId);
-      toast(message || 'Search cancelled.', { id: toastId });
-    },
-    []
-  );
-  
+  // Handle Search Cancellation
+  const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
+    setIsSearching(false);
+    setSearchCancelled(true);
+    setFullChatHistory([]);
 
-  const handleInView = useCallback(
-    (messageId: string, inView: boolean) => {
-      if (!inView) return; // Skip if the message is not in view
+    const toastId = 'search-cancelled';
+    toast.dismiss(toastId);
+    toast(message || 'Search cancelled.', { id: toastId });
+  }, []);
 
-      // Avoid unnecessary state updates
-      if (seenMessages.has(messageId)) return;
+const handleInView = useCallback(
+  (messageId: string, inView: boolean) => {
+    if (!inView) return;
+    if (seenMessages.has(messageId)) return;
 
-      setSeenMessages((prev) => new Set([...prev, messageId]));
+    setSeenMessages((prev) => new Set([...prev, messageId]));
 
-      // Update the specific message as seen
-      setMessages((prevMessages) => {
-        const messageIndex = prevMessages.findIndex(
-          (msg) => msg.id === messageId && !msg.seen
-        );
-        if (messageIndex === -1) return prevMessages; // No change needed
+    setMessages((prevMessages) => {
+      const messageIndex = prevMessages.findIndex(
+        (msg) => msg.id === messageId && !msg.seen
+      );
+      if (messageIndex === -1) return prevMessages;
 
-        const updatedMessages = [...prevMessages];
-        updatedMessages[messageIndex] = {
-          ...updatedMessages[messageIndex],
-          seen: true,
-        };
-        return updatedMessages;
+      const updated = [...prevMessages];
+      updated[messageIndex] = { ...updated[messageIndex], seen: true };
+      return updated;
+    });
+
+    textSocket.emit('messageSeen', { messageId, room: currentRoom });
+
+    // Auto-scroll to the message with offset for visibility
+    if (virtuosoRef.current) {
+      const index = messages.findIndex((msg) => msg.id === messageId);
+      virtuosoRef.current.scrollToIndex({
+        index: index + 1, // Scroll past the seen message
+        align: 'center', // Ensure the seen message is well-aligned
+        behavior: 'smooth',
       });
+    }
+  },
+  [currentRoom, seenMessages, messages]
+);
 
-      // Notify the server only for newly seen messages
-      textSocket.emit('messageSeen', { messageId, room: currentRoom });
-      //console.log(`Message ${messageId} seen and notified to the server.`);
-    },
-    [currentRoom, textSocket, seenMessages]
-  );
-
-  // Handle Text Message Event
+  // Handle Incoming Text Messages
   const handleTextMessage = useCallback(
     ({
       message,
@@ -612,49 +554,42 @@ export default function TextChatPage() {
         reactions: {},
         liked: false,
         replyTo: replyToMessage || null,
-        seen: false, // Default to unseen
+        seen: false,
       };
 
-      setMessages((prev) => {
-        if (prev.find((msg) => msg.id === messageId)) {
-          return prev; // Prevent duplicate messages
+      setFullChatHistory((prevHistory) => {
+        if (prevHistory.some((m) => m.id === messageId)) {
+          return prevHistory;
         }
-
-        // Limit the number of messages to 1000
-        const newMessages = [...prev, newMessage];
-        if (newMessages.length > 100) {
-          newMessages.shift(); // Remove the oldest message
-        }
-        return newMessages;
+        return [...prevHistory, newMessage];
       });
 
-      if (!isSelf) {
-        // Automatically mark the latest message as seen
-        if (scrollAreaRef.current) {
-          const messageElement = document.getElementById(messageId);
-          if (
-            messageElement &&
-            messageElement.getBoundingClientRect().top < window.innerHeight
-          ) {
-            handleInView(messageId, true);
-          }
-        }
+      setMessages(prev => {
+        if (prev.find((msg) => msg.id === messageId)) return prev;
+        const updated = [...prev, newMessage];
+        if (updated.length > 1000) updated.shift();
+        return updated;
+      });
+
+      if (!isSelf && soundEnabledRef.current && hasInteractedRef.current) {
         playMessageSound();
       }
 
-      // Scroll to bottom after adding a new message
-      setTimeout(scrollToBottom, 100);
+      if (virtuosoRef.current) {
+        virtuosoRef.current.scrollToIndex({
+          index: messages.length,
+          behavior: 'smooth',
+        });
+      }
     },
-    [playMessageSound, messages, scrollToBottom, handleInView, textSocket]
+    [messages, playMessageSound]
   );
 
   // Handle Reaction Updates
   const handleReactionUpdate = useCallback(
     ({ messageId, liked }: { messageId: string; liked: boolean }) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === messageId ? { ...msg, liked } : msg
-        )
+      setMessages(prevMessages =>
+        prevMessages.map(msg => (msg.id === messageId ? { ...msg, liked } : msg))
       );
     },
     []
@@ -671,44 +606,35 @@ export default function TextChatPage() {
   );
 
   // Handle Peer Message Seen
-  const handlePeerMessageSeen = useCallback(
-    ({ messageId }: { messageId: string }) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
-          msg.id === messageId ? { ...msg, seen: true } : msg
-        )
-      );
-    },
-    []
-  );
+  const handlePeerMessageSeen = useCallback(({ messageId }: { messageId: string }) => {
+    setMessages(prevMessages =>
+      prevMessages.map(msg => (msg.id === messageId ? { ...msg, seen: true } : msg))
+    );
+  }, []);
 
-  // Handle Peer Searching (Additional Handler)
-  const handlePeerSearching = useCallback(
-    ({ message }: { message: string }) => {
-      setConnected(false);
-      setMessages([]);
-      setCurrentRoom('');
-      setIsDisconnected(false);
-      setIsSearching(false);
-      setNoUsersOnline(false);
-      setReplyTo(null);
-      setIsPeerSearching(true);
-      setMatchedTags([]);
+  // Handle Peer Searching for New Match
+  const handlePeerSearching = useCallback(({ message }: { message: string }) => {
+    setConnected(false);
+    setMessages([]);
+    setCurrentRoom('');
+    setIsDisconnected(false);
+    setIsSearching(false);
+    setNoUsersOnline(false);
+    setReplyTo(null);
+    setMatchedTags([]);
 
-      const toastId = 'peer-searching';
-      toast.dismiss(toastId);
-      toast.error(
-        message || 'Your chat partner is searching for a new match.',
-        { id: toastId }
-      );
+    const toastId = 'peer-searching';
+    toast.dismiss(toastId);
+    toast.error(message || 'Your chat partner is searching for a new match.', {
+      id: toastId,
+    });
 
-      if (soundEnabledRef.current && hasInteractedRef.current)
-        playDisconnectSound();
-    },
-    [playDisconnectSound]
-  );
+    if (soundEnabledRef.current && hasInteractedRef.current) {
+      playDisconnectSound();
+    }
+  }, [playDisconnectSound]);
 
-  // Handle Peer Disconnected
+  // Handle Peer Disconnection
   const handlePeerDisconnected = useCallback(
     ({ message }: { message: string }) => {
       if (isUserInitiatedDisconnect) {
@@ -722,43 +648,30 @@ export default function TextChatPage() {
       setCurrentRoom('');
       setReplyTo(null);
       setMatchedTags([]);
-      setChatState('idle'); // Reset to home screen
+      setChatState('idle');
 
       const toastId = 'peer-disconnected';
       toast.dismiss(toastId);
-      toast.error(message || 'Your chat partner has disconnected.', {
-        id: toastId,
-      });
+      toast.error(message || 'Your chat partner has disconnected.', { id: toastId });
 
-      if (soundEnabledRef.current && hasInteractedRef.current)
+      if (soundEnabledRef.current && hasInteractedRef.current) {
         playDisconnectSound();
+      }
     },
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
-  // Handle Read Receipts (Additional Handler)
-  const handleMessageSeen = useCallback(
-    ({ messageId }: { messageId: string }) => {
-      setMessages((prevMessages) => {
-        let updated = false;
+  // Handle Message Seen by Peer
+  const handleMessageSeen = useCallback(({ messageId }: { messageId: string }) => {
+    setMessages(prevMessages =>
+      prevMessages.map(msg => (msg.id === messageId ? { ...msg, seen: true } : msg))
+    );
+  }, []);
 
-        // Only mark the latest message as seen
-        return prevMessages.map((msg, index) => {
-          if (msg.id === messageId && !updated) {
-            updated = true; // Mark the first match as seen
-            return { ...msg, seen: true };
-          }
-          return { ...msg, seen: false }; // Unmark others
-        });
-      });
-    },
-    []
-  );
-
+  // Setup Socket Event Listeners
   useEffect(() => {
     if (!textSocket) return;
 
-    // Register Socket Event Handlers
     textSocket.on('peerMessageSeen', handlePeerMessageSeen);
     textSocket.on('textMatch', handleTextMatch);
     textSocket.on('noTextMatch', handleNoTextMatch);
@@ -770,15 +683,9 @@ export default function TextChatPage() {
     textSocket.on('peerSearching', handlePeerSearching);
     textSocket.on('peerDisconnected', handlePeerDisconnected);
     textSocket.on('stopTyping', handleStopTypingFromPeer);
-    textSocket.on('peerSearchingSelf', ({ message }: { message: string }) => {
-      const toastId = 'peer-searching-self';
-      toast.dismiss(toastId);
-      toast(message || 'You have initiated a new search.', { id: toastId });
-    });
-    textSocket.on('messageSeen', handleMessageSeen); // Listen for 'messageSeen' events
+    textSocket.on('messageSeen', handleMessageSeen);
 
     return () => {
-      // Clean up Socket Event Handlers
       textSocket.off('peerMessageSeen', handlePeerMessageSeen);
       textSocket.off('textMatch', handleTextMatch);
       textSocket.off('noTextMatch', handleNoTextMatch);
@@ -789,11 +696,11 @@ export default function TextChatPage() {
       textSocket.off('toastNotification', handleToastNotification);
       textSocket.off('peerSearching', handlePeerSearching);
       textSocket.off('peerDisconnected', handlePeerDisconnected);
-      textSocket.off('peerSearchingSelf');
       textSocket.off('stopTyping', handleStopTypingFromPeer);
       textSocket.off('messageSeen', handleMessageSeen);
     };
   }, [
+    handlePeerMessageSeen,
     handleTextMatch,
     handleNoTextMatch,
     handleTextMessage,
@@ -804,12 +711,11 @@ export default function TextChatPage() {
     handlePeerSearching,
     handlePeerDisconnected,
     handleMessageSeen,
-    handlePeerMessageSeen,
     handleStopTypingFromPeer,
     textSocket,
   ]);
 
-  // Handle Before Unload (User leaves the page)
+  // Handle Window Unload to Disconnect Properly
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (connected && currentRoom) {
@@ -826,29 +732,38 @@ export default function TextChatPage() {
     };
   }, [connected, currentRoom, textSocket]);
 
-  // Available Tags
+  // Default and Available Tags
+  const defaultTags = useMemo(
+    () => [
+      'music',
+      'movies',
+      'books',
+      'sports',
+      'technology',
+      'art',
+      'gaming',
+      'cooking',
+      'fitness',
+      'vellore',
+      'ap',
+      'chennai',
+      'bhopal',
+    ],
+    []
+  );
+
   const availableTags = useMemo(() => {
-    if (customTag) {
-      return [...defaultTags, customTag];
-    }
+    if (customTag) return [...defaultTags, customTag];
     return defaultTags;
   }, [customTag, defaultTags]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputMessage(e.target.value); // Update input value immediately
-    debouncedHandleTyping(); // Trigger debounced typing events
-  };
-
-  const debouncedHandleTyping = useDebounce(() => {
-    handleTyping(); // Trigger typing indicator
-    handleStopTyping(); // Ensure typing stops after a delay
-  }, 200);
+  const isTrending = (tag: string) => trendingTags.includes(tag);
 
   // Toggle Tag Selection
   const toggleTag = (tag: string) => {
-    setTags((prevTags) => {
+    setTags(prevTags => {
       let newTags = prevTags.includes(tag)
-        ? prevTags.filter((t) => t !== tag)
+        ? prevTags.filter(t => t !== tag)
         : [...prevTags, tag];
 
       const totalTags =
@@ -863,8 +778,8 @@ export default function TextChatPage() {
     });
   };
 
-  // Add Custom Tag
-  const handleAddCustomTag = () => {
+  // Handle Adding Custom Tag
+  const handleAddCustomTag = useCallback(() => {
     if (customTagInput.trim().length > 0) {
       if (customTag) {
         toast.error('Only one custom tag is allowed.');
@@ -884,22 +799,19 @@ export default function TextChatPage() {
       setCustomTag(tag);
       setCustomTagInput('');
 
-      setTags((prevTags) => {
+      setTags(prevTags => {
         let newTags = [...prevTags, tag];
-
         const totalTags = newTags.length;
-
         if (totalTags > 3) {
           toast.error('You can select up to 3 tags in total.');
           return prevTags;
         }
-
         return newTags;
       });
     }
-  };
+  }, [customTag, customTagInput]);
 
-  // Clear Messages on Disconnect
+  // Clear Messages When Not Connected or Searching
   useEffect(() => {
     if (!connected && !isSearching) {
       setMessages([]);
@@ -907,12 +819,7 @@ export default function TextChatPage() {
     }
   }, [connected, isSearching]);
 
-  // Scroll to Bottom on Messages Update
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, scrollToBottom]);
-
-  // Tooltip Handling
+  // Tooltip for Searching
   useEffect(() => {
     if (isSearching && !tooltipShownRef.current) {
       tooltipShownRef.current = true;
@@ -946,7 +853,7 @@ export default function TextChatPage() {
     }
   }, []);
 
-  // Handle Next Chat
+  // Handle Moving to Next Chat
   const handleNext = useCallback(() => {
     if (connected && currentRoom) {
       setIsUserInitiatedDisconnect(true);
@@ -955,21 +862,19 @@ export default function TextChatPage() {
       setMessages([]);
       setCurrentRoom('');
       setIsDisconnected(false);
-      setIsSearching(false);
-      setNoUsersOnline(false);
       setReplyTo(null);
       setMatchedTags([]);
-      setFullChatHistory([])
+      setFullChatHistory([]);
       startSearch();
     } else {
       startSearch();
       setFullChatHistory([]);
     }
-  }, [connected, currentRoom, startSearch, textSocket]);
+  }, [connected, currentRoom, startSearch]);
 
-  // Chat State
   const [chatState, setChatState] = useState<string>('idle');
 
+  // Handle Returning to Search from Peer Searching Modal
   const handleReturnToSearch = useCallback(() => {
     setIsPeerSearching(false);
     setConnected(false);
@@ -985,6 +890,7 @@ export default function TextChatPage() {
     setIsPeerSearching(false);
   }, []);
 
+  // Handle Sending a Message
   const handleSendMessage = useCallback(() => {
     if (!inputMessage.trim()) return;
 
@@ -993,17 +899,21 @@ export default function TextChatPage() {
       return;
     }
 
-    const sanitizedMessage = DOMPurify.sanitize(inputMessage, {
+    let tempMessage = inputMessage
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    const sanitizedMessage = DOMPurify.sanitize(tempMessage, {
       ALLOWED_TAGS: [],
       ALLOWED_ATTR: [],
     });
-
-    const messageId = uuidv4();
 
     const decodedMessage = sanitizedMessage
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&');
+
+    const messageId = uuidv4();
 
     textSocket.emit('textMessage', {
       room: currentRoom,
@@ -1012,7 +922,6 @@ export default function TextChatPage() {
       replyTo: replyTo ? replyTo.id : undefined,
     });
 
-    // Reset seen status for the peer
     textSocket.emit('resetSeenStatus', { room: currentRoom });
 
     const newMessage: Message = {
@@ -1023,18 +932,20 @@ export default function TextChatPage() {
       reactions: {},
       liked: false,
       replyTo: replyTo || null,
-      seen: false, // Self messages are marked as unseen
+      seen: false,
     };
 
-    setMessages((prev) => {
-      // Reset seen status for all messages
-      const updated = prev.map((msg) => ({ ...msg, seen: false }));
-      // Limit the number of messages to 1000
-      const newMessages = [...updated, newMessage];
-      if (newMessages.length > 1000) {
-        newMessages.shift(); // Remove the oldest message
+    setFullChatHistory((prevHistory) => {
+      if (prevHistory.some((m) => m.id === messageId)) {
+        return prevHistory;
       }
-      return newMessages;
+      return [...prevHistory, newMessage];
+    });
+
+    setMessages(prev => {
+      const updated = [...prev, newMessage];
+      if (updated.length > 1000) updated.shift();
+      return updated;
     });
     setInputMessage('');
     setReplyTo(null);
@@ -1045,85 +956,52 @@ export default function TextChatPage() {
       playMessageSound();
     }
 
-    scrollToBottom();
+    handleStopTyping();
+
+    if (virtuosoRef.current) {
+      virtuosoRef.current.scrollToIndex({
+        index: messages.length,
+        behavior: 'smooth',
+      });
+    }
   }, [
     inputMessage,
     currentRoom,
     replyTo,
+    isProfane,
     playMessageSound,
-    scrollToBottom,
-    textSocket,
+    handleStopTyping,
+    messages.length,
   ]);
 
-  const handleTypingDebounced = useDebounce(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputMessage(e.target.value);
-      handleTyping(); // Trigger typing indicator
-      handleStopTyping(); // Ensure typing stops after a delay
-    },
-    200
-  );
+  // Handle Input Change
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputMessage(e.target.value);
+    debouncedHandleTyping();
+    debouncedHandleStopTyping();
+  };
 
-  interface TypingIndicatorProps {
-    darkMode: boolean;
-  }
-
-  const MemoizedTypingIndicator = React.memo(
-    ({ darkMode }: TypingIndicatorProps) => (
-      <div className="absolute bottom-full left-4 mb-1 text-xs text-gray-500 dark:text-gray-300 flex items-center space-x-1">
-        <span>Stranger is typing</span>
-        <div className="flex space-x-1">
-          <div
-            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-            style={{ animationDelay: '0s' }}
-          ></div>
-          <div
-            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-            style={{ animationDelay: '0.2s' }}
-          ></div>
-          <div
-            className="w-1.5 h-1.5 bg-gray-500 dark:bg-gray-300 rounded-full animate-pulse"
-            style={{ animationDelay: '0.4s' }}
-          ></div>
-        </div>
-      </div>
-    )
-  );
-
+  // Handle Emoji Selection
   const handleEmojiClick = useCallback(
     (emojiData: EmojiClickData, event: MouseEvent) => {
-      setInputMessage((prev) => prev + emojiData.emoji);
+      setInputMessage(prev => prev + emojiData.emoji);
       setShowEmojiPicker(false);
-      handleTypingDebounced(); // Emit typing when emoji is clicked
+      debouncedHandleTyping();
+      debouncedHandleStopTyping();
     },
-    [handleTypingDebounced]
-  );
-  interface EmojiPickerProps {
-    onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
-    darkMode: boolean;
-  }
-
-  const MemoizedEmojiPicker = React.memo(
-    ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
-      <EmojiPicker
-        onEmojiClick={onEmojiClick}
-        theme={darkMode ? Theme.DARK : Theme.LIGHT}
-        width="100%"
-        height={350}
-      />
-    )
+    [debouncedHandleTyping, debouncedHandleStopTyping]
   );
 
-  // Double Tap Handler
+  // Handle Double Tap for Reactions
   const handleDoubleTap = useCallback(
     (messageId: string, isSelf: boolean) => {
-      setMessages((prevMessages) =>
-        prevMessages.map((msg) =>
+      setMessages(prevMessages =>
+        prevMessages.map(msg =>
           msg.id === messageId ? { ...msg, liked: !msg.liked } : msg
         )
       );
 
-      const message = messages.find((msg) => msg.id === messageId);
+      const message = messages.find(msg => msg.id === messageId);
       if (message) {
         textSocket.emit('reaction', {
           room: currentRoom,
@@ -1131,36 +1009,31 @@ export default function TextChatPage() {
           liked: !message.liked,
         });
       }
+
+      if (virtuosoRef.current) {
+        virtuosoRef.current.scrollToIndex({
+          index: messages.length,
+          behavior: 'smooth',
+        });
+      }
     },
-    [textSocket, currentRoom, messages]
+    [messages, currentRoom]
   );
 
-  // Optimize the data passed to the virtualized list
-  const listData = useMemo(
-    () => ({
-      messages,
-      onDoubleTap: handleDoubleTap,
-      onReply: handleReply,
-      darkMode,
-      onInView: handleInView,
-    }),
-    [messages, handleDoubleTap, handleReply, darkMode, handleInView]
-  );
-
+  // Notify Peer Disconnection
   const notifyPeerDisconnection = useCallback(() => {
     if (textSocket && currentRoom) {
       textSocket.emit('peerDisconnected', { room: currentRoom });
     }
   }, [currentRoom, textSocket]);
 
+  // Handle Back Navigation (Browser Back Button)
   useEffect(() => {
     const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
-      // Prevent navigation and show confirmation dialog
       const confirmationMessage =
         'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.';
       const confirmed = window.confirm(confirmationMessage);
       if (!confirmed) {
-        // Prevent navigation by re-adding the current state to the history stack
         if (event.type === 'popstate') {
           window.history.pushState(null, document.title, window.location.href);
         }
@@ -1175,30 +1048,25 @@ export default function TextChatPage() {
       }
     };
 
-    // Add event listeners for back navigation
     window.addEventListener('popstate', handleBackNavigation);
     window.addEventListener('beforeunload', handleBackNavigation);
 
-    // Push initial state to prevent direct back navigation
     window.history.pushState(null, document.title, window.location.href);
 
     return () => {
-      // Clean up event listeners on component unmount
       window.removeEventListener('popstate', handleBackNavigation);
       window.removeEventListener('beforeunload', handleBackNavigation);
     };
   }, [notifyPeerDisconnection]);
 
+  // Handle Switching to Video Chat
   const handleSwitchToVideo = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
     );
 
-    if (!confirmed) {
-      return; // Exit early if the user cancels
-    }
+    if (!confirmed) return;
 
-    // If confirmed, proceed with the action
     notifyPeerDisconnection();
     setConnected(false);
     setMessages([]);
@@ -1206,33 +1074,18 @@ export default function TextChatPage() {
     setReplyTo(null);
     setMatchedTags([]);
     setChatState('idle');
-    window.location.href = '/video'; // Redirect to video chat
-  }, [
-    notifyPeerDisconnection,
-    setConnected,
-    setMessages,
-    setCurrentRoom,
-    setReplyTo,
-    setMatchedTags,
-    setChatState,
-  ]);
+    window.location.href = '/video';
+  }, [notifyPeerDisconnection]);
 
-  const handleNewMessageFromRecipient = useCallback((messageId: string) => {
-    setHideSeenForMessageIds((prev) => new Set(prev).add(messageId));
-  }, []);
-
+  // Handle Back Button in Header
   const handleBack = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
     );
 
     if (confirmed) {
-      // Notify the other user about the disconnection
-      if (currentRoom) {
-        textSocket.emit('peerDisconnected', { room: currentRoom });
-      }
+      if (currentRoom) textSocket.emit('peerDisconnected', { room: currentRoom });
 
-      // Clean up the current chat state
       setConnected(false);
       setMessages([]);
       setCurrentRoom('');
@@ -1240,11 +1093,11 @@ export default function TextChatPage() {
       setMatchedTags([]);
       setChatState('idle');
 
-      // Redirect to Vimegle homepage
       window.location.href = '/';
     }
-  }, [currentRoom, textSocket]);
+  }, [currentRoom]);
 
+  // Handle Next Chat Button
   const handleNextChat = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to move to the next chat? This will disconnect your current chat partner.'
@@ -1262,521 +1115,662 @@ export default function TextChatPage() {
     }
   }, [notifyPeerDisconnection, startSearch]);
 
-  const debouncedHandleInputChange = useDebounce(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setInputMessage(e.target.value);
-      handleTyping(); // Trigger typing indicator
-      handleStopTyping(); // Ensure typing stops after a delay
-    },
-    200
-  );
-
+  // Handle Chat Download
   const downloadChat = useCallback(() => {
     if (fullChatHistory.length === 0) {
       toast.error('No messages to download.');
       return;
     }
-  
+
     let chatContent = '';
-  
-    fullChatHistory.forEach((msg) => {
+    fullChatHistory.forEach(msg => {
       const timestamp = new Date(msg.timestamp).toLocaleString();
       const sender = msg.isSelf ? 'You' : 'Stranger';
       chatContent += `[${timestamp}] ${sender}: ${msg.text}\n`;
-  
       if (msg.replyTo) {
         const replySender = msg.replyTo.isSelf ? 'You' : 'Stranger';
         chatContent += `    ↳ [${new Date(msg.replyTo.timestamp).toLocaleString()}] ${replySender}: ${msg.replyTo.text}\n`;
       }
     });
-  
+
     const blob = new Blob([chatContent], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `Vimegle_Chat_${new Date()
-      .toISOString()
-      .replace(/[:.]/g, '-')}.txt`;
+    link.download = `Vimegle_Chat_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  
+
     toast.success('Chat downloaded successfully!');
-  }, [fullChatHistory]);  
+  }, [fullChatHistory]);
+
+  // Handle Reporting Chat
+  const handleReportChat = useCallback(async () => {
+    if (isReporting) return;
+    if (!currentRoom || fullChatHistory.length === 0) {
+      toast.error('No active chat to report.');
+      return;
+    }
+
+    setIsReporting(true);
+
+    const reportData = {
+      room: currentRoom,
+      socketId: textSocket.id,
+      sessionId: Cookies.get('sessionId'),
+      messages: fullChatHistory.map(msg => ({
+        id: msg.id,
+        text: msg.text,
+        isSelf: msg.isSelf,
+        timestamp: msg.timestamp,
+        replyTo: msg.replyTo
+          ? { id: msg.replyTo.id, text: msg.replyTo.text }
+          : null,
+      })),
+    };
+
+    try {
+      const response = await fetch('/api/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reportData),
+      });
+
+      if (!response.ok) throw new Error('Failed to send report.');
+
+      toast.success('Report sent successfully.');
+    } catch (error) {
+      console.error('Report error:', error);
+      toast.error('Failed to send report.');
+    } finally {
+      setIsReporting(false);
+    }
+  }, [currentRoom, fullChatHistory, isReporting]);
+
+  const debouncedHandleReportChat = useMemo(
+    () => debounce(handleReportChat, 2000),
+    [handleReportChat]
+  );
+
+  useEffect(() => {
+    return () => {
+      debouncedHandleReportChat.cancel();
+    };
+  }, [debouncedHandleReportChat]);
+
+  // Calculate Last Seen Message
+  const lastSeenMessageId = useMemo(() => {
+    const selfSeenMessages = messages
+      .filter(m => m.isSelf && m.seen)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    return selfSeenMessages.length > 0 ? selfSeenMessages[0].id : null;
+  }, [messages]);
+
+  useEffect(() => {
+    if (virtuosoRef.current) {
+      virtuosoRef.current.scrollToIndex({
+        index: messages.length,
+        align: 'end', // Scroll to the end of the list
+        behavior: 'smooth',
+        offset: 20, // Add an offset for better visibility
+      });
+    }
+  }, [messages]);
 
   return (
-    <DisclaimerProvder>
-    <div
-      ref={mainRef}
-      className={`flex flex-col h-screen relative ${
-        darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
-      }`}
-      onClick={handleUserInteraction}
-      onKeyDown={handleUserInteraction}
-      onMouseMove={handleUserInteraction}
-    >
-      {/* Configure Toaster with top-center position */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 5000,
-          style: {
-            marginTop: '4rem', // Adjust the value based on your header height
-            zIndex: 9999, // Ensure the toast is above most UI elements
-          },
-        }}
-      />
-      {/* Background Watermark */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span
-          className={`text-4xl font-bold select-none transition-opacity duration-300 ${
-            darkMode ? 'opacity-5 text-white' : 'opacity-10 text-gray-500'
-          }`}
+    <>
+      <style>{hideScrollbarCSS}</style>
+      <DisclaimerProvder>
+        <div
+          ref={mainRef}
+          className={`flex flex-col h-[calc(var(--vh, 1vh) * 100)] relative ${
+            darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
+          } overflow-hidden`} // Set overflow-hidden to prevent entire page scroll
+          onClick={handleUserInteraction}
+          onKeyDown={handleUserInteraction}
+          onMouseMove={handleUserInteraction}
         >
-          Vimegle
-        </span>
-      </div>
-
-      {/* Tooltip
-      <AnimatePresence>{showTooltip && <Tooltip />}</AnimatePresence> */}
-
-      {/* Peer Searching Modal */}
-      <AnimatePresence>
-        {isPeerSearching && (
-          <PeerSearchingModal
-            onReturnToSearch={handleReturnToSearch}
-            darkMode={darkMode}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Searching Modal */}
-      <AnimatePresence>
-        {isSearching && (
-          <motion.div
-            key="searching-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
-            >
-              <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
-              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
-                Searching for a match...
-              </p>
-              {tags.length > 0 && (
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
-                  Based on your tags: <strong>{tags.join(', ')}</strong>
-                </p>
-              )}
-              <Button
-                onClick={() => {
-                  textSocket.emit('cancel_search');
-                  setIsSearching(false);
-                  setNoUsersOnline(false);
-                  setReplyTo(null);
-                  setMessages([]);
-                  toast('Search cancelled.');
-                }}
-                variant="outline"
-                size="sm"
-                className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
-                aria-label="Cancel Search"
-              >
-                Cancel
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* No Users Online Modal */}
-      <AnimatePresence>
-        {noUsersOnline && (
-          <motion.div
-            key="no-users-modal"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
-            >
-              <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
-                No Users Found
-              </p>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
-                We couldn't find any users matching your tags. Please try again
-                with different tags or broaden your search.
-              </p>
-              <Button
-                onClick={() => {
-                  setNoUsersOnline(false);
-                  startSearch();
-                }}
-                className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
-              >
-                Retry Search
-              </Button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Disconnected Modal */}
-      <AnimatePresence>
-        {isDisconnected && (
-          <PeerDisconnectedModal
-            onStartNewChat={handleNext}
-            darkMode={darkMode}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <header
-        className={`${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border-b p-4 flex justify-between items-center shadow-sm`}
-      >
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={handleBack} // Handle back action
-            className={`cursor-pointer ${
-              darkMode
-                ? 'text-white hover:text-gray-300'
-                : 'text-gray-700 hover:text-gray-500'
-            } transition-colors`}
-            aria-label="Go Back"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
-            Vimegle
-          </h1>
-        </div>
-
-        <div className="flex space-x-4 relative">
-  {/* Popover for Settings */}
-  <Popover>
-    <PopoverTrigger asChild>
-      <Button
-        variant="ghost"
-        size="sm"
-        className={`cursor-pointer ${
-          darkMode
-            ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-            : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-        } rounded-full p-2 shadow-sm transition-colors duration-300`}
-        aria-label="Open Settings"
-      >
-        <Settings className="w-5 h-5" />
-      </Button>
-    </PopoverTrigger>
-    <PopoverContent
-      className={`w-72 p-4 rounded-lg shadow-lg ${
-        darkMode
-          ? 'bg-gray-800 text-gray-100'
-          : 'bg-gray-50 text-gray-800'
-      }`}
-      style={{ zIndex: 1050 }} // Ensures this stays above other elements
-    >
-      <div className="grid gap-4">
-        <div className="space-y-2">
-          <h4 className="font-medium leading-none">Settings</h4>
-          <p className="text-xs text-gray-400">
-            Customize your chat experience
-          </p>
-        </div>
-        <Separator />
-        {/* Dark Mode Toggle */}
-        <div className="flex items-center justify-between">
-          <Label
-            htmlFor="dark-mode"
-            className={`${
-              darkMode ? 'text-gray-200' : 'text-gray-700'
-            } text-sm`}
-          >
-            Dark Mode
-          </Label>
-          <Switch
-            id="dark-mode"
-            checked={darkMode}
-            onCheckedChange={setDarkMode}
-            className={`cursor-pointer ${
-              darkMode
-                ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-            }`}
-          />
-        </div>
-        {/* Sound Toggle */}
-        <div className="flex items-center justify-between">
-          <Label
-            htmlFor="sound"
-            className={`${
-              darkMode ? 'text-gray-200' : 'text-gray-700'
-            } text-sm`}
-          >
-            Sound
-          </Label>
-          <Switch
-            id="sound"
-            checked={soundEnabled}
-            onCheckedChange={setSoundEnabled}
-            className={`cursor-pointer ${
-              darkMode
-                ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
-                : 'bg-gray-300 data-[state=checked]:bg-blue-600'
-            }`}
-          />
-        </div>
-        {/* Download Chat Button */}
-        <div className="flex items-center justify-between">
-          <Label
-            htmlFor="download-chat"
-            className={`${
-              darkMode ? 'text-gray-200' : 'text-gray-700'
-            } text-sm`}
-          >
-            Download Chat
-          </Label>
-          <Button
-            id="download-chat"
-            onClick={downloadChat}
-            variant="ghost"
-            size="sm"
-            className={`cursor-pointer ${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } rounded-full shadow-sm transition-colors duration-300`}
-            aria-label="Download Chat"
-          >
-            Download
-          </Button>
-        </div>
-      </div>
-    </PopoverContent>
-  </Popover>
-</div>
-
-
-        
-
-        <div className="flex items-center space-x-4">
-          <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="ghost"
-                className={`cursor-pointer ${
-                  darkMode
-                    ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
-                    : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
-                } rounded-full p-3 sm:p-2 transition-all duration-300`}
-                aria-label="Advanced Search"
-                style={{
-                  fontSize: '1rem', // Increase font size for better visibility
-                  width: '48px', // Larger tap target
-                  height: '48px',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
-              >
-                <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="end"
-              sideOffset={5}
-              className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
-                darkMode
-                  ? 'bg-gray-800 text-gray-200'
-                  : 'bg-white text-gray-800'
-              } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
-            >
-              <h3
-                className={`text-lg font-semibold mb-2 ${
-                  darkMode ? 'text-gray-200' : 'text-gray-800'
-                }`}
-              >
-                Select Tags
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {availableTags.map((tag) => (
-                  <div key={tag} className="relative inline-block">
-            <Button
-                key={tag}
-                variant={tags.includes(tag) ? 'default' : 'outline'}
-                className={`cursor-pointer ${
-                    isTrending(tag) ? 'glowing' : ''
-                } ${
-                    tags.includes(tag)
-                        ? 'bg-blue-500 text-white hover:bg-blue-600'
-                        : darkMode
-                            ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
-                            : 'border-gray-300 text-gray-800 hover:bg-gray-100'
-                } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
-                onClick={() => toggleTag(tag)}
-            >
-                {tag}
-            </Button>
-                    {customTag === tag && (
-                      <button
-                        className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
-                          darkMode
-                            ? 'bg-red-500 text-white hover:bg-red-600'
-                            : 'bg-red-400 text-white hover:bg-red-500'
-                        } transition-colors duration-300`}
-                        onClick={() => {
-                          setCustomTag(null); // Clear the custom tag
-                          setTags((prevTags) =>
-                            prevTags.filter((t) => t !== tag)
-                          );
-                        }}
-                        aria-label={`Remove ${tag}`}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4">
-                <Input
-                  value={customTagInput}
-                  onChange={(e) => setCustomTagInput(e.target.value)}
-                  placeholder="Add custom tag (max 10 letters)"
-                  maxLength={10}
-                  className={`mb-2 ${
-                    darkMode
-                      ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
-                      : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
-                  } rounded-md shadow-sm transition-colors duration-300`}
-                  aria-label="Custom Tag Input"
-                />
-                <Button
-                  onClick={handleAddCustomTag}
-                  className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
-                    darkMode
-                      ? 'bg-green-500 hover:bg-green-600 text-white'
-                      : 'bg-green-400 hover:bg-green-500 text-white'
-                  }`}
-                  aria-label="Add Custom Tag"
-                >
-                  Add Custom Tag
-                </Button>
-              </div>
-              <Button
-                onClick={() => {
-                  setShowTagMenu(false);
-                  startSearch();
-                }}
-                className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
-                  darkMode
-                    ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                    : 'bg-pink-400 hover:bg-pink-500 text-white'
-                }`}
-                aria-label="Search with Tags"
-              >
-                Search with Tags
-              </Button>
-            </PopoverContent>
-          </Popover>
-          {isSearching ? (
-            <Button
-              onClick={() => {
-                textSocket.emit('cancel_search');
-                setIsSearching(false);
-                setNoUsersOnline(false);
-                setReplyTo(null);
-                setMessages([]);
-                toast('Search cancelled.');
+          {/* Snowfall Effect */}
+          {winterTheme && (
+            <Snowfall
+              style={{
+                position: 'fixed',
+                zIndex: 0,
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
               }}
-              variant="outline"
-              size="sm"
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-                  : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
-              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-              aria-label="Cancel Search"
-            >
-              Cancel
-            </Button>
-          ) : connected ? (
-            <Button
-              onClick={handleNextChat}
-              variant="outline"
-              size="sm"
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-                  : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-              aria-label="Next Match"
-            >
-              Next
-            </Button>
-          ) : (
-            <Button
-              onClick={startSearch}
-              variant="outline"
-              size="sm"
-              className={`cursor-pointer ${
-                darkMode
-                  ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-                  : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
-              } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-              aria-label="Find Match"
-            >
-              Find
-            </Button>
+              snowflakeCount={
+                window.innerWidth <= 480 ? 10 : window.innerWidth <= 768 ? 30 : 50
+              }
+            />
           )}
-        </div>
-      </header>
 
-      <main
-        className={`flex flex-col h-[100vh] overflow-hidden ${
-          darkMode
-            ? 'bg-gradient-to-b from-gray-800 to-gray-900'
-            : 'bg-gradient-to-b from-gray-100 to-white'
-        }`}
-      >
-        {connected && (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Scrollable Messages Area */}
-            <ScrollArea className="flex-1 px-4 pt-4 pb-2" ref={scrollAreaRef}>
-              <div className="flex flex-col gap-2">
-                <AnimatePresence initial={false}>
-                  {messages.map((msg) => (
-                    <MessageBubble
-                      key={msg.id}
-                      message={msg}
-                      onDoubleTap={handleDoubleTap}
-                      onReply={handleReply}
-                      darkMode={darkMode}
-                      isSelf={msg.isSelf}
-                      onInView={(messageId, inView) =>
-                        handleInView(messageId, inView)
-                      }
+          {/* Toaster for Notifications */}
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 5000,
+              style: {
+                marginTop: '4rem', // Adjust based on header height
+                zIndex: 9999, // Ensure it's above other elements
+              },
+            }}
+          />
+
+          {/* Background Vimegle Text */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span
+              className={`text-4xl font-bold select-none transition-opacity duration-300 ${
+                winterTheme
+                  ? 'neon-text'
+                  : darkMode
+                  ? 'opacity-5 text-white'
+                  : 'opacity-10 text-gray-500'
+              }`}
+            >
+              Vimegle
+            </span>
+          </div>
+
+          {/* Peer Searching Modal */}
+          <AnimatePresence>
+            {isPeerSearching && (
+              <PeerSearchingModal
+                onReturnToSearch={handleReturnToSearch}
+                darkMode={darkMode}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Searching Modal */}
+          <AnimatePresence>
+            {isSearching && (
+              <motion.div
+                key="searching-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 flex items-center justify-center bg-black/50 z-40 p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg relative z-10 w-full max-w-md`}
+                >
+                  <Loader2 className="w-8 h-8 animate-spin mb-4 text-gray-500 dark:text-gray-300" />
+                  <p className="text-xl font-bold text-gray-700 dark:text-gray-200 text-center">
+                    Searching for a match...
+                  </p>
+                  {tags.length > 0 && (
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
+                      Based on your tags: <strong>{tags.join(', ')}</strong>
+                    </p>
+                  )}
+                  <Button
+                    onClick={() => {
+                      textSocket.emit('cancel_search');
+                      setIsSearching(false);
+                      setNoUsersOnline(false);
+                      setReplyTo(null);
+                      setMessages([]);
+                      toast('Search cancelled.');
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
+                    aria-label="Cancel Search"
+                  >
+                    Cancel
+                  </Button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* No Users Online Modal */}
+          <AnimatePresence>
+            {noUsersOnline && (
+              <motion.div
+                key="no-users-modal"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 flex items-center justify-center bg-black/50 z-50 p-4"
+              >
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex flex-col items-center bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full mx-4 sm:max-w-md"
+                >
+                  <p className="text-xl font-bold text-gray-700 dark:text-gray-200 mb-4 text-center">
+                    No Users Found
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6 text-center">
+                    We couldn't find any users matching your tags. Please try again
+                    with different tags or broaden your search.
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setNoUsersOnline(false);
+                      startSearch();
+                    }}
+                    className="px-4 py-2 bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md transition-colors duration-300 w-full"
+                  >
+                    Retry Search
+                  </Button>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Peer Disconnected Modal */}
+          <AnimatePresence>
+            {isDisconnected && (
+              <PeerDisconnectedModal
+                onStartNewChat={handleNext}
+                darkMode={darkMode}
+              />
+            )}
+          </AnimatePresence>
+
+          {/* Header */}
+          <header
+            className={`${
+              darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+            } border-b p-4 flex justify-between items-center shadow-sm flex-shrink-0`}
+          >
+            {/* Header left side */}
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleBack}
+                className={`cursor-pointer ${
+                  darkMode
+                    ? 'text-white hover:text-gray-300'
+                    : 'text-gray-700 hover:text-gray-500'
+                } transition-colors`}
+                aria-label="Go Back"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-pink-600">
+                Vimegle
+              </h1>
+            </div>
+
+            {/* Header right side */}
+            <div className="flex space-x-4 relative">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`cursor-pointer ${
+                      darkMode
+                        ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                        : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                    } rounded-full p-3 sm:p-2 shadow-sm transition-colors duration-300`}
+                    aria-label="Open Settings"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className={`w-full max-w-xs p-4 rounded-lg shadow-lg ${
+                    darkMode
+                      ? 'bg-gray-800 text-gray-100'
+                      : 'bg-gray-50 text-gray-800'
+                  }`}
+                  style={{ zIndex: 1050 }}
+                >
+                  <div className="grid gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium leading-none">Settings</h4>
+                      <p className="text-xs text-gray-400">
+                        Customize your chat experience
+                      </p>
+                    </div>
+                    <Separator />
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="dark-mode"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Dark Mode
+                      </Label>
+                      <Switch
+                        id="dark-mode"
+                        checked={darkMode}
+                        onCheckedChange={setDarkMode}
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                            : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="sound"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Sound
+                      </Label>
+                      <Switch
+                        id="sound"
+                        checked={soundEnabled}
+                        onCheckedChange={setSoundEnabled}
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                            : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="download-chat"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Download Chat
+                      </Label>
+                      <Button
+                        id="download-chat"
+                        onClick={downloadChat}
+                        variant="ghost"
+                        size="sm"
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                            : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                        } rounded-full shadow-sm transition-colors duration-300`}
+                        aria-label="Download Chat"
+                      >
+                        Download
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="report-chat"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Report Chat
+                      </Label>
+                      <Button
+                        id="report-chat"
+                        onClick={debouncedHandleReportChat}
+                        disabled={isReporting}
+                        variant="ghost"
+                        size="sm"
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'text-white hover:text-gray-300 hover:bg-gray-700'
+                            : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
+                        } rounded-full shadow-sm transition-colors duration-300 flex items-center`}
+                        aria-label="Report Chat"
+                      >
+                        {isReporting ? (
+                          <Loader2 className="w-5 h-5 animate-spin mr-2" aria-hidden="true" />
+                        ) : (
+                          'Report'
+                        )}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label
+                        htmlFor="winter-theme"
+                        className={`${
+                          darkMode ? 'text-gray-200' : 'text-gray-700'
+                        } text-sm`}
+                      >
+                        Winter Theme
+                      </Label>
+                      <Switch
+                        id="winter-theme"
+                        checked={winterTheme}
+                        onCheckedChange={setWinterTheme}
+                        className={`cursor-pointer ${
+                          darkMode
+                            ? 'bg-gray-600 data-[state=checked]:bg-blue-500'
+                            : 'bg-gray-300 data-[state=checked]:bg-blue-600'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Tag Selection and Action Buttons */}
+            <div className="flex items-center space-x-4">
+              <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className={`cursor-pointer ${
+                      darkMode
+                        ? 'text-white bg-gray-800 hover:bg-gray-700 shadow-lg'
+                        : 'text-gray-800 bg-gray-100 hover:bg-gray-200 shadow-md'
+                    } rounded-full p-3 sm:p-2 transition-all duration-300`}
+                    aria-label="Advanced Search"
+                    style={{
+                      fontSize: '1rem',
+                      width: '48px',
+                      height: '48px',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <SparklesIcon className="w-6 h-6 sm:w-4 sm:h-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  sideOffset={5}
+                  className={`w-full max-w-xs p-4 rounded-lg shadow-lg transition-all duration-300 ${
+                    darkMode ? 'bg-gray-800 text-gray-200' : 'bg-white text-gray-800'
+                  } border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+                >
+                  <h3
+                    className={`text-lg font-semibold mb-2 ${
+                      darkMode ? 'text-gray-200' : 'text-gray-800'
+                    }`}
+                  >
+                    Select Tags
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {availableTags.map(tag => (
+                      <div key={tag} className="relative inline-block">
+                        <Button
+                          key={tag}
+                          variant={tags.includes(tag) ? 'default' : 'outline'}
+                          className={`cursor-pointer ${
+                            isTrending(tag) ? 'glowing' : ''
+                          } ${
+                            tags.includes(tag)
+                              ? 'bg-pink-500 text-white hover:bg-pink-600'
+                              : darkMode
+                              ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
+                              : 'border-gray-300 text-gray-800 hover:bg-gray-100'
+                          } rounded-full px-3 py-1 text-xs shadow-sm transition-colors duration-300`}
+                          onClick={() => toggleTag(tag)}
+                        >
+                          {tag}
+                        </Button>
+                        {customTag === tag && (
+                          <button
+                            className={`absolute -top-2 -right-2 text-xs w-5 h-5 flex items-center justify-center rounded-full shadow-md ${
+                              darkMode
+                                ? 'bg-red-500 text-white hover:bg-red-600'
+                                : 'bg-red-400 text-white hover:bg-red-500'
+                            } transition-colors duration-300`}
+                            onClick={() => {
+                              setCustomTag(null);
+                              setTags(prevTags => prevTags.filter(t => t !== tag));
+                            }}
+                            aria-label={`Remove ${tag}`}
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4">
+                    <Input
+                      value={customTagInput}
+                      onChange={e => setCustomTagInput(e.target.value)}
+                      placeholder="Add custom tag (max 10 letters)"
+                      maxLength={10}
+                      className={`mb-2 ${
+                        darkMode
+                          ? 'bg-gray-700 text-white placeholder-gray-400 border-gray-600 focus:border-blue-500'
+                          : 'bg-white text-gray-800 placeholder-gray-500 border-gray-300 focus:border-blue-500'
+                      } rounded-md shadow-sm transition-colors duration-300`}
+                      aria-label="Custom Tag Input"
                     />
-                  ))}
-                  {showIntroMessage && (
+                    <Button
+                      onClick={handleAddCustomTag}
+                      className={`w-full rounded-full shadow-sm transition-colors duration-300 ${
+                        darkMode
+                          ? 'bg-green-500 hover:bg-green-600 text-white'
+                          : 'bg-green-400 hover:bg-green-500 text-white'
+                      }`}
+                      aria-label="Add Custom Tag"
+                    >
+                      Add Custom Tag
+                    </Button>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      setShowTagMenu(false);
+                      startSearch();
+                    }}
+                    className={`mt-4 w-full rounded-full shadow-sm transition-colors duration-300 ${
+                      darkMode
+                        ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                        : 'bg-pink-400 hover:bg-pink-500 text-white'
+                    }`}
+                    aria-label="Search with Tags"
+                  >
+                    Search with Tags
+                  </Button>
+                </PopoverContent>
+              </Popover>
+              {isSearching ? (
+                <Button
+                  onClick={() => {
+                    textSocket.emit('cancel_search');
+                    setIsSearching(false);
+                    setNoUsersOnline(false);
+                    setReplyTo(null);
+                    setMessages([]);
+                    toast('Search cancelled.');
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className={`cursor-pointer ${
+                    darkMode
+                      ? 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                      : 'bg-red-500 hover:bg-red-600 text-white border-red-500'
+                  } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+                  aria-label="Cancel Search"
+                >
+                  Cancel
+                </Button>
+              ) : connected ? (
+                <Button
+                  onClick={handleNextChat}
+                  variant="outline"
+                  size="sm"
+                  className={`cursor-pointer ${
+                    darkMode
+                      ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                      : 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                  } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+                  aria-label="Next Match"
+                >
+                  Next
+                </Button>
+              ) : (
+                <Button
+                  onClick={startSearch}
+                  variant="outline"
+                  size="sm"
+                  className={`cursor-pointer ${
+                    darkMode
+                      ? 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                      : 'bg-green-500 hover:bg-green-600 text-white border-green-500'
+                  } rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
+                  aria-label="Find Match"
+                >
+                  Find
+                </Button>
+              )}
+            </div>
+          </header>
+
+          {/* Main Content Area */}
+          <main
+            className={`flex flex-col flex-1 overflow-hidden ${
+              darkMode
+                ? 'bg-gradient-to-b from-gray-800 to-gray-900'
+                : 'bg-gradient-to-b from-gray-100 to-white'
+            }`}
+          >
+            {connected && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Messages Area */}
+                <div
+                  className="flex-1 relative px-4"
+                  style={{ height: '100%', width: '100%', overflow: 'hidden' }}
+                >
+<Virtuoso
+  ref={virtuosoRef}
+  data={messages}
+  itemContent={(index, message) => {
+    const showSeen =
+      message.isSelf &&
+      message.id ===
+        messages
+          .filter((m) => m.isSelf && m.seen)
+          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.id;
+    return (
+      <MessageListItem
+        key={message.id}
+        message={message}
+        onDoubleTap={handleDoubleTap}
+        onReply={handleReply}
+        darkMode={darkMode}
+        onInView={handleInView}
+        showSeen={showSeen}
+      />
+    );
+  }}
+  className="virtuoso-scrollbar"
+  style={{ height: '100%', width: '100%' }}
+  followOutput={true} // Enable auto-scroll to the newest message
+  overscan={100} // Add overscan to preload nearby messages
+/>
+
+                  {/* Introductory Message */}
+                  {showIntroMessage && messages.length === 0 && (
                     <motion.div
                       key="intro-message"
                       initial={{ opacity: 0, y: 20 }}
@@ -1785,174 +1779,117 @@ export default function TextChatPage() {
                       transition={{ duration: 0.3 }}
                       className={`p-4 rounded-lg ${
                         darkMode ? 'bg-blue-900/50' : 'bg-blue-100'
-                      } shadow-inner`}
+                      } shadow-inner absolute top-4 left-4 right-4 z-20`}
                     >
                       <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
                         Welcome to Vimegle Text Chat!
                       </h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        You're now connected with a random stranger. Say hello
-                        and start chatting!
+                      <p className="text-gray-700 dark:text-gray-300 break-words">
+                        You're now connected with a random stranger. Say hello and start chatting!
                       </p>
                       {matchedTags.length > 0 && (
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                          Connected based on tags:{' '}
-                          <strong>{matchedTags.join(', ')}</strong>
+                          Connected based on tags: <strong>{matchedTags.join(', ')}</strong>
                         </p>
                       )}
-                      {!matchedTags.length && (
+                      {matchedTags.length === 0 && (
                         <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                          Connected to a stranger! Feel free to start the
-                          conversation.
+                          Connected to a stranger! Feel free to start the conversation.
                         </p>
                       )}
                       <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Remember to be respectful and follow our community
-                        guidelines.
+                        Remember to be respectful and follow our community guidelines.
                       </p>
                     </motion.div>
                   )}
-                </AnimatePresence>
-                <div ref={messagesEndRef} />
-              </div>
-            </ScrollArea>
+                </div>
 
-            {/* Input Box */}
-            <div
-              className={`relative px-4 py-2 ${
-                darkMode ? 'bg-gray-800' : 'bg-gray-100'
-              } flex-shrink-0`}
-            >
-              {replyTo && (
-                <ReplyPreview
-                  originalMessage={replyTo}
-                  onCancelReply={cancelReply}
-                />
-              )}
-              <div className="relative">
-                {/* Typing Indicator */}
-                {isTyping && !isSelfTyping && !replyTo && (
-                  <MemoizedTypingIndicator darkMode={darkMode} />
-                )}
+                {/* Input Area */}
+                <div
+                  className={`relative px-4 py-2 ${
+                    darkMode ? 'bg-gray-900' : 'bg-gray-100'
+                  } flex-shrink-0`}
+                >
+                  {/* Reply Preview */}
+                  {replyTo && (
+                    <ReplyPreview
+                      originalMessage={replyTo}
+                      onCancelReply={cancelReply}
+                    />
+                  )}
 
-                <div className="relative">
-                  <Input
-                    id="message-input"
-                    type="text"
-                    value={inputMessage}
-                    onChange={handleInputChange} // Use debounced handler
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSendMessage();
-                    }}
-                    placeholder="Type a message..."
-                    disabled={!connected}
-                    autoComplete="off"
-                    className={`w-full ${
-                      darkMode
-                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-                        : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
-                    } pr-24 pl-4 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                    aria-label="Message Input"
-                  />
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                  {/* Typing Indicator */}
+                  {isTyping && !isSelfTyping && !replyTo && (
+                    <div className="mb-2">
+                      <MemoizedTypingIndicator darkMode={darkMode} />
+                    </div>
+                  )}
+
+                  {/* Input and Buttons */}
+                  <div className="relative flex items-center space-x-2">
+                    <Input
+                      id="message-input"
+                      type="text"
+                      value={inputMessage}
+                      onChange={handleInputChange}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSendMessage();
+                      }}
+                      placeholder="Type a message..."
+                      disabled={!connected}
+                      autoComplete="off"
+                      className={`w-full ${
+                        darkMode
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                          : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+                      } pr-4 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      aria-label="Message Input"
+                    />
+
+                    {/* Emoji Picker Toggle */}
                     <Button
                       size="icon"
-                      variant="ghost"
-                      onClick={() => setShowEmojiPicker((prev) => !prev)}
-                      className={`${
-                        darkMode
-                          ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
-                      } rounded-full w-10 h-10 transition-colors duration-300`}
+                      onClick={() => setShowEmojiPicker(prev => !prev)}
+                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+                        showEmojiPicker
+                          ? darkMode
+                            ? 'text-white'
+                            : 'text-gray-900'
+                          : darkMode
+                          ? 'text-gray-500'
+                          : 'text-gray-700'
+                      }`}
                       aria-label="Toggle Emoji Picker"
                     >
                       <Smile className="w-5 h-5" />
                     </Button>
 
+                    {/* Send Button */}
                     <Button
                       onClick={handleSendMessage}
                       disabled={!connected || !inputMessage.trim()}
                       size="icon"
-                      className={`${
-                        darkMode
-                          ? 'bg-blue-600 hover:bg-blue-700'
-                          : 'bg-blue-500 hover:bg-blue-600'
-                      } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
-                        !connected || !inputMessage.trim()
-                          ? 'opacity-50 cursor-not-allowed'
-                          : ''
-                      }`}
+                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+                        darkMode ? 'text-white' : 'text-gray-700'
+                      } ${!connected || !inputMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
                       aria-label="Send Message"
                     >
                       <Send className="w-5 h-5" />
                     </Button>
                   </div>
+
+                  {/* Emoji Picker */}
+                  {showEmojiPicker && (
+                    <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
+                      <MemoizedEmojiPicker onEmojiClick={handleEmojiClick} darkMode={darkMode} />
+                    </div>
+                  )}
                 </div>
-
-                {showEmojiPicker && (
-                  <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
-                    <MemoizedEmojiPicker
-                      onEmojiClick={handleEmojiClick}
-                      darkMode={darkMode}
-                    />
-                  </div>
-                )}
               </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* <footer
-        className={`${
-          darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-        } border-t p-4 flex justify-between items-center shadow-sm`}
-      >
-        <div className="flex space-x-4">
-          <Button
-            onClick={handleSwitchToVideo}
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } flex items-center space-x-2 rounded-full shadow-sm transition-colors duration-300 px-4 py-2`}
-            aria-label="Switch to Video Chat"
-          >
-            <Video className="w-5 h-5" />
-            <span className="text-sm hidden sm:inline">Video</span>
-          </Button>
+            )}
+          </main>
         </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } rounded-full p-2 shadow-sm transition-colors duration-300`}
-            onClick={() => toast('Feature not implemented yet')}
-            aria-label="Flag"
-          >
-            <Flag className="w-5 h-5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`${
-              darkMode
-                ? 'text-white hover:text-gray-300 hover:bg-gray-700'
-                : 'text-gray-700 hover:text-gray-500 hover:bg-gray-200'
-            } rounded-full p-2 shadow-sm transition-colors duration-300`}
-            onClick={() => toast('Feature not implemented yet')}
-            aria-label="Alert"
-          >
-            <AlertTriangle className="w-5 h-5" />
-          </Button>
-        </div>
-      </footer> */}
-    </div>
-    </DisclaimerProvder>
+      </DisclaimerProvder>
+    </>
   );
 }

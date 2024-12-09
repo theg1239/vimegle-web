@@ -70,7 +70,11 @@ export const profaneWords: string[] = [
   'F ?',
   'F    ?',
   'B/G',
-  '  F? '
+  '  F? ',
+  'malew',
+  'femalew',
+  'male or f',
+  'female'
 ];
 
 const normalizeText = (text: string): string => {

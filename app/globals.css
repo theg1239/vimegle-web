@@ -75,3 +75,77 @@ html {
 .animate-fall {
   animation: fall linear infinite;
 }
+.neon-text {
+  color: #ffffff; 
+  text-shadow: 
+    0 0 3px rgba(255, 0, 0, 0.8),   
+    0 0 5px rgba(255, 0, 0, 0.7), 
+    0 0 8px rgba(255, 51, 0, 0.6),  
+    0 0 10px rgba(255, 51, 0, 0.5), 
+    0 0 12px rgba(51, 204, 255, 0.4),  
+    0 0 15px rgba(51, 204, 255, 0.3);
+  font-size: 2rem; 
+  font-weight: bold; 
+  animation: neon-pulse 2s infinite alternate;
+}
+
+@keyframes neon-pulse {
+  0% {
+    text-shadow: 
+      0 0 3px rgba(255, 0, 0, 0.8), 
+      0 0 5px rgba(255, 0, 0, 0.7), 
+      0 0 8px rgba(255, 51, 0, 0.6), 
+      0 0 10px rgba(255, 51, 0, 0.5), 
+      0 0 12px rgba(51, 204, 255, 0.4), 
+      0 0 15px rgba(51, 204, 255, 0.3);
+  }
+  100% {
+    text-shadow: 
+      0 0 5px rgba(255, 51, 0, 0.7), 
+      0 0 8px rgba(255, 51, 0, 0.6), 
+      0 0 10px rgba(255, 170, 51, 0.5), 
+      0 0 12px rgba(255, 170, 51, 0.4), 
+      0 0 15px rgba(102, 217, 255, 0.3), 
+      0 0 18px rgba(102, 217, 255, 0.3);
+  }
+}
+
+.message-bubble {
+  max-width: 60%; /* Adjust as needed */
+  word-wrap: break-word;
+  padding: 10px;
+  border-radius: 10px;
+  margin: 5px 0;
+}
+
+.message-self {
+  background-color: #007bff; /* Customize */
+  color: white;
+  margin-left: auto;
+  text-align: right;
+}
+
+.message-stranger {
+  background-color: #f1f1f1; /* Customize */
+  color: black;
+  margin-right: auto;
+  text-align: left;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 0px;
+  background: transparent; /* Optional: just make scrollbar invisible */
+}
+
+.custom-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.hide-scrollbar {
+  scrollbar-width: none; 
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

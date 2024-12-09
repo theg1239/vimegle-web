@@ -32,9 +32,9 @@ export default function middleware(request: NextRequest) {
   }
 
   if (country === 'UNKNOWN') {
-    ////console.log('Visitor country is UNKNOWN, treating as disallowed.');
+    console.log('Visitor country is UNKNOWN, treating as disallowed.');
   } else {
-    //console.log(`Non-allowed visitor detected from country: ${country}`);
+    console.log(`Non-allowed visitor detected from country: ${country}`);
   }
 
   request.nextUrl.pathname = '/error';

@@ -30,23 +30,24 @@ const VideoChat: React.FC<VideoChatProps> = ({
   const [model, setModel] = useState<nsfwjs.NSFWJS | null>(null);
   const [frameScores, setFrameScores] = useState<number[]>([]);
   const [nsfwDetectionEnabled, setNSFWDetectionEnabled] = useState(true);
-  const [motionThreshold, setMotionThreshold] = useState(20); // Threshold for motion detection
+  const [motionThreshold, setMotionThreshold] = useState(20);
   const [previousFrame, setPreviousFrame] = useState<ImageData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const WEIGHTS = {
-    Porn: 1.5,
+    Porn: 1.0,
     Sexy: 0.3,
-    Hentai: 1.5,
+    Hentai: 1.0,
     Neutral: 0.0,
     Drawing: 0.0,
   };
 
-  const AVERAGE_THRESHOLD = 0.7;
-  const FRAME_BUFFER_SIZE = 10;
-  const FRAME_INTERVAL = 2000; // Increased to 2 seconds to reduce processing
+  const AVERAGE_THRESHOLD = 0.9;
+  const FRAME_BUFFER_SIZE = 30;
+  const FRAME_INTERVAL = 5000; 
+  const REQUIRED_CONSECUTIVE_HIGH = 3; 
+  const [consecutiveHighAverages, setConsecutiveHighAverages] = useState(0);
 
-  // Load NSFW.js model
   useEffect(() => {
     const loadModel = async () => {
       try {
@@ -64,7 +65,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
     loadModel();
   }, []);
 
-  // Function to compute difference between two frames for motion detection
   const computeFrameDifference = (currentFrame: ImageData, previousFrame: ImageData): number => {
     let diff = 0;
     for (let i = 0; i < currentFrame.data.length; i += 4) {
@@ -76,7 +76,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
     return diff / (currentFrame.width * currentFrame.height);
   };
 
-  // Analyze frame for NSFW content with motion detection
   const analyzeFrame = useCallback(async () => {
     if (
       !model ||
@@ -98,8 +97,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       return;
     }
 
-    // Downscale the video for faster processing
-    const downscaleFactor = 0.5; // Reduced to 50% for performance
+    const downscaleFactor = 0.5; 
     canvas.width = video.videoWidth * downscaleFactor;
     canvas.height = video.videoHeight * downscaleFactor;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -107,11 +105,9 @@ const VideoChat: React.FC<VideoChatProps> = ({
     try {
       const currentFrame = context.getImageData(0, 0, canvas.width, canvas.height);
 
-      // Motion Detection
       if (previousFrame) {
         const frameDifference = computeFrameDifference(currentFrame, previousFrame);
         if (frameDifference < motionThreshold) {
-          // Low motion detected, skip analysis to prevent false positives
           console.log(`Low motion detected (${frameDifference.toFixed(2)}), skipping frame analysis.`);
           return;
         }
@@ -130,7 +126,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
       const combinedScore =
         pornScore * WEIGHTS.Porn + hentaiScore * WEIGHTS.Hentai;
 
-      if (combinedScore > 0.8) {
+      if (combinedScore > 0.95) {
         setIsNSFW(true);
         setIsBlocked(true);
       }
@@ -147,7 +143,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
     }
   }, [model, remoteVideoRef, isBlocked, nsfwDetectionEnabled, previousFrame, motionThreshold, isAnalyzing]);
 
-  // Schedule frame analysis at intervals
   useEffect(() => {
     if (!connected || !remoteStream || !model) return;
 
@@ -158,7 +153,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
     return () => clearInterval(interval);
   }, [connected, remoteStream, model, analyzeFrame]);
 
-  // Play remote video stream
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
@@ -175,23 +169,27 @@ const VideoChat: React.FC<VideoChatProps> = ({
     }
   }, [remoteStream, remoteVideoRef]);
 
-  // Analyze average score
   useEffect(() => {
     if (frameScores.length === FRAME_BUFFER_SIZE) {
       const averageScore =
         frameScores.reduce((a, b) => a + b, 0) / FRAME_BUFFER_SIZE;
-      console.log('Average NSFW Score:', averageScore); // Debugging
+      console.log('Average NSFW Score:', averageScore); 
+
       if (averageScore > AVERAGE_THRESHOLD) {
-        setIsNSFW(true);
-        setIsBlocked(true);
+        setConsecutiveHighAverages(prev => prev + 1);
+        if (consecutiveHighAverages + 1 >= REQUIRED_CONSECUTIVE_HIGH) {
+          setIsNSFW(true);
+          setIsBlocked(true);
+        }
       } else {
-        setIsNSFW(false);
-        setIsBlocked(false);
+        setConsecutiveHighAverages(0);
+        if (!isNSFW) {
+          setIsBlocked(false);
+        }
       }
     }
-  }, [frameScores]);
+  }, [frameScores, consecutiveHighAverages, isNSFW]);
 
-  // Reset states when chat state changes
   useEffect(() => {
     if (chatState === 'searching' || chatState === 'idle') {
       setIsBlocked(false);
@@ -199,22 +197,23 @@ const VideoChat: React.FC<VideoChatProps> = ({
       setFrameScores([]);
       setNSFWDetectionEnabled(true);
       setPreviousFrame(null);
+      setConsecutiveHighAverages(0);
     }
   }, [chatState]);
 
-  // Handle "Show Anyway"
   const handleShowAnyway = () => {
     setNSFWDetectionEnabled(false);
     setIsBlocked(false);
     setIsNSFW(false);
+    setConsecutiveHighAverages(0);
   };
 
-  // Handle user toggling NSFW detection
   const toggleNSFWDetection = () => {
     setNSFWDetectionEnabled((prev) => !prev);
     if (isNSFW && nsfwDetectionEnabled) {
       setIsBlocked(false);
       setIsNSFW(false);
+      setConsecutiveHighAverages(0);
     }
   };
 
@@ -238,8 +237,7 @@ const VideoChat: React.FC<VideoChatProps> = ({
             NSFW Content Detected
           </p>
           <p className="text-gray-300 mt-2 text-center">
-            This video contains potentially inappropriate content and has been
-            blurred for your safety.
+            This video appears to contain inappropriate content and has been blurred for your safety.
           </p>
           <button
             onClick={handleShowAnyway}
@@ -273,7 +271,6 @@ const VideoChat: React.FC<VideoChatProps> = ({
         </div>
       )}
 
-      {/* Optional: NSFW Detection Toggle */}
       <div className="absolute top-2 right-2">
         <button
           onClick={toggleNSFWDetection}
