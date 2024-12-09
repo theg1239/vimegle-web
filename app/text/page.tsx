@@ -9,8 +9,7 @@ import React, {
   FC,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FixedSizeList as List } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
+import { Virtuoso } from 'react-virtuoso'; // Import Virtuoso
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Toaster, toast } from 'react-hot-toast';
@@ -42,39 +41,38 @@ import { debounce } from 'lodash';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
+import { VirtuosoHandle } from 'react-virtuoso';
 
-// Responsive ITEM_HEIGHT based on viewport width
-const useResponsiveItemHeight = () => {
-  const [itemHeight, setItemHeight] = useState(100);
-
-  const handleResize = useCallback(() => {
-    const width = window.innerWidth;
-    if (width <= 480) {
-      setItemHeight(120); // Mobile
-    } else if (width <= 768) {
-      setItemHeight(100); // Tablet
-    } else {
-      setItemHeight(80); // Desktop
-    }
-  }, []);
+// Dynamic Viewport Height Handling
+const useViewportHeight = () => {
+  const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    handleResize(); // Set initial height
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [handleResize]);
+    const setVh = () => {
+      const vh = window.innerHeight * 0.01;
+      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      if (mainRef.current) {
+        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
+      }
+    };
 
-  return itemHeight;
-};
+    setVh();
+    window.addEventListener('resize', setVh);
+    return () => {
+      window.removeEventListener('resize', setVh);
+    };
+  }, []);
 
-const noScrollbarStyle: React.CSSProperties = {
-  scrollbarWidth: 'none',
-  msOverflowStyle: 'none',
+  return mainRef;
 };
 
 const hideScrollbarCSS = `
-.no-scrollbar::-webkit-scrollbar {
+.virtuoso-scrollbar::-webkit-scrollbar {
   display: none;
+}
+.virtuoso-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 `;
 
@@ -230,27 +228,18 @@ MemoizedEmojiPicker.displayName = 'MemoizedEmojiPicker';
 
 // Message List Item Component
 interface MessageListItemProps {
-  index: number;
-  style: React.CSSProperties;
-  data: {
-    messages: Message[];
-    onDoubleTap: (messageId: string, isSelf: boolean) => void;
-    onReply: (message: Message) => void;
-    darkMode: boolean;
-    onInView: (messageId: string, inView: boolean) => void;
-    lastSeenMessageId: string | null;
-  };
+  message: Message;
+  onDoubleTap: (messageId: string, isSelf: boolean) => void;
+  onReply: (message: Message) => void;
+  darkMode: boolean;
+  onInView: (messageId: string, inView: boolean) => void;
+  showSeen: boolean;
 }
 
 const MessageListItem: React.FC<MessageListItemProps> = React.memo(
-  ({ index, style, data }) => {
-    const { messages, onDoubleTap, onReply, darkMode, onInView, lastSeenMessageId } =
-      data;
-    const message = messages[index];
-    const showSeen = message.isSelf && message.id === lastSeenMessageId;
-
+  ({ message, onDoubleTap, onReply, darkMode, onInView, showSeen }) => {
     return (
-      <div style={style}>
+      <div>
         <MessageBubble
           key={message.id}
           message={message}
@@ -294,7 +283,7 @@ export default function TextChatPage() {
   const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isSelfTyping, setIsSelfTyping] = useState(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
-  const mainRef = useRef<HTMLDivElement>(null);
+  const mainRef = useViewportHeight();
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
   const [isReporting, setIsReporting] = useState(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
@@ -310,10 +299,8 @@ export default function TextChatPage() {
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
 
-  const listRef = useRef<List>(null); // Ref for the react-window List
-
-  const ITEM_HEIGHT = useResponsiveItemHeight(); // Use responsive item height
-
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
+  
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -579,8 +566,11 @@ export default function TextChatPage() {
         playMessageSound();
       }
 
-      if (listRef.current) {
-        listRef.current.scrollToItem(messages.length, 'end');
+      if (virtuosoRef.current) {
+        virtuosoRef.current.scrollToIndex({
+          index: messages.length,
+          behavior: 'smooth',
+        });
       }
     },
     [messages, playMessageSound]
@@ -944,10 +934,9 @@ export default function TextChatPage() {
     });
 
     setMessages(prev => {
-      const updated = prev.map(msg => ({ ...msg, seen: false }));
-      const newMessages = [...updated, newMessage];
-      if (newMessages.length > 1000) newMessages.shift();
-      return newMessages;
+      const updated = [...prev, newMessage];
+      if (updated.length > 1000) updated.shift();
+      return updated;
     });
     setInputMessage('');
     setReplyTo(null);
@@ -960,8 +949,11 @@ export default function TextChatPage() {
 
     handleStopTyping();
 
-    if (listRef.current) {
-      listRef.current.scrollToItem(messages.length, 'end');
+    if (virtuosoRef.current) {
+      virtuosoRef.current.scrollToIndex({
+        index: messages.length,
+        behavior: 'smooth',
+      });
     }
   }, [
     inputMessage,
@@ -1009,8 +1001,11 @@ export default function TextChatPage() {
         });
       }
 
-      if (listRef.current) {
-        listRef.current.scrollToItem(messages.length, 'end');
+      if (virtuosoRef.current) {
+        virtuosoRef.current.scrollToIndex({
+          index: messages.length,
+          behavior: 'smooth',
+        });
       }
     },
     [messages, currentRoom]
@@ -1206,28 +1201,13 @@ export default function TextChatPage() {
 
   // Auto-Scroll to Latest Message
   useEffect(() => {
-    if (listRef.current) {
-      listRef.current.scrollToItem(messages.length - 1, 'end');
+    if (virtuosoRef.current) {
+      virtuosoRef.current.scrollToIndex({
+        index: messages.length,
+        behavior: 'smooth',
+      });
     }
   }, [messages]);
-
-  // Dynamic Viewport Height Handling
-  useEffect(() => {
-    const resizeHandler = () => {
-      if (mainRef.current) {
-        const vh = window.innerHeight * 0.01;
-        document.documentElement.style.setProperty('--vh', `${vh}px`);
-        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
-      }
-    };
-
-    resizeHandler();
-    window.addEventListener('resize', resizeHandler);
-
-    return () => {
-      window.removeEventListener('resize', resizeHandler);
-    };
-  }, []);
 
   return (
     <>
@@ -1614,7 +1594,7 @@ export default function TextChatPage() {
                             isTrending(tag) ? 'glowing' : ''
                           } ${
                             tags.includes(tag)
-                              ? 'bg-blue-500 text-white hover:bg-blue-600'
+                              ? 'bg-pink-500 text-white hover:bg-pink-600'
                               : darkMode
                               ? 'border-gray-600 text-gray-300 hover:bg-gray-700'
                               : 'border-gray-300 text-gray-800 hover:bg-gray-100'
@@ -1749,31 +1729,34 @@ export default function TextChatPage() {
                 {/* Messages Area */}
                 <div
                   className="flex-1 relative px-4"
-                  style={noScrollbarStyle}
+                  style={{ height: '100%', width: '100%', overflow: 'hidden' }}
                 >
-                  <AutoSizer>
-                    {({ width, height }) => (
-                      <List
-                        ref={listRef}
-                        height={height}
-                        itemCount={messages.length}
-                        itemSize={ITEM_HEIGHT}
-                        width={width}
-                        itemData={{
-                          messages,
-                          onDoubleTap: handleDoubleTap,
-                          onReply: handleReply,
-                          darkMode,
-                          onInView: handleInView,
-                          lastSeenMessageId: lastSeenMessageId,
-                        }}
-                        className="no-scrollbar"
-                        style={{ overflowX: 'hidden', ...noScrollbarStyle }}
-                      >
-                        {MessageListItem}
-                      </List>
-                    )}
-                  </AutoSizer>
+                  <Virtuoso
+                    ref={virtuosoRef}
+                    data={messages}
+                    itemContent={(index, message) => {
+                      const showSeen =
+                        message.isSelf &&
+                        message.id ===
+                          messages
+                            .filter((m) => m.isSelf && m.seen)
+                            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.id;
+                      return (
+                        <MessageListItem
+                          key={message.id}
+                          message={message}
+                          onDoubleTap={handleDoubleTap}
+                          onReply={handleReply}
+                          darkMode={darkMode}
+                          onInView={handleInView}
+                          showSeen={showSeen}
+                        />
+                      );
+                    }}
+                    className="virtuoso-scrollbar"
+                    style={{ height: '100%', width: '100%' }}
+                    followOutput={true} // Auto-scroll to bottom when new items are added
+                  />
 
                   {/* Introductory Message */}
                   {showIntroMessage && messages.length === 0 && (
@@ -1854,25 +1837,21 @@ export default function TextChatPage() {
 
                     {/* Emoji Picker Toggle */}
                     <Button
-  size="icon"
-  onClick={() => setShowEmojiPicker(prev => !prev)}
-  className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
-    showEmojiPicker
-      ? darkMode
-        ? 'text-white'
-        : 'text-gray-900'
-      : darkMode
-      ? 'text-gray-500'
-      : 'text-gray-700'
-  }`}
-  aria-label="Toggle Emoji Picker"
->
-  <Smile className="w-5 h-5" />
-</Button>
-
-
-
-
+                      size="icon"
+                      onClick={() => setShowEmojiPicker(prev => !prev)}
+                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+                        showEmojiPicker
+                          ? darkMode
+                            ? 'text-white'
+                            : 'text-gray-900'
+                          : darkMode
+                          ? 'text-gray-500'
+                          : 'text-gray-700'
+                      }`}
+                      aria-label="Toggle Emoji Picker"
+                    >
+                      <Smile className="w-5 h-5" />
+                    </Button>
 
                     {/* Send Button */}
                     <Button
