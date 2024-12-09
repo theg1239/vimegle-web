@@ -1800,7 +1800,7 @@ export default function TextChatPage() {
 
                 {/* Input Area */}
                 <div
-                  className={`relative px-4 py-2 ${
+                  className={`relative px-4 py-6 pb-4 ${
                     darkMode ? 'bg-gray-900' : 'bg-gray-100'
                   } flex-shrink-0`}
                 >
