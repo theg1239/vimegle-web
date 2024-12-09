@@ -752,7 +752,7 @@ export default function ChatPage() {
             remoteUser={remoteUser}
             localUser={{
               name: 'You',
-              avatarUrl: '', // Set avatar URL if available
+              avatarUrl: '', 
             }}
             toggleMic={toggleMicHandler}
             toggleDeafen={toggleDeafenHandler}
