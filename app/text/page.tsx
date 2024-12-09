@@ -43,22 +43,23 @@ import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
 
+// Responsive ITEM_HEIGHT based on viewport width
 const useResponsiveItemHeight = () => {
   const [itemHeight, setItemHeight] = useState(100);
 
   const handleResize = useCallback(() => {
     const width = window.innerWidth;
     if (width <= 480) {
-      setItemHeight(120); 
+      setItemHeight(120); // Mobile
     } else if (width <= 768) {
-      setItemHeight(100); 
+      setItemHeight(100); // Tablet
     } else {
-      setItemHeight(80); 
+      setItemHeight(80); // Desktop
     }
   }, []);
 
   useEffect(() => {
-    handleResize(); 
+    handleResize(); // Set initial height
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [handleResize]);
@@ -77,6 +78,7 @@ const hideScrollbarCSS = `
 }
 `;
 
+// Modal Components
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
   darkMode: boolean;
@@ -152,6 +154,7 @@ const PeerDisconnectedModal: FC<{
   </motion.div>
 );
 
+// Reply Preview Component
 interface ReplyPreviewProps {
   originalMessage: Message;
   onCancelReply: () => void;
@@ -167,7 +170,7 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
         <span className="text-sm font-semibold">
           {originalMessage.isSelf ? 'You' : 'Stranger'}
         </span>
-        <p className="text-sm text-gray-700 dark:text-gray-200">
+        <p className="text-sm text-gray-700 dark:text-gray-200 break-words">
           {originalMessage.text}
         </p>
       </div>
@@ -184,6 +187,7 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
   );
 };
 
+// Typing Indicator Component
 interface TypingIndicatorProps {
   darkMode: boolean;
 }
@@ -207,6 +211,7 @@ const MemoizedTypingIndicator = React.memo(
 );
 MemoizedTypingIndicator.displayName = 'MemoizedTypingIndicator';
 
+// Emoji Picker Component
 interface EmojiPickerProps {
   onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
   darkMode: boolean;
@@ -223,6 +228,7 @@ const MemoizedEmojiPicker = React.memo(
 );
 MemoizedEmojiPicker.displayName = 'MemoizedEmojiPicker';
 
+// Message List Item Component
 interface MessageListItemProps {
   index: number;
   style: React.CSSProperties;
@@ -261,6 +267,7 @@ const MessageListItem: React.FC<MessageListItemProps> = React.memo(
 );
 MessageListItem.displayName = 'MessageListItem';
 
+// Main TextChatPage Component
 export default function TextChatPage() {
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -323,6 +330,7 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
+  // Handle Typing Indicators from Peer
   const handleTypingFromPeer = useCallback((data?: { sender?: string }) => {
     if (!data?.sender || data.sender === textSocket.id) return;
     setIsTyping(true);
@@ -341,6 +349,7 @@ export default function TextChatPage() {
     setIsTyping(false);
   }, []);
 
+  // Handle Self Typing
   const handleTyping = useCallback(() => {
     if (connected && currentRoom) {
       setIsSelfTyping(true);
@@ -372,6 +381,7 @@ export default function TextChatPage() {
     };
   }, [debouncedHandleTyping, debouncedHandleStopTyping]);
 
+  // Sound Functions
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
@@ -396,12 +406,14 @@ export default function TextChatPage() {
     } catch {}
   }, []);
 
+  // User Interaction Detection
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
       setHasInteracted(true);
     }
   }, [hasInteracted]);
 
+  // Start Search for Chat Match
   const startSearch = useCallback(() => {
     setIsSearching(true);
     setSearchCancelled(false);
@@ -421,6 +433,7 @@ export default function TextChatPage() {
     }
   }, [tags]);
 
+  // Handle Reply to a Message
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
     document.getElementById('message-input')?.focus();
@@ -430,6 +443,7 @@ export default function TextChatPage() {
     setReplyTo(null);
   }, []);
 
+  // Handle Successful Text Match
   const handleTextMatch = useCallback(
     ({
       room,
@@ -473,6 +487,7 @@ export default function TextChatPage() {
     [playNotificationSound]
   );
 
+  // Handle No Text Match Found
   const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
     setIsSearching(false);
     setNoUsersOnline(true);
@@ -482,6 +497,7 @@ export default function TextChatPage() {
     toast.error(message || 'No users found with matching tags.', { id: toastId });
   }, []);
 
+  // Handle Search Cancellation
   const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
     setIsSearching(false);
     setSearchCancelled(true);
@@ -492,6 +508,7 @@ export default function TextChatPage() {
     toast(message || 'Search cancelled.', { id: toastId });
   }, []);
 
+  // Handle Message Visibility (Seen)
   const handleInView = useCallback(
     (messageId: string, inView: boolean) => {
       if (!inView) return;
@@ -515,6 +532,7 @@ export default function TextChatPage() {
     [currentRoom, seenMessages]
   );
 
+  // Handle Incoming Text Messages
   const handleTextMessage = useCallback(
     ({
       message,
@@ -568,6 +586,7 @@ export default function TextChatPage() {
     [messages, playMessageSound]
   );
 
+  // Handle Reaction Updates
   const handleReactionUpdate = useCallback(
     ({ messageId, liked }: { messageId: string; liked: boolean }) => {
       setMessages(prevMessages =>
@@ -577,6 +596,7 @@ export default function TextChatPage() {
     []
   );
 
+  // Handle Toast Notifications
   const handleToastNotification = useCallback(
     ({ message }: { message: string }) => {
       const toastId = `toast-${message}`;
@@ -586,12 +606,14 @@ export default function TextChatPage() {
     []
   );
 
+  // Handle Peer Message Seen
   const handlePeerMessageSeen = useCallback(({ messageId }: { messageId: string }) => {
     setMessages(prevMessages =>
       prevMessages.map(msg => (msg.id === messageId ? { ...msg, seen: true } : msg))
     );
   }, []);
 
+  // Handle Peer Searching for New Match
   const handlePeerSearching = useCallback(({ message }: { message: string }) => {
     setConnected(false);
     setMessages([]);
@@ -613,6 +635,7 @@ export default function TextChatPage() {
     }
   }, [playDisconnectSound]);
 
+  // Handle Peer Disconnection
   const handlePeerDisconnected = useCallback(
     ({ message }: { message: string }) => {
       if (isUserInitiatedDisconnect) {
@@ -639,12 +662,14 @@ export default function TextChatPage() {
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
+  // Handle Message Seen by Peer
   const handleMessageSeen = useCallback(({ messageId }: { messageId: string }) => {
     setMessages(prevMessages =>
       prevMessages.map(msg => (msg.id === messageId ? { ...msg, seen: true } : msg))
     );
   }, []);
 
+  // Setup Socket Event Listeners
   useEffect(() => {
     if (!textSocket) return;
 
@@ -691,6 +716,7 @@ export default function TextChatPage() {
     textSocket,
   ]);
 
+  // Handle Window Unload to Disconnect Properly
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (connected && currentRoom) {
@@ -707,6 +733,7 @@ export default function TextChatPage() {
     };
   }, [connected, currentRoom]);
 
+  // Default and Available Tags
   const defaultTags = useMemo(
     () => [
       'music',
@@ -733,6 +760,7 @@ export default function TextChatPage() {
 
   const isTrending = (tag: string) => trendingTags.includes(tag);
 
+  // Toggle Tag Selection
   const toggleTag = (tag: string) => {
     setTags(prevTags => {
       let newTags = prevTags.includes(tag)
@@ -751,6 +779,7 @@ export default function TextChatPage() {
     });
   };
 
+  // Handle Adding Custom Tag
   const handleAddCustomTag = useCallback(() => {
     if (customTagInput.trim().length > 0) {
       if (customTag) {
@@ -783,6 +812,7 @@ export default function TextChatPage() {
     }
   }, [customTag, customTagInput]);
 
+  // Clear Messages When Not Connected or Searching
   useEffect(() => {
     if (!connected && !isSearching) {
       setMessages([]);
@@ -790,6 +820,7 @@ export default function TextChatPage() {
     }
   }, [connected, isSearching]);
 
+  // Tooltip for Searching
   useEffect(() => {
     if (isSearching && !tooltipShownRef.current) {
       tooltipShownRef.current = true;
@@ -808,6 +839,7 @@ export default function TextChatPage() {
     }
   }, [isSearching]);
 
+  // Show Like Message Once
   useEffect(() => {
     const hasSeenMessage = localStorage.getItem('seenLikeMessage');
     if (!hasSeenMessage) {
@@ -822,6 +854,7 @@ export default function TextChatPage() {
     }
   }, []);
 
+  // Handle Moving to Next Chat
   const handleNext = useCallback(() => {
     if (connected && currentRoom) {
       setIsUserInitiatedDisconnect(true);
@@ -842,6 +875,7 @@ export default function TextChatPage() {
 
   const [chatState, setChatState] = useState<string>('idle');
 
+  // Handle Returning to Search from Peer Searching Modal
   const handleReturnToSearch = useCallback(() => {
     setIsPeerSearching(false);
     setConnected(false);
@@ -857,6 +891,7 @@ export default function TextChatPage() {
     setIsPeerSearching(false);
   }, []);
 
+  // Handle Sending a Message
   const handleSendMessage = useCallback(() => {
     if (!inputMessage.trim()) return;
 
@@ -938,12 +973,14 @@ export default function TextChatPage() {
     messages.length,
   ]);
 
+  // Handle Input Change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputMessage(e.target.value);
     debouncedHandleTyping();
     debouncedHandleStopTyping();
   };
 
+  // Handle Emoji Selection
   const handleEmojiClick = useCallback(
     (emojiData: EmojiClickData, event: MouseEvent) => {
       setInputMessage(prev => prev + emojiData.emoji);
@@ -954,6 +991,7 @@ export default function TextChatPage() {
     [debouncedHandleTyping, debouncedHandleStopTyping]
   );
 
+  // Handle Double Tap for Reactions
   const handleDoubleTap = useCallback(
     (messageId: string, isSelf: boolean) => {
       setMessages(prevMessages =>
@@ -978,12 +1016,14 @@ export default function TextChatPage() {
     [messages, currentRoom]
   );
 
+  // Notify Peer Disconnection
   const notifyPeerDisconnection = useCallback(() => {
     if (textSocket && currentRoom) {
       textSocket.emit('peerDisconnected', { room: currentRoom });
     }
   }, [currentRoom]);
 
+  // Handle Back Navigation (Browser Back Button)
   useEffect(() => {
     const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
       const confirmationMessage =
@@ -1015,6 +1055,7 @@ export default function TextChatPage() {
     };
   }, [notifyPeerDisconnection]);
 
+  // Handle Switching to Video Chat
   const handleSwitchToVideo = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to switch to video chat? This will disconnect your current text chat.'
@@ -1032,6 +1073,7 @@ export default function TextChatPage() {
     window.location.href = '/video';
   }, [notifyPeerDisconnection]);
 
+  // Handle Back Button in Header
   const handleBack = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
@@ -1051,6 +1093,7 @@ export default function TextChatPage() {
     }
   }, [currentRoom]);
 
+  // Handle Next Chat Button
   const handleNextChat = useCallback(() => {
     const confirmed = window.confirm(
       'Are you sure you want to move to the next chat? This will disconnect your current chat partner.'
@@ -1068,6 +1111,7 @@ export default function TextChatPage() {
     }
   }, [notifyPeerDisconnection, startSearch]);
 
+  // Handle Chat Download
   const downloadChat = useCallback(() => {
     if (fullChatHistory.length === 0) {
       toast.error('No messages to download.');
@@ -1098,6 +1142,7 @@ export default function TextChatPage() {
     toast.success('Chat downloaded successfully!');
   }, [fullChatHistory]);
 
+  // Handle Reporting Chat
   const handleReportChat = useCallback(async () => {
     if (isReporting) return;
     if (!currentRoom || fullChatHistory.length === 0) {
@@ -1151,6 +1196,7 @@ export default function TextChatPage() {
     };
   }, [debouncedHandleReportChat]);
 
+  // Calculate Last Seen Message
   const lastSeenMessageId = useMemo(() => {
     const selfSeenMessages = messages
       .filter(m => m.isSelf && m.seen)
@@ -1158,6 +1204,7 @@ export default function TextChatPage() {
     return selfSeenMessages.length > 0 ? selfSeenMessages[0].id : null;
   }, [messages]);
 
+  // Auto-Scroll to Latest Message
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollToItem(messages.length - 1, 'end');
@@ -1170,13 +1217,14 @@ export default function TextChatPage() {
       <DisclaimerProvder>
         <div
           ref={mainRef}
-          className={`flex flex-col h-screen relative ${
+          className={`flex flex-col min-h-screen relative ${
             darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
           }`}
           onClick={handleUserInteraction}
           onKeyDown={handleUserInteraction}
           onMouseMove={handleUserInteraction}
         >
+          {/* Snowfall Effect */}
           {winterTheme && (
             <Snowfall
               style={{
@@ -1193,6 +1241,7 @@ export default function TextChatPage() {
             />
           )}
 
+          {/* Toaster for Notifications */}
           <Toaster
             position="top-center"
             toastOptions={{
@@ -1204,6 +1253,7 @@ export default function TextChatPage() {
             }}
           />
 
+          {/* Background Vimegle Text */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <span
               className={`text-4xl font-bold select-none transition-opacity duration-300 ${
@@ -1218,6 +1268,7 @@ export default function TextChatPage() {
             </span>
           </div>
 
+          {/* Peer Searching Modal */}
           <AnimatePresence>
             {isPeerSearching && (
               <PeerSearchingModal
@@ -1227,6 +1278,7 @@ export default function TextChatPage() {
             )}
           </AnimatePresence>
 
+          {/* Searching Modal */}
           <AnimatePresence>
             {isSearching && (
               <motion.div
@@ -1273,6 +1325,7 @@ export default function TextChatPage() {
             )}
           </AnimatePresence>
 
+          {/* No Users Online Modal */}
           <AnimatePresence>
             {noUsersOnline && (
               <motion.div
@@ -1310,6 +1363,7 @@ export default function TextChatPage() {
             )}
           </AnimatePresence>
 
+          {/* Peer Disconnected Modal */}
           <AnimatePresence>
             {isDisconnected && (
               <PeerDisconnectedModal
@@ -1319,10 +1373,11 @@ export default function TextChatPage() {
             )}
           </AnimatePresence>
 
+          {/* Header */}
           <header
             className={`${
               darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-            } border-b p-4 flex justify-between items-center shadow-sm`}
+            } border-b p-4 flex justify-between items-center shadow-sm flex-shrink-0`}
           >
             {/* Header left side */}
             <div className="flex items-center space-x-3">
@@ -1493,6 +1548,7 @@ export default function TextChatPage() {
               </Popover>
             </div>
 
+            {/* Tag Selection and Action Buttons */}
             <div className="flex items-center space-x-4">
               <Popover open={showTagMenu} onOpenChange={setShowTagMenu}>
                 <PopoverTrigger asChild>
@@ -1662,6 +1718,7 @@ export default function TextChatPage() {
             </div>
           </header>
 
+          {/* Main Content Area */}
           <main
             className={`flex flex-col flex-1 overflow-hidden ${
               darkMode
@@ -1671,6 +1728,7 @@ export default function TextChatPage() {
           >
             {connected && (
               <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Messages Area */}
                 <div
                   className="flex-1 relative px-4 no-scrollbar"
                   style={noScrollbarStyle}
@@ -1678,7 +1736,7 @@ export default function TextChatPage() {
                   <AutoSizer>
                     {({ width, height }) => (
                       <List
-                        ref={listRef} 
+                        ref={listRef}
                         height={height}
                         itemCount={messages.length}
                         itemSize={ITEM_HEIGHT}
@@ -1691,6 +1749,7 @@ export default function TextChatPage() {
                           onInView: handleInView,
                           lastSeenMessageId: lastSeenMessageId,
                         }}
+                        className="no-scrollbar"
                         style={{ overflowX: 'hidden', ...noScrollbarStyle }}
                       >
                         {MessageListItem}
@@ -1698,6 +1757,7 @@ export default function TextChatPage() {
                     )}
                   </AutoSizer>
 
+                  {/* Introductory Message */}
                   {showIntroMessage && messages.length === 0 && (
                     <motion.div
                       key="intro-message"
@@ -1712,7 +1772,7 @@ export default function TextChatPage() {
                       <h3 className="font-bold mb-2 text-gray-800 dark:text-gray-200">
                         Welcome to Vimegle Text Chat!
                       </h3>
-                      <p className="text-gray-700 dark:text-gray-300">
+                      <p className="text-gray-700 dark:text-gray-300 break-words">
                         You're now connected with a random stranger. Say hello and start chatting!
                       </p>
                       {matchedTags.length > 0 && (
@@ -1732,21 +1792,25 @@ export default function TextChatPage() {
                   )}
                 </div>
 
+                {/* Input Area */}
                 <div
                   className={`relative px-4 py-2 ${
                     darkMode ? 'bg-gray-900' : 'bg-gray-100'
                   } flex-shrink-0`}
                 >
+                  {/* Reply Preview */}
                   {replyTo && (
                     <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
                   )}
 
+                  {/* Typing Indicator */}
                   {isTyping && !isSelfTyping && !replyTo && (
                     <div className="mb-2">
                       <MemoizedTypingIndicator darkMode={darkMode} />
                     </div>
                   )}
 
+                  {/* Input and Buttons */}
                   <div className="relative flex items-center space-x-2">
                     <Input
                       id="message-input"
@@ -1767,6 +1831,7 @@ export default function TextChatPage() {
                       aria-label="Message Input"
                     />
 
+                    {/* Emoji Picker Toggle */}
                     <Button
                       size="icon"
                       onClick={() => setShowEmojiPicker(prev => !prev)}
@@ -1778,6 +1843,7 @@ export default function TextChatPage() {
                       <Smile className="w-5 h-5" />
                     </Button>
 
+                    {/* Send Button */}
                     <Button
                       onClick={handleSendMessage}
                       disabled={!connected || !inputMessage.trim()}
@@ -1790,6 +1856,8 @@ export default function TextChatPage() {
                       <Send className="w-5 h-5" />
                     </Button>
                   </div>
+
+                  {/* Emoji Picker */}
                   {showEmojiPicker && (
                     <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
                       <MemoizedEmojiPicker onEmojiClick={handleEmojiClick} darkMode={darkMode} />
