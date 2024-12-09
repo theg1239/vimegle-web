@@ -1208,12 +1208,13 @@ const handleInView = useCallback(
     return selfSeenMessages.length > 0 ? selfSeenMessages[0].id : null;
   }, [messages]);
 
-  // Auto-Scroll to Latest Message
   useEffect(() => {
     if (virtuosoRef.current) {
       virtuosoRef.current.scrollToIndex({
         index: messages.length,
+        align: 'end', // Scroll to the end of the list
         behavior: 'smooth',
+        offset: 20, // Add an offset for better visibility
       });
     }
   }, [messages]);
@@ -1740,32 +1741,33 @@ const handleInView = useCallback(
                   className="flex-1 relative px-4"
                   style={{ height: '100%', width: '100%', overflow: 'hidden' }}
                 >
-                  <Virtuoso
-                    ref={virtuosoRef}
-                    data={messages}
-                    itemContent={(index, message) => {
-                      const showSeen =
-                        message.isSelf &&
-                        message.id ===
-                          messages
-                            .filter((m) => m.isSelf && m.seen)
-                            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.id;
-                      return (
-                        <MessageListItem
-                          key={message.id}
-                          message={message}
-                          onDoubleTap={handleDoubleTap}
-                          onReply={handleReply}
-                          darkMode={darkMode}
-                          onInView={handleInView}
-                          showSeen={showSeen}
-                        />
-                      );
-                    }}
-                    className="virtuoso-scrollbar"
-                    style={{ height: '100%', width: '100%' }}
-                    followOutput={true} // Auto-scroll to bottom when new items are added
-                  />
+<Virtuoso
+  ref={virtuosoRef}
+  data={messages}
+  itemContent={(index, message) => {
+    const showSeen =
+      message.isSelf &&
+      message.id ===
+        messages
+          .filter((m) => m.isSelf && m.seen)
+          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.id;
+    return (
+      <MessageListItem
+        key={message.id}
+        message={message}
+        onDoubleTap={handleDoubleTap}
+        onReply={handleReply}
+        darkMode={darkMode}
+        onInView={handleInView}
+        showSeen={showSeen}
+      />
+    );
+  }}
+  className="virtuoso-scrollbar"
+  style={{ height: '100%', width: '100%' }}
+  followOutput={true} // Enable auto-scroll to the newest message
+  overscan={100} // Add overscan to preload nearby messages
+/>
 
                   {/* Introductory Message */}
                   {showIntroMessage && messages.length === 0 && (
