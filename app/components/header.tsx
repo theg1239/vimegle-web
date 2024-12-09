@@ -19,11 +19,11 @@ const Header: React.FC = () => {
         Video
           </button>
         </Link> */}
-        {/* <Link href="/feedback">
+        <Link href="/feedback">
         <button className="px-3 py-1.5 text-sm font-medium text-white hover:text-purple-300 bg-transparent hover:bg-purple-500/20 rounded-full transition-colors">
             Feedback
           </button>
-        </Link> */}
+        </Link>
         <Link href="/guidelines">
           <button className="px-3 py-1.5 text-sm font-medium text-white hover:text-purple-300 bg-transparent hover:bg-purple-500/20 rounded-full transition-colors">
             Guidelines
