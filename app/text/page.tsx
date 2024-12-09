@@ -43,6 +43,29 @@ import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
 
+const useResponsiveItemHeight = () => {
+  const [itemHeight, setItemHeight] = useState(100);
+
+  const handleResize = useCallback(() => {
+    const width = window.innerWidth;
+    if (width <= 480) {
+      setItemHeight(120); 
+    } else if (width <= 768) {
+      setItemHeight(100); 
+    } else {
+      setItemHeight(80); 
+    }
+  }, []);
+
+  useEffect(() => {
+    handleResize(); 
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [handleResize]);
+
+  return itemHeight;
+};
+
 const noScrollbarStyle: React.CSSProperties = {
   scrollbarWidth: 'none',
   msOverflowStyle: 'none',
@@ -53,8 +76,6 @@ const hideScrollbarCSS = `
   display: none;
 }
 `;
-
-const ITEM_HEIGHT = 80;
 
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
@@ -283,6 +304,8 @@ export default function TextChatPage() {
   const tooltipShownRef = useRef<boolean>(false);
 
   const listRef = useRef<List>(null); // Ref for the react-window List
+
+  const ITEM_HEIGHT = useResponsiveItemHeight(); // Use responsive item height
 
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -520,12 +543,12 @@ export default function TextChatPage() {
         seen: false,
       };
 
-     setFullChatHistory((prevHistory) => {
-      if (prevHistory.some((m) => m.id === messageId)) {
-         return prevHistory;
-       }
-       return [...prevHistory, newMessage];
-     });
+      setFullChatHistory((prevHistory) => {
+        if (prevHistory.some((m) => m.id === messageId)) {
+          return prevHistory;
+        }
+        return [...prevHistory, newMessage];
+      });
 
       setMessages(prev => {
         if (prev.find((msg) => msg.id === messageId)) return prev;
@@ -845,17 +868,17 @@ export default function TextChatPage() {
     let tempMessage = inputMessage
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
-  
+
     const sanitizedMessage = DOMPurify.sanitize(tempMessage, {
       ALLOWED_TAGS: [],
       ALLOWED_ATTR: [],
     });
-  
+
     const decodedMessage = sanitizedMessage
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&amp;/g, '&');
-  
+
     const messageId = uuidv4();
 
     textSocket.emit('textMessage', {
@@ -878,12 +901,12 @@ export default function TextChatPage() {
       seen: false,
     };
 
-      setFullChatHistory((prevHistory) => {
-           if (prevHistory.some((m) => m.id === messageId)) {
-             return prevHistory;
-           }
-           return [...prevHistory, newMessage];
-         });
+    setFullChatHistory((prevHistory) => {
+      if (prevHistory.some((m) => m.id === messageId)) {
+        return prevHistory;
+      }
+      return [...prevHistory, newMessage];
+    });
 
     setMessages(prev => {
       const updated = prev.map(msg => ({ ...msg, seen: false }));
@@ -905,7 +928,15 @@ export default function TextChatPage() {
     if (listRef.current) {
       listRef.current.scrollToItem(messages.length, 'end');
     }
-  }, [inputMessage, currentRoom, replyTo, isProfane, playMessageSound, handleStopTyping, messages.length]);
+  }, [
+    inputMessage,
+    currentRoom,
+    replyTo,
+    isProfane,
+    playMessageSound,
+    handleStopTyping,
+    messages.length,
+  ]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputMessage(e.target.value);
@@ -1329,7 +1360,7 @@ export default function TextChatPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className={`w-full max-w-xs sm:max-w-md p-4 rounded-lg shadow-lg ${
+                  className={`w-full max-w-xs p-4 rounded-lg shadow-lg ${
                     darkMode
                       ? 'bg-gray-800 text-gray-100'
                       : 'bg-gray-50 text-gray-800'
@@ -1632,7 +1663,7 @@ export default function TextChatPage() {
           </header>
 
           <main
-            className={`flex flex-col h-[100vh] overflow-hidden ${
+            className={`flex flex-col flex-1 overflow-hidden ${
               darkMode
                 ? 'bg-gradient-to-b from-gray-800 to-gray-900'
                 : 'bg-gradient-to-b from-gray-100 to-white'
@@ -1717,51 +1748,47 @@ export default function TextChatPage() {
                   )}
 
                   <div className="relative flex items-center space-x-2">
-                  <Input
-  id="message-input"
-  type="text"
-  value={inputMessage}
-  onChange={handleInputChange}
-  onKeyDown={e => {
-    if (e.key === 'Enter') handleSendMessage();
-  }}
-  placeholder="Type a message..."
-  disabled={!connected}
-  autoComplete="off"
-  className={`w-full ${
-    darkMode
-      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
-      : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
-  } pr-4 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
-  aria-label="Message Input"
-/>
-
-<Button
-  size="icon"
-  onClick={() => setShowEmojiPicker(prev => !prev)}
-  className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
-    darkMode ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-200'
-  }`}
-  aria-label="Toggle Emoji Picker"
->
-  <Smile className="w-5 h-5" />
-</Button>
-
+                    <Input
+                      id="message-input"
+                      type="text"
+                      value={inputMessage}
+                      onChange={handleInputChange}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSendMessage();
+                      }}
+                      placeholder="Type a message..."
+                      disabled={!connected}
+                      autoComplete="off"
+                      className={`w-full ${
+                        darkMode
+                          ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                          : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
+                      } pr-4 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      aria-label="Message Input"
+                    />
 
                     <Button
-  onClick={handleSendMessage}
-  disabled={!connected || !inputMessage.trim()}
-  size="icon"
-  className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
-    darkMode ? 'text-white' : 'text-gray-700'
-  } ${!connected || !inputMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
-  aria-label="Send Message"
->
-  <Send className="w-5 h-5" />
-</Button>
+                      size="icon"
+                      onClick={() => setShowEmojiPicker(prev => !prev)}
+                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+                        darkMode ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-200'
+                      }`}
+                      aria-label="Toggle Emoji Picker"
+                    >
+                      <Smile className="w-5 h-5" />
+                    </Button>
 
-
-
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!connected || !inputMessage.trim()}
+                      size="icon"
+                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+                        darkMode ? 'text-white' : 'text-gray-700'
+                      } ${!connected || !inputMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      aria-label="Send Message"
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
                   </div>
                   {showEmojiPicker && (
                     <div className="absolute bottom-16 right-2 z-30 w-full max-w-xs rounded-md p-2">
