@@ -640,7 +640,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen bg-black">
-      <Toaster position="bottom-center" />
+      <Toaster position="top-center" />
       <header className="bg-black backdrop-blur-sm p-6 flex justify-between items-center z-50">
         <div className="flex items-center space-x-4">
           <button
