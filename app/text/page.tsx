@@ -731,7 +731,7 @@ export default function TextChatPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('unload', handleBeforeUnload);
     };
-  }, [connected, currentRoom]);
+  }, [connected, currentRoom, textSocket]);
 
   // Default and Available Tags
   const defaultTags = useMemo(
@@ -1021,7 +1021,7 @@ export default function TextChatPage() {
     if (textSocket && currentRoom) {
       textSocket.emit('peerDisconnected', { room: currentRoom });
     }
-  }, [currentRoom]);
+  }, [currentRoom, textSocket]);
 
   // Handle Back Navigation (Browser Back Button)
   useEffect(() => {
@@ -1211,15 +1211,33 @@ export default function TextChatPage() {
     }
   }, [messages]);
 
+  // Dynamic Viewport Height Handling
+  useEffect(() => {
+    const resizeHandler = () => {
+      if (mainRef.current) {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+        mainRef.current.style.height = `calc(var(--vh, 1vh) * 100)`;
+      }
+    };
+
+    resizeHandler();
+    window.addEventListener('resize', resizeHandler);
+
+    return () => {
+      window.removeEventListener('resize', resizeHandler);
+    };
+  }, []);
+
   return (
     <>
       <style>{hideScrollbarCSS}</style>
       <DisclaimerProvder>
         <div
           ref={mainRef}
-          className={`flex flex-col min-h-screen relative ${
+          className={`flex flex-col h-[calc(var(--vh, 1vh) * 100)] relative ${
             darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'
-          }`}
+          } overflow-hidden`} // Set overflow-hidden to prevent entire page scroll
           onClick={handleUserInteraction}
           onKeyDown={handleUserInteraction}
           onMouseMove={handleUserInteraction}
@@ -1247,8 +1265,8 @@ export default function TextChatPage() {
             toastOptions={{
               duration: 5000,
               style: {
-                marginTop: '4rem',
-                zIndex: 9999,
+                marginTop: '4rem', // Adjust based on header height
+                zIndex: 9999, // Ensure it's above other elements
               },
             }}
           />
@@ -1730,7 +1748,7 @@ export default function TextChatPage() {
               <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Messages Area */}
                 <div
-                  className="flex-1 relative px-4 no-scrollbar"
+                  className="flex-1 relative px-4"
                   style={noScrollbarStyle}
                 >
                   <AutoSizer>
@@ -1800,7 +1818,10 @@ export default function TextChatPage() {
                 >
                   {/* Reply Preview */}
                   {replyTo && (
-                    <ReplyPreview originalMessage={replyTo} onCancelReply={cancelReply} />
+                    <ReplyPreview
+                      originalMessage={replyTo}
+                      onCancelReply={cancelReply}
+                    />
                   )}
 
                   {/* Typing Indicator */}
@@ -1827,34 +1848,44 @@ export default function TextChatPage() {
                         darkMode
                           ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                           : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
-                      } pr-4 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      } pr-24 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
                       aria-label="Message Input"
                     />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                      {/* Emoji Picker Toggle */}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => setShowEmojiPicker(prev => !prev)}
+                        className={`${
+                          darkMode
+                            ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+                        } rounded-full w-10 h-10 transition-colors duration-300`}
+                        aria-label="Toggle Emoji Picker"
+                      >
+                        <Smile className="w-5 h-5" />
+                      </Button>
 
-                    {/* Emoji Picker Toggle */}
-                    <Button
-                      size="icon"
-                      onClick={() => setShowEmojiPicker(prev => !prev)}
-                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
-                        darkMode ? 'text-white hover:bg-gray-700' : 'text-gray-700 hover:bg-gray-200'
-                      }`}
-                      aria-label="Toggle Emoji Picker"
-                    >
-                      <Smile className="w-5 h-5" />
-                    </Button>
-
-                    {/* Send Button */}
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!connected || !inputMessage.trim()}
-                      size="icon"
-                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
-                        darkMode ? 'text-white' : 'text-gray-700'
-                      } ${!connected || !inputMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      aria-label="Send Message"
-                    >
-                      <Send className="w-5 h-5" />
-                    </Button>
+                      {/* Send Button */}
+                      <Button
+                        onClick={handleSendMessage}
+                        disabled={!connected || !inputMessage.trim()}
+                        size="icon"
+                        className={`${
+                          darkMode
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
+                          !connected || !inputMessage.trim()
+                            ? 'opacity-50 cursor-not-allowed'
+                            : ''
+                        }`}
+                        aria-label="Send Message"
+                      >
+                        <Send className="w-5 h-5" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Emoji Picker */}
