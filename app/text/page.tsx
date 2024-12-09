@@ -1848,44 +1848,44 @@ export default function TextChatPage() {
                         darkMode
                           ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
                           : 'bg-white border-gray-300 text-gray-800 placeholder-gray-500'
-                      } pr-24 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      } pr-4 pl-4 py-2 rounded-full text-sm shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-500`}
                       aria-label="Message Input"
                     />
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-                      {/* Emoji Picker Toggle */}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => setShowEmojiPicker(prev => !prev)}
-                        className={`${
-                          darkMode
-                            ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                            : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
-                        } rounded-full w-10 h-10 transition-colors duration-300`}
-                        aria-label="Toggle Emoji Picker"
-                      >
-                        <Smile className="w-5 h-5" />
-                      </Button>
 
-                      {/* Send Button */}
-                      <Button
-                        onClick={handleSendMessage}
-                        disabled={!connected || !inputMessage.trim()}
-                        size="icon"
-                        className={`${
-                          darkMode
-                            ? 'bg-blue-600 hover:bg-blue-700'
-                            : 'bg-blue-500 hover:bg-blue-600'
-                        } text-white rounded-full w-10 h-10 transition-colors duration-300 ${
-                          !connected || !inputMessage.trim()
-                            ? 'opacity-50 cursor-not-allowed'
-                            : ''
-                        }`}
-                        aria-label="Send Message"
-                      >
-                        <Send className="w-5 h-5" />
-                      </Button>
-                    </div>
+                    {/* Emoji Picker Toggle */}
+                    <Button
+  size="icon"
+  onClick={() => setShowEmojiPicker(prev => !prev)}
+  className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+    showEmojiPicker
+      ? darkMode
+        ? 'text-white'
+        : 'text-gray-900'
+      : darkMode
+      ? 'text-gray-500'
+      : 'text-gray-700'
+  }`}
+  aria-label="Toggle Emoji Picker"
+>
+  <Smile className="w-5 h-5" />
+</Button>
+
+
+
+
+
+                    {/* Send Button */}
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={!connected || !inputMessage.trim()}
+                      size="icon"
+                      className={`rounded-full w-10 h-10 transition-colors duration-300 flex items-center justify-center ${
+                        darkMode ? 'text-white' : 'text-gray-700'
+                      } ${!connected || !inputMessage.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      aria-label="Send Message"
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
                   </div>
 
                   {/* Emoji Picker */}
