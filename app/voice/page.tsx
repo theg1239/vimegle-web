@@ -1,10 +1,9 @@
-// pages/ChatPage.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Peer, { Instance as PeerInstance } from 'simple-peer';
 import { Button } from '@/app/components/ui/button';
-import VoiceChannel from '../components/voice-chat'; // Corrected import
+import VoiceChannel from '../components/voice-chat'; 
 import { toast, Toaster } from 'react-hot-toast';
 import { infoToast } from '@/lib/toastHelpers';
 import { defaultSocket, voiceSocket } from '@/lib/socket';
@@ -34,9 +33,10 @@ export default function ChatPage() {
   const [hasCameraError, setHasCameraError] = useState(false);
   const [remoteUser, setRemoteUser] = useState<User | null>(null);
   
-  // New states for VoiceChannel
   const [micEnabled, setMicEnabled] = useState(true);
   const [deafened, setDeafened] = useState(false);
+
+  const [isPageVisible, setIsPageVisible] = useState(true);
 
   const peerRef = useRef<PeerInstance | null>(null);
   const socketRef = useRef<Socket | null>(voiceSocket);
@@ -49,7 +49,6 @@ export default function ChatPage() {
   const signalQueueRef = useRef<any[]>([]);
   const processedSignals = useRef<Set<string>>(new Set());
 
-  // Update refs whenever state changes
   useEffect(() => {
     roomRef.current = room;
   }, [room]);
@@ -123,9 +122,6 @@ export default function ChatPage() {
     }
   }, []);
 
-  /**
-   * Handles 'leave' events when a user leaves the room.
-   */
   const handleLeave = useCallback(() => {
     setConnected(false);
     setRemoteStream(null);
@@ -472,25 +468,26 @@ export default function ChatPage() {
           navigator.connection ||
           (navigator as any).mozConnection ||
           (navigator as any).webkitConnection;
-        let audioConstraints = {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: 44100,
+        let audioConstraints: MediaStreamConstraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 44100,
+          },
+          video: false,
         };
 
         if (connection && connection.downlink < 1) {
-          audioConstraints = {
+          audioConstraints.audio = {
             echoCancellation: true,
             noiseSuppression: true,
             sampleRate: 16000,
           };
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: audioConstraints,
-          video: false,
-        });
+        const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
         setLocalStream(stream);
+        localStreamRef.current = stream;
       } catch (audioError) {
         console.error('Audio access failed:', audioError);
         toast.error('Failed to access microphone.', {
@@ -522,7 +519,6 @@ export default function ChatPage() {
     }
   }, [peerRef.current, processSignalQueue]);
 
-  // Define toggleMic and toggleDeafen functions
   const toggleMic = useCallback(() => {
     if (!localStreamRef.current) return;
     localStreamRef.current.getAudioTracks().forEach(track => {
@@ -537,22 +533,118 @@ export default function ChatPage() {
     });
   }, [remoteStream]);
 
-  // Toggle microphone handler
   const toggleMicHandler = useCallback(() => {
     toggleMic();
     setMicEnabled(prev => !prev);
   }, [toggleMic]);
 
-  // Toggle deafen handler
   const toggleDeafenHandler = useCallback(() => {
     toggleDeafen();
     setDeafened(prev => !prev);
   }, [toggleDeafen]);
 
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const keepAliveInterval = setInterval(() => {
+      if (socketRef.current?.connected) {
+        socketRef.current.emit('keep-alive');
+      }
+    }, 30000); 
+
+    return () => {
+      clearInterval(keepAliveInterval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!peerRef.current) return;
+
+    const keepAliveInterval = setInterval(() => {
+      if (peerRef.current?.connected) {
+        try {
+          peerRef.current.send(JSON.stringify({ type: 'keep-alive' }));
+        } catch (error) {
+          console.error('Error sending keep-alive message:', error);
+        }
+      }
+    }, 30000); 
+
+    return () => {
+      clearInterval(keepAliveInterval);
+    };
+  }, [peerRef.current]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      setIsPageVisible(document.visibilityState === 'visible');
+      if (document.visibilityState === 'visible') {
+        if (socketRef.current && !socketRef.current.connected) {
+          socketRef.current.connect();
+        }
+        if (peerRef.current && !peerRef.current.connected && roomRef.current) {
+          startSearch();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [startSearch]);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const handleDisconnect = () => {
+      setChatState('disconnected');
+      toast.error('Connection lost. Attempting to reconnect...', {
+        id: 'disconnect-toast',
+      });
+
+      setTimeout(() => {
+        socketRef.current?.connect();
+      }, 5000);
+    };
+
+    const handleReconnect = () => {
+      toast.success('Reconnected!', { id: 'reconnect-toast' });
+      if (roomRef.current) {
+        joinVoiceRoom(roomRef.current);
+      }
+    };
+
+    socketRef.current.on('disconnect', handleDisconnect);
+    socketRef.current.on('reconnect', handleReconnect);
+
+    return () => {
+      socketRef.current?.off('disconnect', handleDisconnect);
+      socketRef.current?.off('reconnect', handleReconnect);
+    };
+  }, []);
+
+  useEffect(() => {
+    const savedRoom = localStorage.getItem('voice_chat_room');
+    if (savedRoom) {
+      setRoom(savedRoom);
+      joinVoiceRoom(savedRoom);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (room) {
+      localStorage.setItem('voice_chat_room', room);
+    } else {
+      localStorage.removeItem('voice_chat_room');
+    }
+  }, [room]);
+
   return (
     <div className="flex flex-col h-screen bg-black">
       <Toaster position="bottom-center" />
-      <header className="bg-gray-800backdrop-blur-sm p-6 flex justify-between items-center z-50">
+      <header className="bg-gray-800 backdrop-blur-sm p-6 flex justify-between items-center z-50">
         <div className="flex items-center space-x-4">
           <button
             onClick={() => {
@@ -673,6 +765,13 @@ export default function ChatPage() {
         <div className="absolute bottom-5 w-full text-center text-white text-sm">
           This feature is still experimental.
         </div>
+
+        {/* Notification for Page Visibility */}
+        {!isPageVisible && (
+          <div className="fixed bottom-0 left-0 right-0 bg-gray-800 text-white p-2 text-center">
+            Voice chat is active. Please return to the app to maintain connection.
+          </div>
+        )}
       </main>
 
       {/* Overlay Modals */}
