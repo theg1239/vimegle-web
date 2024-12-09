@@ -7,9 +7,10 @@ import React, {
   useCallback,
   useMemo,
   FC,
+  MouseEvent,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Virtuoso } from 'react-virtuoso'; // Import Virtuoso
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'; // Import Virtuoso and VirtuosoHandle
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Toaster, toast } from 'react-hot-toast';
@@ -41,7 +42,6 @@ import { debounce } from 'lodash';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
-import { VirtuosoHandle } from 'react-virtuoso';
 
 // Dynamic Viewport Height Handling
 const useViewportHeight = () => {
@@ -77,6 +77,7 @@ const hideScrollbarCSS = `
 `;
 
 // Modal Components
+
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
   darkMode: boolean;
@@ -210,20 +211,24 @@ const MemoizedTypingIndicator = React.memo(
 MemoizedTypingIndicator.displayName = 'MemoizedTypingIndicator';
 
 // Emoji Picker Component
-interface EmojiPickerProps {
-  onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent) => void;
+interface EmojiPickerComponentProps {
+  onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent<Element, MouseEvent>) => void;
   darkMode: boolean;
 }
+
 const MemoizedEmojiPicker = React.memo(
-  ({ onEmojiClick, darkMode }: EmojiPickerProps) => (
+  ({ onEmojiClick, darkMode }: EmojiPickerComponentProps) => (
     <EmojiPicker
-      onEmojiClick={onEmojiClick}
+      onEmojiClick={(emojiData, event) =>
+        onEmojiClick(emojiData, event as unknown as MouseEvent<Element, MouseEvent>)
+      }
       theme={darkMode ? Theme.DARK : Theme.LIGHT}
       width="100%"
       height={350}
     />
   )
 );
+
 MemoizedEmojiPicker.displayName = 'MemoizedEmojiPicker';
 
 // Message List Item Component
@@ -239,18 +244,15 @@ interface MessageListItemProps {
 const MessageListItem: React.FC<MessageListItemProps> = React.memo(
   ({ message, onDoubleTap, onReply, darkMode, onInView, showSeen }) => {
     return (
-      <div>
-        <MessageBubble
-          key={message.id}
-          message={message}
-          onDoubleTap={onDoubleTap}
-          onReply={onReply}
-          darkMode={darkMode}
-          isSelf={message.isSelf}
-          onInView={onInView}
-          showSeen={showSeen}
-        />
-      </div>
+      <MessageBubble
+        message={message}
+        onDoubleTap={onDoubleTap}
+        onReply={onReply}
+        darkMode={darkMode}
+        isSelf={message.isSelf}
+        onInView={onInView}
+        showSeen={showSeen}
+      />
     );
   }
 );
@@ -258,6 +260,7 @@ MessageListItem.displayName = 'MessageListItem';
 
 // Main TextChatPage Component
 export default function TextChatPage() {
+  // State Variables
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -281,11 +284,11 @@ export default function TextChatPage() {
   const [customTag, setCustomTag] = useState<string | null>(null);
   const [isPeerSearching, setIsPeerSearching] = useState<boolean>(false);
   const peerTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [isSelfTyping, setIsSelfTyping] = useState(false);
+  const [isSelfTyping, setIsSelfTyping] = useState<boolean>(false);
   const [matchedTags, setMatchedTags] = useState<string[]>([]);
   const mainRef = useViewportHeight();
   const [trendingTags, setTrendingTags] = useState<string[]>([]);
-  const [isReporting, setIsReporting] = useState(false);
+  const [isReporting, setIsReporting] = useState<boolean>(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
   const [winterTheme, setWinterTheme] = useState<boolean>(false);
 
@@ -293,14 +296,17 @@ export default function TextChatPage() {
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
 
+  // Refs for Mutable Variables
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
 
+  // Ref for Virtuoso
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
+  // Update Refs When State Changes
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -495,38 +501,30 @@ export default function TextChatPage() {
     toast(message || 'Search cancelled.', { id: toastId });
   }, []);
 
-const handleInView = useCallback(
-  (messageId: string, inView: boolean) => {
-    if (!inView) return;
-    if (seenMessages.has(messageId)) return;
+  const handleInView = useCallback(
+    (messageId: string, inView: boolean) => {
+      if (!inView) return;
+      if (seenMessages.has(messageId)) return;
 
-    setSeenMessages((prev) => new Set([...prev, messageId]));
+      setSeenMessages((prev) => new Set([...prev, messageId]));
 
-    setMessages((prevMessages) => {
-      const messageIndex = prevMessages.findIndex(
-        (msg) => msg.id === messageId && !msg.seen
-      );
-      if (messageIndex === -1) return prevMessages;
+      setMessages((prevMessages) => {
+        const messageIndex = prevMessages.findIndex(
+          (msg) => msg.id === messageId && !msg.seen
+        );
+        if (messageIndex === -1) return prevMessages;
 
-      const updated = [...prevMessages];
-      updated[messageIndex] = { ...updated[messageIndex], seen: true };
-      return updated;
-    });
-
-    textSocket.emit('messageSeen', { messageId, room: currentRoom });
-
-    // Auto-scroll to the message with offset for visibility
-    if (virtuosoRef.current) {
-      const index = messages.findIndex((msg) => msg.id === messageId);
-      virtuosoRef.current.scrollToIndex({
-        index: index + 1, // Scroll past the seen message
-        align: 'center', // Ensure the seen message is well-aligned
-        behavior: 'smooth',
+        const updated = [...prevMessages];
+        updated[messageIndex] = { ...updated[messageIndex], seen: true };
+        return updated;
       });
-    }
-  },
-  [currentRoom, seenMessages, messages]
-);
+
+      textSocket.emit('messageSeen', { messageId, room: currentRoom });
+
+      // Removed scrollToIndex to prevent interfering with Virtuoso's scroll
+    },
+    [currentRoom, seenMessages]
+  );
 
   // Handle Incoming Text Messages
   const handleTextMessage = useCallback(
@@ -575,12 +573,7 @@ const handleInView = useCallback(
         playMessageSound();
       }
 
-      if (virtuosoRef.current) {
-        virtuosoRef.current.scrollToIndex({
-          index: messages.length,
-          behavior: 'smooth',
-        });
-      }
+      // Removed scrollToIndex to allow Virtuoso to handle scrolling
     },
     [messages, playMessageSound]
   );
@@ -957,13 +950,6 @@ const handleInView = useCallback(
     }
 
     handleStopTyping();
-
-    if (virtuosoRef.current) {
-      virtuosoRef.current.scrollToIndex({
-        index: messages.length,
-        behavior: 'smooth',
-      });
-    }
   }, [
     inputMessage,
     currentRoom,
@@ -971,7 +957,6 @@ const handleInView = useCallback(
     isProfane,
     playMessageSound,
     handleStopTyping,
-    messages.length,
   ]);
 
   // Handle Input Change
@@ -981,16 +966,17 @@ const handleInView = useCallback(
     debouncedHandleStopTyping();
   };
 
-  // Handle Emoji Selection
   const handleEmojiClick = useCallback(
-    (emojiData: EmojiClickData, event: MouseEvent) => {
-      setInputMessage(prev => prev + emojiData.emoji);
+    (emojiData: EmojiClickData, event: any) => {
+      const nativeEvent = event as MouseEvent<Element, MouseEvent>;
+      setInputMessage((prev) => prev + emojiData.emoji);
       setShowEmojiPicker(false);
       debouncedHandleTyping();
       debouncedHandleStopTyping();
     },
     [debouncedHandleTyping, debouncedHandleStopTyping]
   );
+  
 
   // Handle Double Tap for Reactions
   const handleDoubleTap = useCallback(
@@ -1007,13 +993,6 @@ const handleInView = useCallback(
           room: currentRoom,
           messageId,
           liked: !message.liked,
-        });
-      }
-
-      if (virtuosoRef.current) {
-        virtuosoRef.current.scrollToIndex({
-          index: messages.length,
-          behavior: 'smooth',
         });
       }
     },
@@ -1203,21 +1182,39 @@ const handleInView = useCallback(
   // Calculate Last Seen Message
   const lastSeenMessageId = useMemo(() => {
     const selfSeenMessages = messages
-      .filter(m => m.isSelf && m.seen)
+      .filter((m) => m.isSelf && m.seen)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     return selfSeenMessages.length > 0 ? selfSeenMessages[0].id : null;
   }, [messages]);
 
   useEffect(() => {
     if (virtuosoRef.current) {
-      virtuosoRef.current.scrollToIndex({
-        index: messages.length,
-        align: 'end', // Scroll to the end of the list
-        behavior: 'smooth',
-        offset: 20, // Add an offset for better visibility
+      setTimeout(() => {
+        virtuosoRef.current!.scrollToIndex({
+          index: messages.length - 1,
+          behavior: 'auto',
+        });
+      }, 0);
+    }
+  }, [messages]);
+  /*
+  useEffect(() => {
+    if (virtuosoRef.current) {
+      virtuosoRef.current.getScrollState().then(scrollState => {
+        const { scrollTop, scrollHeight, viewportHeight } = scrollState;
+
+        const isNearBottom = scrollHeight - (scrollTop + viewportHeight) < 100; // 100px threshold
+
+        if (isNearBottom) {
+          virtuosoRef.current?.scrollToIndex({
+            index: messages.length - 1,
+            behavior: 'smooth',
+          });
+        }
       });
     }
   }, [messages]);
+  */
 
   return (
     <>
@@ -1598,7 +1595,6 @@ const handleInView = useCallback(
                     {availableTags.map(tag => (
                       <div key={tag} className="relative inline-block">
                         <Button
-                          key={tag}
                           variant={tags.includes(tag) ? 'default' : 'outline'}
                           className={`cursor-pointer ${
                             isTrending(tag) ? 'glowing' : ''
@@ -1741,33 +1737,31 @@ const handleInView = useCallback(
                   className="flex-1 relative px-4"
                   style={{ height: '100%', width: '100%', overflow: 'hidden' }}
                 >
-<Virtuoso
-  ref={virtuosoRef}
-  data={messages}
-  itemContent={(index, message) => {
-    const showSeen =
-      message.isSelf &&
-      message.id ===
-        messages
-          .filter((m) => m.isSelf && m.seen)
-          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.id;
-    return (
-      <MessageListItem
-        key={message.id}
-        message={message}
-        onDoubleTap={handleDoubleTap}
-        onReply={handleReply}
-        darkMode={darkMode}
-        onInView={handleInView}
-        showSeen={showSeen}
-      />
-    );
-  }}
-  className="virtuoso-scrollbar"
-  style={{ height: '100%', width: '100%' }}
-  followOutput={true} // Enable auto-scroll to the newest message
-  overscan={100} // Add overscan to preload nearby messages
-/>
+                  <Virtuoso
+                    ref={virtuosoRef}
+                    data={messages}
+                    itemContent={(index, message) => {
+                      const showSeen =
+                        message.isSelf &&
+                        message.id ===
+                          messages
+                            .filter((m) => m.isSelf && m.seen)
+                            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())[0]?.id;
+                      return (
+                        <MessageListItem
+                          message={message}
+                          onDoubleTap={handleDoubleTap}
+                          onReply={handleReply}
+                          darkMode={darkMode}
+                          onInView={handleInView}
+                          showSeen={showSeen}
+                        />
+                      );
+                    }}
+                    className="virtuoso-scrollbar"
+                    style={{ height: '100%', width: '100%' }}
+                    overscan={200} // Adjusted overscan for better performance
+                  />
 
                   {/* Introductory Message */}
                   {showIntroMessage && messages.length === 0 && (
