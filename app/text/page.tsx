@@ -306,6 +306,30 @@ export default function TextChatPage() {
   // Ref for Virtuoso
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
+  const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const messageSoundRef = useRef<HTMLAudioElement | null>(null);
+  const disconnectSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    notificationSoundRef.current = new Audio('/sounds/notification.mp3');
+    messageSoundRef.current = new Audio('/sounds/message.mp3');
+    disconnectSoundRef.current = new Audio('/sounds/disconnect.mp3');
+
+    const handleError = () => {
+      console.error('Error loading audio files.');
+    };
+
+    notificationSoundRef.current.addEventListener('error', handleError);
+    messageSoundRef.current.addEventListener('error', handleError);
+    disconnectSoundRef.current.addEventListener('error', handleError);
+
+    return () => {
+      notificationSoundRef.current?.removeEventListener('error', handleError);
+      messageSoundRef.current?.removeEventListener('error', handleError);
+      disconnectSoundRef.current?.removeEventListener('error', handleError);
+    };
+  }, []);
+
   // Update Refs When State Changes
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
@@ -374,29 +398,46 @@ export default function TextChatPage() {
     };
   }, [debouncedHandleTyping, debouncedHandleStopTyping]);
 
-  // Sound Functions
   const playNotificationSound = useCallback(() => {
     if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
-      const audio = new Audio('/sounds/notification.mp3');
-      audio.play().catch(() => {});
-    } catch {}
+      if (notificationSoundRef.current) {
+        notificationSoundRef.current.currentTime = 0; // Reset to start
+        notificationSoundRef.current.play().catch((err) => {
+          console.error('Failed to play notification sound:', err);
+        });
+      }
+    } catch (error) {
+      console.error('Error playing notification sound:', error);
+    }
   }, []);
 
   const playMessageSound = useCallback(() => {
     if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
-      const audio = new Audio('/sounds/message.mp3');
-      audio.play().catch(() => {});
-    } catch {}
+      if (messageSoundRef.current) {
+        messageSoundRef.current.currentTime = 0; // Reset to start
+        messageSoundRef.current.play().catch((err) => {
+          console.error('Failed to play message sound:', err);
+        });
+      }
+    } catch (error) {
+      console.error('Error playing message sound:', error);
+    }
   }, []);
 
   const playDisconnectSound = useCallback(() => {
     if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
-      const audio = new Audio('/sounds/disconnect.mp3');
-      audio.play().catch(() => {});
-    } catch {}
+      if (disconnectSoundRef.current) {
+        disconnectSoundRef.current.currentTime = 0; 
+        disconnectSoundRef.current.play().catch((err) => {
+          console.error('Failed to play disconnect sound:', err);
+        });
+      }
+    } catch (error) {
+      console.error('Error playing disconnect sound:', error);
+    }
   }, []);
 
   // User Interaction Detection
@@ -976,7 +1017,6 @@ export default function TextChatPage() {
     },
     [debouncedHandleTyping, debouncedHandleStopTyping]
   );
-  
 
   // Handle Double Tap for Reactions
   const handleDoubleTap = useCallback(
@@ -1197,24 +1237,6 @@ export default function TextChatPage() {
       }, 0);
     }
   }, [messages]);
-  /*
-  useEffect(() => {
-    if (virtuosoRef.current) {
-      virtuosoRef.current.getScrollState().then(scrollState => {
-        const { scrollTop, scrollHeight, viewportHeight } = scrollState;
-
-        const isNearBottom = scrollHeight - (scrollTop + viewportHeight) < 100; // 100px threshold
-
-        if (isNearBottom) {
-          virtuosoRef.current?.scrollToIndex({
-            index: messages.length - 1,
-            behavior: 'smooth',
-          });
-        }
-      });
-    }
-  }, [messages]);
-  */
 
   return (
     <>
@@ -1252,8 +1274,8 @@ export default function TextChatPage() {
             toastOptions={{
               duration: 5000,
               style: {
-                marginTop: '4rem', // Adjust based on header height
-                zIndex: 9999, // Ensure it's above other elements
+                marginTop: '4rem', 
+                zIndex: 9999, 
               },
             }}
           />
