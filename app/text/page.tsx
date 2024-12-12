@@ -291,6 +291,7 @@ export default function TextChatPage() {
   const [isReporting, setIsReporting] = useState<boolean>(false);
   const [fullChatHistory, setFullChatHistory] = useState<Message[]>([]);
   const [winterTheme, setWinterTheme] = useState<boolean>(false);
+  const [isReconnecting, setIsReconnecting] = useState(false);
 
   const [isUserInitiatedDisconnect, setIsUserInitiatedDisconnect] =
     useState<boolean>(false);
@@ -887,6 +888,71 @@ export default function TextChatPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleMessageSync = (event: CustomEvent) => {
+      const syncedMessages = event.detail.messages;
+      if (Array.isArray(syncedMessages)) {
+        setMessages(prevMessages => {
+          // Merge messages, avoiding duplicates using message IDs
+          const messageIds = new Set(prevMessages.map(m => m.id));
+          const newMessages = syncedMessages.filter(m => !messageIds.has(m.id));
+          return [...prevMessages, ...newMessages].sort((a, b) => 
+            a.timestamp.getTime() - b.timestamp.getTime()
+          );
+        });
+      }
+    };
+  
+    // Add event listener
+    window.addEventListener('message_sync', handleMessageSync as EventListener);
+  
+    // Cleanup
+    return () => {
+      window.removeEventListener('message_sync', handleMessageSync as EventListener);
+    };
+  }, []);
+  
+  // Add reconnection status handling
+  useEffect(() => {
+    const handleReconnecting = () => {
+      setIsReconnecting(true);
+    };
+  
+    const handleReconnect = () => {
+      setIsReconnecting(false);
+      // If we're in a room when reconnecting, emit sync request
+      if (currentRoom) {
+        textSocket.emit('sync_messages', { room: currentRoom });
+      }
+    };
+  
+    textSocket.on('reconnecting', handleReconnecting);
+    textSocket.on('reconnect', handleReconnect);
+  
+    return () => {
+      textSocket.off('reconnecting', handleReconnecting);
+      textSocket.off('reconnect', handleReconnect);
+    };
+  }, [currentRoom]);
+
+  useEffect(() => {
+    const handleReconnecting = () => {
+      setIsReconnecting(true);
+    };
+  
+    const handleReconnect = () => {
+      setIsReconnecting(false);
+    };
+  
+    textSocket.on('reconnecting', handleReconnecting);
+    textSocket.on('reconnect', handleReconnect);
+  
+    return () => {
+      textSocket.off('reconnecting', handleReconnecting);
+      textSocket.off('reconnect', handleReconnect);
+    };
+  }, []);
+
   // Handle Moving to Next Chat
   const handleNext = useCallback(() => {
     if (connected && currentRoom) {
@@ -1077,6 +1143,30 @@ export default function TextChatPage() {
       window.removeEventListener('beforeunload', handleBackNavigation);
     };
   }, [notifyPeerDisconnection]);
+
+  useEffect(() => {
+    const handleDisconnect = (reason: string) => {
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        toast.loading('Connection lost. Reconnecting...', { id: 'reconnect-toast' });
+      }
+    };
+  
+    const handleReconnect = () => {
+      toast.success('Reconnected!', { id: 'reconnect-toast' });
+      
+      if (currentRoom) {
+        textSocket.emit('rejoin_room', { room: currentRoom });
+      }
+    };
+  
+    textSocket.on('reconnect', handleReconnect);
+    textSocket.on('disconnect', handleDisconnect);
+  
+    return () => {
+      textSocket.off('reconnect', handleReconnect);
+      textSocket.off('disconnect', handleDisconnect);
+    };
+  }, [currentRoom]);
 
   // Handle Switching to Video Chat
   const handleSwitchToVideo = useCallback(() => {

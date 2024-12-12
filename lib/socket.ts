@@ -7,7 +7,7 @@ const DEFAULT_NAMESPACE = '/';
 const VOICE_NAMESPACE = '/voice'; 
 
 const SOCKET_URL =
-  process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+  process.env.NEXT_PUBLIC_SOCKET_URL || 'https://api.vimegle.com';
 
 declare global {
   interface Window {
@@ -23,7 +23,7 @@ if (typeof window !== 'undefined') {
   const savedSessionId = Cookies.get(SESSION_COOKIE_NAME);
 
   if (!window.textSocket) {
-    console.log('Initializing new Socket.io client for /text namespace');
+    //console.log('Initializing new Socket.io client for /text namespace');
 
     window.textSocket = io(`${SOCKET_URL}${TEXT_NAMESPACE}`, {
       transports: ['websocket'],
@@ -40,13 +40,19 @@ if (typeof window !== 'undefined') {
 
     let isBanned = false; 
 
+    let currentRoom: string | null = null;
+
     window.textSocket.on('connect', () => {
-      console.log('Text Socket connected:', window.textSocket.id);
+      //console.log('Text Socket connected:', window.textSocket.id);
       isBanned = false;
+      
+      if (currentRoom) {
+        window.textSocket.emit('sync_messages', { room: currentRoom });
+      }
     });
 
     window.textSocket.on('session', ({ sessionId }) => {
-      console.log('Received sessionId from server (text):', sessionId);
+      //console.log('Received sessionId from server (text):', sessionId);
       Cookies.set(SESSION_COOKIE_NAME, sessionId, {
         expires: 7, 
         sameSite: 'lax', 
@@ -58,7 +64,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.textSocket.on('partnerBanned', ({ message }) => {
-      console.log('Partner was banned:', message);
+      //console.log('Partner was banned:', message);
       toast.error(message);
     });
 
@@ -66,8 +72,15 @@ if (typeof window !== 'undefined') {
       toast.error(message);
     });
 
+    window.textSocket.on('message_sync', ({ messages }) => {
+      window.dispatchEvent(new CustomEvent('message_sync', {
+        detail: { messages }
+      }));
+    });
+
+    
     window.textSocket.on('banned', ({ message }) => {
-      console.log('Received banned event (text):', message);
+      //console.log('Received banned event (text):', message);
       toast.error(message);
       isBanned = true; 
       window.textSocket.io.opts.reconnection = false; 
@@ -75,16 +88,16 @@ if (typeof window !== 'undefined') {
     });
 
     window.textSocket.on('connect_error', (error) => {
-      console.error('Connection Error (Text Chat):', error);
+      //console.error('Connection Error (Text Chat):', error);
       toast.error(
         'Connection Error (Text Chat). Please check your internet and try again.'
       );
     });
 
     window.textSocket.on('disconnect', (reason: string) => {
-      console.log('Text Socket disconnected:', reason);
+      //console.log('Text Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
-        console.log('Reconnecting Text Socket...');
+        //console.log('Reconnecting Text Socket...');
         if (!isBanned) { 
           window.textSocket.connect();
         }
@@ -93,10 +106,10 @@ if (typeof window !== 'undefined') {
 
     window.textSocket.on('reconnect_attempt', () => {
       if (isBanned) {
-        console.log('Banned user (text) is not attempting to reconnect.');
+        //console.log('Banned user (text) is not attempting to reconnect.');
         window.textSocket.io.opts.reconnection = false; 
       } else {
-        console.log('Text Socket reconnecting...');
+        //console.log('Text Socket reconnecting...');
       }
     });
 
@@ -108,7 +121,7 @@ if (typeof window !== 'undefined') {
   }
 
   if (!window.defaultSocket) {
-    console.log('Initializing new Socket.io client for default namespace');
+    //console.log('Initializing new Socket.io client for default namespace');
 
     window.defaultSocket = io(`${SOCKET_URL}${DEFAULT_NAMESPACE}`, {
       transports: ['websocket'],
@@ -169,7 +182,7 @@ if (typeof window !== 'undefined') {
     window.defaultSocket.on('disconnect', (reason: string) => {
       //console.log('Default Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
-        console.log('Reconnecting Default Socket...');
+        //console.log('Reconnecting Default Socket...');
         if (!isBannedDefault) {
           window.defaultSocket.connect();
         }
@@ -178,10 +191,10 @@ if (typeof window !== 'undefined') {
 
     window.defaultSocket.on('reconnect_attempt', () => {
       if (isBannedDefault) {
-        console.log('Banned user is not attempting to reconnect (default).');
+        //console.log('Banned user is not attempting to reconnect (default).');
         window.defaultSocket.io.opts.reconnection = false;
       } else {
-        console.log('Default Socket reconnecting...');
+        //console.log('Default Socket reconnecting...');
       }
     });
 
@@ -193,7 +206,7 @@ if (typeof window !== 'undefined') {
   }
 
   if (!window.voiceSocket) {
-    console.log('Initializing new Socket.io client for /voiceChat namespace');
+    //console.log('Initializing new Socket.io client for /voiceChat namespace');
 
     window.voiceSocket = io(`${SOCKET_URL}${VOICE_NAMESPACE}`, {
       transports: ['websocket'],
@@ -211,12 +224,12 @@ if (typeof window !== 'undefined') {
     let isBannedVoice = false; 
 
     window.voiceSocket.on('connect', () => {
-      console.log('Voice Socket connected:', window.voiceSocket.id);
+      //console.log('Voice Socket connected:', window.voiceSocket.id);
       isBannedVoice = false;
     });
 
     window.voiceSocket.on('session', ({ sessionId }) => {
-      console.log('Received sessionId from server (voice):', sessionId);
+      //console.log('Received sessionId from server (voice):', sessionId);
       Cookies.set(SESSION_COOKIE_NAME, sessionId, {
         expires: 7, 
         sameSite: 'lax', 
@@ -228,7 +241,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.voiceSocket.on('partnerBanned', ({ message }) => {
-      console.log('Partner was banned (voice):', message);
+      //console.log('Partner was banned (voice):', message);
       toast.error(message);
     });
 
@@ -237,7 +250,7 @@ if (typeof window !== 'undefined') {
     });
 
     window.voiceSocket.on('banned', ({ message }) => {
-      console.log('Received banned event (voice):', message);
+      //console.log('Received banned event (voice):', message);
       toast.error(message);
       isBannedVoice = true; 
       window.voiceSocket.io.opts.reconnection = false; 
@@ -245,16 +258,16 @@ if (typeof window !== 'undefined') {
     });
 
     window.voiceSocket.on('connect_error', (error) => {
-      console.error('Connection Error (Voice Chat):', error);
+      //console.error('Connection Error (Voice Chat):', error);
       toast.error(
         'Connection Error (Voice Chat). Please check your internet and try again.'
       );
     });
 
     window.voiceSocket.on('disconnect', (reason: string) => {
-      console.log('Voice Socket disconnected:', reason);
+      //console.log('Voice Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
-        console.log('Reconnecting Voice Socket...');
+        //console.log('Reconnecting Voice Socket...');
         if (!isBannedVoice) { 
           window.voiceSocket.connect();
         }
@@ -263,10 +276,10 @@ if (typeof window !== 'undefined') {
 
     window.voiceSocket.on('reconnect_attempt', () => {
       if (isBannedVoice) {
-        console.log('Banned user (voice) is not attempting to reconnect.');
+        //console.log('Banned user (voice) is not attempting to reconnect.');
         window.voiceSocket.io.opts.reconnection = false; 
       } else {
-        console.log('Voice Socket reconnecting...');
+        //console.log('Voice Socket reconnecting...');
       }
     });
 
