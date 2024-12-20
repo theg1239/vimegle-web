@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { geolocation } from '@vercel/functions';
 
-const ALLOWED_COUNTRY = 'IN';
+// Add both 'IN' (India) and 'AE' (UAE) to the allowed list
+const ALLOWED_COUNTRIES = ['IN', 'AE'];
 
 export const config = {
   matcher: '/((?!_next/static|_next/image|favicon.ico).*)',
@@ -26,8 +27,8 @@ export default function middleware(request: NextRequest) {
     path,
   });
 
-  if (country === ALLOWED_COUNTRY) {
-    //console.log('Visitor is from allowed country, proceeding.');
+  if (ALLOWED_COUNTRIES.includes(country)) {
+    //console.log('Visitor is from an allowed country, proceeding.');
     return NextResponse.next();
   }
 
