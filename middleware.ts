@@ -12,7 +12,7 @@ export default function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   if (path.startsWith('/sounds')) {
-    ////console.log('Request to /sounds, bypassing geolocation checks.');
+    //console.log('Request to /sounds, bypassing geolocation checks.');
     return NextResponse.next();
   }
 

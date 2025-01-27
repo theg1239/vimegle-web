@@ -303,6 +303,8 @@ export default function TextChatPage() {
   const connectedRef = useRef<boolean>(connected);
   const currentRoomRef = useRef<string>(currentRoom);
   const tooltipShownRef = useRef<boolean>(false);
+  const searchToastId = useRef<string | null>(null);
+  const matchToastId = useRef<string | null>(null);
 
   // Ref for Virtuoso
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
@@ -500,13 +502,16 @@ export default function TextChatPage() {
       setMatchedTags(tagsArray);
       setShowIntroMessage(true);
 
-      const toastId = `text-match-${room}`;
-      toast.dismiss(toastId);
-      if (tagsArray.length > 0) {
-        toast.success(`Connected based on tags: ${tagsArray.join(', ')}`, { id: toastId });
-      } else {
-        toast.success('Connected to a stranger!', { id: toastId });
+      if (matchToastId.current) {
+        toast.dismiss(matchToastId.current);
       }
+      const toastMessage = tagsArray.length > 0 
+        ? `Connected based on tags: ${tagsArray.join(', ')}`
+        : 'Connected to a stranger!';
+      
+      matchToastId.current = toast.success(toastMessage, { 
+        id: 'text-match-success'
+      });
 
       if (soundEnabledRef.current && hasInteractedRef.current) {
         playNotificationSound();
@@ -527,9 +532,27 @@ export default function TextChatPage() {
     setIsSearching(false);
     setNoUsersOnline(true);
 
-    const toastId = 'no-text-match';
-    toast.dismiss(toastId);
-    toast.error(message || 'No users found with matching tags.', { id: toastId });
+    if (matchToastId.current) {
+      toast.dismiss(matchToastId.current);
+    }
+    matchToastId.current = toast.error(message || 'No users found with matching tags.', { 
+      id: 'no-text-match'
+    });
+  }, []);
+
+  const handleCancelSearch = useCallback(() => {
+    textSocket.emit('cancel_search');
+    setIsSearching(false);
+    setNoUsersOnline(false);
+    setReplyTo(null);
+    setMessages([]);
+    
+    if (searchToastId.current) {
+      toast.dismiss(searchToastId.current);
+    }
+    searchToastId.current = toast('Search cancelled.', { 
+      id: 'search-cancelled'
+    });
   }, []);
 
   // Handle Search Cancellation
@@ -538,9 +561,12 @@ export default function TextChatPage() {
     setSearchCancelled(true);
     setFullChatHistory([]);
 
-    const toastId = 'search-cancelled';
-    toast.dismiss(toastId);
-    toast(message || 'Search cancelled.', { id: toastId });
+    if (searchToastId.current) {
+      toast.dismiss(searchToastId.current);
+    }
+    searchToastId.current = toast(message || 'Search cancelled.', {
+      id: 'search-cancelled'
+    });
   }, []);
 
   const handleInView = useCallback(
@@ -1422,14 +1448,7 @@ export default function TextChatPage() {
                     </p>
                   )}
                   <Button
-                    onClick={() => {
-                      textSocket.emit('cancel_search');
-                      setIsSearching(false);
-                      setNoUsersOnline(false);
-                      setReplyTo(null);
-                      setMessages([]);
-                      toast('Search cancelled.');
-                    }}
+                    onClick={handleCancelSearch}
                     variant="outline"
                     size="sm"
                     className={`mt-4 bg-white/10 hover:bg-white/20 text-white border-white/20 rounded-full shadow-sm transition-colors duration-300`}
@@ -1872,7 +1891,7 @@ export default function TextChatPage() {
                     }}
                     className="virtuoso-scrollbar"
                     style={{ height: '100%', width: '100%' }}
-                    overscan={200} // Adjusted overscan for better performance
+                    overscan={200}
                   />
 
                   {/* Introductory Message */}
