@@ -1367,7 +1367,6 @@ export default function TextChatPage() {
           onKeyDown={handleUserInteraction}
           onMouseMove={handleUserInteraction}
         >
-          {/* Snowfall Effect */}
           {winterTheme && (
             <Snowfall
               style={{
@@ -1659,7 +1658,7 @@ export default function TextChatPage() {
                         )}
                       </Button>
                     </div>
-                    <div className="flex items-center justify-between">
+                    {/* <div className="flex items-center justify-between">
                       <Label
                         htmlFor="winter-theme"
                         className={`${
@@ -1678,7 +1677,7 @@ export default function TextChatPage() {
                             : 'bg-gray-300 data-[state=checked]:bg-blue-600'
                         }`}
                       />
-                    </div>
+                    </div> */}
                   </div>
                 </PopoverContent>
               </Popover>
