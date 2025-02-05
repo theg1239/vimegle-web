@@ -1,81 +1,87 @@
-'use client'
-
-import { useState } from 'react';
-import { Video, MessageSquare, Users, ArrowRight, Mic } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/app/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/app/components/ui/tooltip';
+"use client"
+import { Video, MessageSquare, Mic, ArrowRight } from "lucide-react"
+import Link from "next/link"
+import { Button } from "@/app/components/ui/button"
 
 export default function HeroSection() {
-  const [showComingSoon, setShowComingSoon] = useState(false);
-
   return (
-    <div className="min-h-screen flex flex-col overflow-hidden">
-      <div className="flex-1 flex flex-col sm:flex-row">
-        {/* Text Chat Section */}
-        <div className="flex-1 bg-gradient-to-tr from-sky-900 to-blue-900 flex flex-col items-center justify-center text-white p-4 sm:p-6">
-          <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 mb-2 sm:mb-4 text-blue-300" />
-          <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-center">
-            Text Chat
+    <section className="relative py-14 pt-48 overflow-hidden bg-black text-white">
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f2e_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f2e_1px,transparent_1px)] bg-[size:14px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]"></div>
+      <div className="relative z-10 container mx-auto px-4 max-w-5xl">
+        <div className="text-center mb-11">
+          <h2 className="text-3xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-gray-100 via-gray-300 to-gray-500">
+            Connect with Strangers
           </h2>
-          <p className="text-sm sm:text-base mb-2 sm:mb-4 text-center max-w-[200px] sm:max-w-md">
-            Text strangers.
+          <p className="mt-4 text-lg text-gray-400 leading-relaxed max-w-md mx-auto">
+            Choose your preferred method of communication and start chatting with people from around the world.
           </p>
-          <Link href="/text">
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-blue-500 text-blue-300 hover:bg-blue-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
-            >
-              Try Text Chat
-              <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
-            </Button>
-          </Link>
         </div>
 
-        {/* Voice Chat Section */}
-        <div className="flex-1 bg-gradient-to-tr from-yellow-800 to-amber-900 flex flex-col items-center justify-center text-white p-4 sm:p-6">
-          <Mic className="w-10 h-10 sm:w-12 sm:h-12 mb-2 sm:mb-4 text-yellow-300" />
-          <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-center">
-            Voice Chat
-          </h2>
-          <p className="text-sm sm:text-base mb-2 sm:mb-4 text-center max-w-[200px] sm:max-w-md">
-            Talk with your voice.
-          </p>
-          <Link href="/voice">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-12">
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <MessageSquare className="w-12 h-12 text-blue-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-200 text-center">Text Chat</h3>
+            <p className="text-gray-400 text-center">
+              Connect through text messages. Engage in conversations.
+            </p>
             <Button
-              size="sm"
+              asChild
               variant="outline"
-              className="border-yellow-500 text-yellow-300 hover:bg-yellow-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
+              className="w-full hover:bg-blue-700 hover:text-white transition duration-200"
             >
-              Try Voice Chat
-              <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
+              <Link href="/text">
+                Try Text Chat
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
             </Button>
-          </Link>
+          </div>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Mic className="w-12 h-12 text-yellow-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-200 text-center">Voice Chat</h3>
+            <p className="text-gray-400 text-center">
+              Talk with your voice. Have real-time audio conversations with others.
+            </p>
+            <Button
+              asChild
+              variant="outline"
+              className="w-full hover:bg-yellow-700 hover:text-white transition duration-200"
+            >
+              <Link href="/voice">
+                Try Voice Chat
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              <Video className="w-12 h-12 text-red-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-200 text-center">Video Chat</h3>
+            <p className="text-gray-400 text-center">Face-to-face interactions. See and talk to people in real-time.</p>
+            <Button
+              asChild
+              variant="outline"
+              className="w-full hover:bg-red-700 hover:text-white transition duration-200"
+            >
+              <Link href="/video">
+                Try Video Chat
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        {/* Video Chat Section */}
-        <div className="flex-1 bg-gradient-to-tr from-red-900 to-pink-900 flex flex-col items-center justify-center text-white p-4 sm:p-6">
-          <Video className="w-10 h-10 sm:w-12 sm:h-12 mb-2 sm:mb-4 text-red-300" />
-          <h2 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-center">
-            Video Chat
-          </h2>
-          <p className="text-sm sm:text-base mb-2 sm:mb-4 text-center max-w-[200px] sm:max-w-md">
-            Connect via video.
+        <div className="text-center">
+          <p className="text-sm text-gray-400 max-w-sm mx-auto">
+            By using our services, you agree to our Terms of Service and Privacy Policy.
           </p>
-          <Link href="/video">
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-red-500 text-red-300 hover:bg-red-700 hover:text-white px-4 py-1 sm:px-6 sm:py-2 rounded-full transition-all duration-300 transform hover:scale-105 text-xs sm:text-sm"
-            >
-              Try Video Chat
-              <ArrowRight className="ml-2 w-3 h-3 sm:w-4 sm:h-4" />
-            </Button>
-          </Link>
         </div>
       </div>
-    </div>
-  );
+    </section>
+  )
 }
 

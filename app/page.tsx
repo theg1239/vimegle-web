@@ -5,7 +5,7 @@ import HeroSection from '@/app/components/new-hero';
 import { Toaster } from '@/app/components/ui/toaster';
 import Header from '@/app/components/header';
 import { useRouter } from 'next/navigation';
-import { OldHero } from '@/app/components/hero';
+import { IntegratedHero } from '@/app/components/hero';
 import { AboutSection } from '@/app/components/about';
 
 function App() {
@@ -14,8 +14,7 @@ function App() {
   return (
     <div className="min-h-screen bg-black text-white">
       <Header />
-      <HeroSection />
-      <OldHero />
+      <IntegratedHero />
       <AboutSection />
       <Toaster />
     </div>
