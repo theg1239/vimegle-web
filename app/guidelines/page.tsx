@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/app/components/ui/button';
-import Header from '@/app/components/header';
+import Header from '@/app/components/new-header';
 
 export default function TermsAndPrivacyPage() {
   return (
