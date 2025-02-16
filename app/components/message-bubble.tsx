@@ -31,6 +31,45 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
       }
     }, [inView, message.id, message.isSelf, onInView]);
 
+    const renderEmbedsFromText = (text: string) => {
+      const urlRegex = /(\bhttps?:\/\/[^\s]+)/gi;
+      const matches = text.match(urlRegex);
+      if (!matches) return null;
+
+      return (
+        <div className="mt-2 space-y-2">
+          {matches.map((url, index) => {
+            if (/\.(jpeg|jpg|gif|png)$/i.test(url)) {
+              return (
+                <img
+                  key={index}
+                  src={url}
+                  alt="Embedded content"
+                  className="max-w-full rounded shadow-md"
+                />
+              );
+            } else {
+              return (
+                <div
+                  key={index}
+                  className="p-2 border border-gray-300 rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+                >
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline"
+                  >
+                    {url}
+                  </a>
+                </div>
+              );
+            }
+          })}
+        </div>
+      );
+    };
+
     const bind = useGesture(
       {
         onDrag: ({ movement: [mx], direction: [xDir], velocity }) => {
@@ -51,7 +90,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -20 }}
         transition={{ duration: 0.3 }}
-        // Allow horizontal swipes on mobile without browser interference
         style={{ touchAction: 'pan-y' }}
         className={`flex ${isSelf ? 'flex-row-reverse' : 'flex-row'} items-start mb-4 group relative`}
         id={message.id}
@@ -59,17 +97,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         <div ref={ref} className="relative max-w-[80%]">
           {message.replyTo && (
             <div
-              className={`text-xs mb-1 ${
-                darkMode ? 'text-gray-400' : 'text-gray-600'
-              }`}
+              className={`text-xs mb-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}
             >
               {message.isSelf ? (
                 message.replyTo.isSelf
                   ? 'You replied to yourself'
                   : 'You replied to them'
               ) : message.replyTo.isSelf
-                ? 'They replied to you'
-                : 'They replied to themselves'}
+              ? 'They replied to you'
+              : 'They replied to themselves'}
             </div>
           )}
 
@@ -87,18 +123,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
           >
             {message.replyTo && (
               <div
-                className={`text-xs mb-2 ${
-                  darkMode ? 'text-gray-300' : 'text-gray-700'
-                }`}
+                className={`text-xs mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
               >
                 Replying to: {message.replyTo.text.substring(0, 20)}
                 {message.replyTo.text.length > 20 ? '...' : ''}
               </div>
             )}
             <span
-              className={`${
-                isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'
-              } break-words`}
+              className={`${isSelf ? 'text-white' : darkMode ? 'text-white' : 'text-black'} break-words`}
               style={{
                 wordBreak: 'break-word',
                 whiteSpace: 'pre-wrap',
@@ -108,14 +140,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
               {message.text}
             </span>
 
+            {renderEmbedsFromText(message.text)}
+
             <span
-              className={`text-xs ${
-                isSelf
-                  ? 'text-gray-300'
-                  : darkMode
-                  ? 'text-gray-400'
-                  : 'text-gray-600'
-              } mt-1 block`}
+              className={`text-xs ${isSelf ? 'text-gray-300' : darkMode ? 'text-gray-400' : 'text-gray-600'} mt-1 block`}
             >
               {message.timestamp.toLocaleTimeString([], {
                 hour: '2-digit',
@@ -125,11 +153,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
           </div>
 
           {showSeen && (
-            <div
-              className={`text-xs mt-1 ${
-                darkMode ? 'text-gray-400' : 'text-gray-600'
-              }`}
-            >
+            <div className={`text-xs mt-1 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               Seen
             </div>
           )}
@@ -141,9 +165,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.5 }}
                 transition={{ duration: 0.3 }}
-                className={`absolute ${
-                  isSelf ? '-left-2' : '-right-2'
-                } -bottom-2 z-10`}
+                className={`absolute ${isSelf ? '-left-2' : '-right-2'} -bottom-2 z-10`}
               >
                 <div className="rounded-full p-1 shadow-md">
                   <Heart className="w-5 h-5 text-red-500 fill-current" />
@@ -156,7 +178,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(
         <Button
           variant="ghost"
           size="icon"
-          // Added `self-center` to vertically center the button
           className={`${isSelf ? 'mr-2' : 'ml-2'} opacity-0 group-hover:opacity-100 transition-opacity self-center`}
           onClick={() => onReply(message)}
           aria-label="Reply to message"
