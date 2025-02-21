@@ -7,5 +7,7 @@ export async function getLocation() {
   const reqHeaders = await headers();
   const request = new Request('https://vimegle.com', { headers: reqHeaders });
   const { country, city } = geolocation(request);
-  return { country: country ?? 'unknown', city: city ?? 'unknown' };
+  //temp fix for bengaluru resolution
+  const fixedCity = city === 'Bengaluru' ? 'Vellore' : (city ?? 'unknown');
+  return { country: country ?? 'unknown', city: fixedCity };
 }
