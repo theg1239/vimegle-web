@@ -166,7 +166,7 @@ export function IntegratedHero() {
 
             <div className="text-center mb-6 md:mb-11">
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-400 to-blue-600">
-                Choose Your Chat Mode
+                Choose Your Vimegle
               </h2>
               <p className="mt-2 text-sm md:text-lg text-blue-200 leading-relaxed max-w-md mx-auto">
                 Select your preferred method to start chatting.
