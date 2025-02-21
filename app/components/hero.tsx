@@ -120,7 +120,7 @@ export function IntegratedHero() {
               New Today
             </h2>
             <p className="mt-6 text-xl text-blue-200 leading-relaxed max-w-2xl mx-auto">
-              Experience real-time video, voice, and text chat. Make new friends in seconds.
+              Experience real-time video, voice, and text. Make friends in seconds.
             </p>
           </div>
 
