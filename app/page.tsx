@@ -16,7 +16,7 @@ function App() {
       <Header />
       {/* <IntegratedHeroLamp/> */}
       <IntegratedHero />
-      <AboutSection />
+      {/* <AboutSection /> */}
       <Toaster />
     </div>
   );
