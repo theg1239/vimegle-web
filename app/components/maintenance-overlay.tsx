@@ -26,7 +26,7 @@ const MaintenanceOverlay: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4, duration: 0.6 }}
         >
-          Nov 24-Nov 30.
+          Maintenance in progress.
         </motion.p>
         <motion.p
           className="text-lg text-gray-300"
@@ -34,7 +34,7 @@ const MaintenanceOverlay: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6, duration: 0.6 }}
         >
-          Killed by creeps.
+          hey@vimegle.com
         </motion.p>
       </motion.div>
       <motion.div
