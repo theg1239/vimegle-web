@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Button } from '@/app/components/ui/button';
 import Header from '@/app/components/new-header';
+import { AboutSection } from '../components/about';
 
 export default function TermsAndPrivacyPage() {
   return (
@@ -62,6 +63,7 @@ export default function TermsAndPrivacyPage() {
           </div>
         </div>
       </section>
+      <AboutSection />
     </div>
   );
 }
