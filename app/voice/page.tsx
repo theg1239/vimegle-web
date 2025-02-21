@@ -233,13 +233,17 @@ export default function ChatPage() {
       initiator,
       room,
       remoteUserData,
+      partnerCity,
+      partnerCountry,
     }: {
       initiator: boolean;
       room: string;
       remoteUserData: User;
+      partnerCity?: string;
+      partnerCountry?: string;
     }) => {
       if (roomRef.current === room) return;
-
+  
       setIsSearching(false);
       setConnected(true);
       setRoom(room);
@@ -248,13 +252,15 @@ export default function ChatPage() {
       setHasCameraError(false);
       setChatState('connecting');
       toast.success('Match found! Connecting to voice chat...', { id: 'match-toast' });
-
+  
       setRemoteUser(remoteUserData);
-
+  
+      if (partnerCity && partnerCountry) {
+        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, { id: 'location-toast' });
+      }
+  
       if (!localStreamRef.current) {
-        toast.error('Failed to get local media stream.', {
-          id: 'media-error-toast',
-        });
+        toast.error('Failed to get local media stream.', { id: 'media-error-toast' });
         setChatState('idle');
         return;
       }
@@ -758,10 +764,10 @@ export default function ChatPage() {
           />
         )}
 
-        {/* Experimental Feature Message */}
+        {/* Experimental Feature Message
         <div className="absolute bottom-5 w-full text-center text-white text-sm">
           This feature is still experimental.
-        </div>
+        </div> */}
 
         {/* Notification for Page Visibility */}
         {!isPageVisible && (

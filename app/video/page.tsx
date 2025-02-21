@@ -14,6 +14,12 @@ import DraggableLocalVideo from '@/app/components/draggable-local-video';
 import LocalVideo from '@/app/components/local-video';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
 
+interface User {
+  id: string;
+  name: string;
+  avatarUrl?: string;
+}
+
 type ChatState =
   | 'idle'
   | 'searching'
@@ -276,31 +282,41 @@ export default function ChatPage() {
 
   // Handle 'match' events
   const handleMatch = useCallback(
-    ({ initiator, room }: { initiator: boolean; room: string }) => {
-      //console.log(`Received "match" event for room: ${room} as initiator: ${initiator}`);
-
+    ({
+      initiator,
+      room,
+      remoteUserData,
+      partnerCity,
+      partnerCountry,
+    }: {
+      initiator: boolean;
+      room: string;
+      remoteUserData: User;
+      partnerCity?: string;
+      partnerCountry?: string;
+    }) => {
       // Prevent handling multiple matches for the same room
       if (roomRef.current === room) {
-        console.warn(
-          `Already connected to room ${room}. Ignoring duplicate match.`
-        );
+        console.warn(`Already connected to room ${room}. Ignoring duplicate match.`);
         return;
       }
-
+  
       setIsSearching(false);
       setConnected(true);
       setRoom(room);
       setSearchCancelled(false);
       setIsDisconnected(false);
       setHasCameraError(false);
-      setMessages([]);
       setChatState('connecting');
-      toast.success('Match found! Connecting...', { id: 'match-toast' });
-
+      toast.success('Match found! Connecting to video chat...', { id: 'match-toast' });
+  
+      if (partnerCity && partnerCountry) {
+        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, { id: 'location-toast' });
+      }
+  
+      // Verify that a local video stream is available before proceeding
       if (!localStreamRef.current) {
-        toast.error('Failed to get local media stream.', {
-          id: 'media-error-toast',
-        });
+        toast.error('Failed to access your video stream.', { id: 'media-error-toast' });
         setChatState('idle');
         return;
       }

@@ -480,43 +480,45 @@ export default function TextChatPage() {
     setReplyTo(null);
   }, []);
 
-  // Handle Successful Text Match
   const handleTextMatch = useCallback(
     ({
       room,
       initiator,
       matchedTags,
+      partnerCity,
+      partnerCountry,
     }: {
       room: string;
       initiator: boolean;
       matchedTags?: string | string[];
+      partnerCity?: string;
+      partnerCountry?: string;
     }) => {
       let tagsArray: string[] = [];
-
       if (Array.isArray(matchedTags)) {
         tagsArray = matchedTags.map(tag => tag.trim()).filter(tag => tag !== '');
       } else if (typeof matchedTags === 'string') {
         tagsArray = matchedTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
       }
-
+  
       setMatchedTags(tagsArray);
       setShowIntroMessage(true);
-
+  
       if (matchToastId.current) {
         toast.dismiss(matchToastId.current);
       }
-      const toastMessage = tagsArray.length > 0 
-        ? `Connected based on tags: ${tagsArray.join(', ')}`
-        : 'Connected to a stranger!';
-      
-      matchToastId.current = toast.success(toastMessage, { 
-        id: 'text-match-success'
-      });
-
+      const toastMessage =
+        tagsArray.length > 0 ? `Connected based on tags: ${tagsArray.join(', ')}` : 'Connected to a stranger!';
+      matchToastId.current = toast.success(toastMessage, { id: 'text-match-success' });
+  
+      if (partnerCity && partnerCountry) {
+        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, { id: 'location-toast' });
+      }
+  
       if (soundEnabledRef.current && hasInteractedRef.current) {
         playNotificationSound();
       }
-
+  
       setConnected(true);
       setIsSearching(false);
       setCurrentRoom(room);
