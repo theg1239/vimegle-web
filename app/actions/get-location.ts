@@ -1,0 +1,11 @@
+'use server';
+
+import { headers } from 'next/headers';
+import { geolocation } from '@vercel/functions';
+
+export async function getLocation() {
+  const reqHeaders = await headers();
+  const request = new Request('https://vimegle.com', { headers: reqHeaders });
+  const { country, city } = geolocation(request);
+  return { country: country ?? 'unknown', city: city ?? 'unknown' };
+}

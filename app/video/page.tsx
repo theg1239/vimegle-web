@@ -13,7 +13,7 @@ import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
 import DraggableLocalVideo from '@/app/components/draggable-local-video';
 import LocalVideo from '@/app/components/local-video';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
-import { logPartnerLocation } from '../actions/log-partner-location';
+import { getLocation } from '@/app/actions/get-location';
 
 interface User {
   id: string;
@@ -282,7 +282,7 @@ export default function ChatPage() {
   }, [startSearch, handleSignal, handleLeave]);
 
   const handleMatch = useCallback(
-    ({
+    async ({
       initiator,
       room,
       remoteUserData,
@@ -299,7 +299,7 @@ export default function ChatPage() {
         console.warn(`Already connected to room ${room}. Ignoring duplicate match.`);
         return;
       }
-    
+  
       setIsSearching(false);
       setConnected(true);
       setRoom(room);
@@ -308,34 +308,43 @@ export default function ChatPage() {
       setHasCameraError(false);
       setChatState('connecting');
       toast.success('Match found! Connecting to video chat...', { id: 'match-toast' });
-    
-      // Set remote user data (if needed)
+  
       setRemoteUser(remoteUserData);
-    
-      // Log partner location on the server side and show a toast if available.
+  
       if (partnerCity && partnerCountry) {
-        // Call the server action (this happens on the server and won’t show up as a visible API request)
-        logPartnerLocation('video', partnerCity, partnerCountry);
-        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, { id: 'location-toast' });
+        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, {
+          id: 'location-toast',
+          duration: 8000,
+        });
+      } else {
+        try {
+          const location = await getLocation();
+          toast.success(
+            `Your partner is from ${location.city}, ${location.country}`,
+            { duration: 8000 }
+          );
+          console.log('Partner location:', location.city, location.country);
+        } catch (error) {
+          console.error('Error fetching partner location:', error);
+        }
       }
-    
+  
       if (!localStreamRef.current) {
         toast.error('Failed to access your video stream.', { id: 'media-error-toast' });
         setChatState('idle');
         return;
       }
-    
-      // Clear previous signals
+  
       processedSignals.current.clear();
       signalQueueRef.current = [];
-    
+  
       if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
         socketRef.current?.off('signal', handleSignal);
         socketRef.current?.off('leave', handleLeave);
       }
-    
+  
       const newPeer = new Peer({
         initiator,
         trickle: true,
@@ -350,18 +359,18 @@ export default function ChatPage() {
           ],
         },
       });
-    
+  
       peerRef.current = newPeer;
-    
+  
       newPeer.on('signal', (data) => {
         if (!roomRef.current) return;
         socketRef.current?.emit('signal', { room: roomRef.current, data });
       });
-    
+  
       newPeer.on('stream', (stream) => {
         setRemoteStream(stream);
       });
-    
+  
       newPeer.on('connect', () => {
         setConnected(true);
         setIsDisconnected(false);
@@ -369,13 +378,15 @@ export default function ChatPage() {
         toast.success('Connected to your chat partner!', { id: 'connected-toast' });
         processSignalQueue();
       });
-    
+  
       newPeer.on('error', (err) => {
         console.error('Peer error:', err);
-        toast.error('User disconnected. Attempting to find a new match...', { id: 'peer-error-toast' });
+        toast.error('User disconnected. Attempting to find a new match...', {
+          id: 'peer-error-toast',
+        });
         handleNext();
       });
-    
+  
       newPeer.on('close', () => {
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
@@ -390,7 +401,7 @@ export default function ChatPage() {
           socketRef.current?.off('leave', handleLeave);
         }
       });
-    
+  
       newPeer.on('destroy', () => {
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
@@ -405,7 +416,7 @@ export default function ChatPage() {
           socketRef.current?.off('leave', handleLeave);
         }
       });
-    
+  
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
       socketRef.current?.on('signal', handleSignal);

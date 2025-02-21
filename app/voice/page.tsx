@@ -10,6 +10,7 @@ import { defaultSocket, voiceSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
 import { ArrowLeft, Loader2, Users } from 'lucide-react';
 import DisclaimerProvider from '@/app/components/disclaimer-provider';
+import { getLocation } from '@/app/actions/get-location';
 
 type ChatState = 'idle' | 'searching' | 'connecting' | 'connected' | 'disconnected';
 
@@ -229,7 +230,7 @@ export default function ChatPage() {
   }, [startSearch, handleSignal, handleLeave]);
 
   const handleMatch = useCallback(
-    ({
+    async ({
       initiator,
       room,
       remoteUserData,
@@ -256,11 +257,25 @@ export default function ChatPage() {
       setRemoteUser(remoteUserData);
   
       if (partnerCity && partnerCountry) {
-        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, { id: 'location-toast' });
+        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, {
+          id: 'location-toast',
+          duration: 8000,
+        });
+      } else {
+        try {
+          const location = await getLocation();
+          toast.success(`Your partner is from ${location.city}, ${location.country}`, {
+            id: 'location-toast',
+            duration: 8000,
+          });
+          console.log('Partner location:', location.city, location.country);
+        } catch (error) {
+          console.error('Error fetching partner location:', error);
+        }
       }
   
       if (!localStreamRef.current) {
-        toast.error('Failed to get local media stream.', { id: 'media-error-toast' });
+        toast.error('Failed to access your microphone.', { id: 'media-error-toast' });
         setChatState('idle');
         return;
       }
@@ -647,6 +662,7 @@ export default function ChatPage() {
   return (
     <div className="flex flex-col h-screen bg-black">
       <Toaster position="top-center" />
+      <DisclaimerProvider>
       <header className="bg-black backdrop-blur-sm p-6 flex justify-between items-center z-50">
         <div className="flex items-center space-x-4">
           <button
@@ -815,6 +831,7 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+      </DisclaimerProvider>
     </div>
   );
 }

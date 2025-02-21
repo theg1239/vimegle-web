@@ -42,8 +42,8 @@ import { debounce } from 'lodash';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
 import Cookies from 'js-cookie';
 import Snowfall from 'react-snowfall';
+import { getLocation } from '../actions/get-location'
 
-// Dynamic Viewport Height Handling
 const useViewportHeight = () => {
   const mainRef = useRef<HTMLDivElement>(null);
 
@@ -481,11 +481,11 @@ export default function TextChatPage() {
   }, []);
 
   const handleTextMatch = useCallback(
-    ({
+    async ({
       room,
       initiator,
       matchedTags,
-      partnerCity,
+      partnerCity, // these may be provided from the match event but will be overridden
       partnerCountry,
     }: {
       room: string;
@@ -496,9 +496,9 @@ export default function TextChatPage() {
     }) => {
       let tagsArray: string[] = [];
       if (Array.isArray(matchedTags)) {
-        tagsArray = matchedTags.map(tag => tag.trim()).filter(tag => tag !== '');
+        tagsArray = matchedTags.map((tag) => tag.trim()).filter((tag) => tag !== '');
       } else if (typeof matchedTags === 'string') {
-        tagsArray = matchedTags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+        tagsArray = matchedTags.split(',').map((tag) => tag.trim()).filter((tag) => tag !== '');
       }
   
       setMatchedTags(tagsArray);
@@ -511,8 +511,16 @@ export default function TextChatPage() {
         tagsArray.length > 0 ? `Connected based on tags: ${tagsArray.join(', ')}` : 'Connected to a stranger!';
       matchToastId.current = toast.success(toastMessage, { id: 'text-match-success' });
   
-      if (partnerCity && partnerCountry) {
-        toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, { id: 'location-toast' });
+      // Fetch partner location from the server action.
+      try {
+        const location = await getLocation();
+        // Display the partner location with a toast.
+        toast.success(`Your partner is from ${location.city}, ${location.country}`, {
+          duration: 8000,
+        });
+        console.log('Partner location:', location.city, location.country);
+      } catch (error) {
+        console.error('Error fetching partner location:', error);
       }
   
       if (soundEnabledRef.current && hasInteractedRef.current) {
@@ -528,6 +536,8 @@ export default function TextChatPage() {
     },
     [playNotificationSound]
   );
+  
+  
 
   // Handle No Text Match Found
   const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
