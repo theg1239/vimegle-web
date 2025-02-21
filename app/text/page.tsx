@@ -1141,34 +1141,38 @@ export default function TextChatPage() {
   // Handle Back Navigation (Browser Back Button)
   useEffect(() => {
     const handleBackNavigation = (event: PopStateEvent | BeforeUnloadEvent) => {
-      const confirmationMessage =
-        'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.';
-      const confirmed = window.confirm(confirmationMessage);
-      if (!confirmed) {
-        if (event.type === 'popstate') {
-          window.history.pushState(null, document.title, window.location.href);
+      if (connected && currentRoom) {
+        const confirmationMessage =
+          'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.';
+        const confirmed = window.confirm(confirmationMessage);
+        if (!confirmed) {
+          if (event.type === 'popstate') {
+            window.history.pushState(null, document.title, window.location.href);
+          }
+          event.preventDefault();
+          return;
+        } else {
+          notifyPeerDisconnection();
+          setConnected(false);
+          setMessages([]);
+          setCurrentRoom('');
+          setReplyTo(null);
+          setMatchedTags([]);
+          setChatState('idle');
         }
-      } else {
-        notifyPeerDisconnection();
-        setConnected(false);
-        setMessages([]);
-        setCurrentRoom('');
-        setReplyTo(null);
-        setMatchedTags([]);
-        setChatState('idle');
       }
     };
-
+  
     window.addEventListener('popstate', handleBackNavigation);
     window.addEventListener('beforeunload', handleBackNavigation);
-
+  
     window.history.pushState(null, document.title, window.location.href);
-
+  
     return () => {
       window.removeEventListener('popstate', handleBackNavigation);
       window.removeEventListener('beforeunload', handleBackNavigation);
     };
-  }, [notifyPeerDisconnection]);
+  }, [connected, currentRoom, notifyPeerDisconnection]);
 
   useEffect(() => {
     const handleDisconnect = (reason: string) => {
@@ -1214,23 +1218,21 @@ export default function TextChatPage() {
 
   // Handle Back Button in Header
   const handleBack = useCallback(() => {
-    const confirmed = window.confirm(
-      'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
-    );
-
-    if (confirmed) {
+    if (connected && currentRoom) {
+      const confirmed = window.confirm(
+        'Are you sure you want to leave this chat? This will disconnect you from your current chat partner.'
+      );
+      if (!confirmed) return;
       if (currentRoom) textSocket.emit('peerDisconnected', { room: currentRoom });
-
-      setConnected(false);
-      setMessages([]);
-      setCurrentRoom('');
-      setReplyTo(null);
-      setMatchedTags([]);
-      setChatState('idle');
-
-      window.location.href = '/';
     }
-  }, [currentRoom]);
+    setConnected(false);
+    setMessages([]);
+    setCurrentRoom('');
+    setReplyTo(null);
+    setMatchedTags([]);
+    setChatState('idle');
+    window.location.href = '/';
+  }, [connected, currentRoom]);
 
   // Handle Next Chat Button
   const handleNextChat = useCallback(() => {
