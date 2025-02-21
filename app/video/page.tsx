@@ -13,6 +13,7 @@ import { ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
 import DraggableLocalVideo from '@/app/components/draggable-local-video';
 import LocalVideo from '@/app/components/local-video';
 import DisclaimerProvder from '@/app/components/disclaimer-provider';
+import { logPartnerLocation } from '../actions/log-partner-location';
 
 interface User {
   id: string;
@@ -43,7 +44,7 @@ export default function ChatPage() {
   const [isDisconnected, setIsDisconnected] = useState(false);
   const [hasCameraError, setHasCameraError] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-
+  const [remoteUser, setRemoteUser] = useState<User | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const peerRef = useRef<PeerInstance | null>(null);
   const socketRef = useRef<Socket | null>(defaultSocket);
@@ -280,7 +281,6 @@ export default function ChatPage() {
     }, 2000);
   }, [startSearch, handleSignal, handleLeave]);
 
-  // Handle 'match' events
   const handleMatch = useCallback(
     ({
       initiator,
@@ -295,12 +295,11 @@ export default function ChatPage() {
       partnerCity?: string;
       partnerCountry?: string;
     }) => {
-      // Prevent handling multiple matches for the same room
       if (roomRef.current === room) {
         console.warn(`Already connected to room ${room}. Ignoring duplicate match.`);
         return;
       }
-  
+    
       setIsSearching(false);
       setConnected(true);
       setRoom(room);
@@ -309,30 +308,34 @@ export default function ChatPage() {
       setHasCameraError(false);
       setChatState('connecting');
       toast.success('Match found! Connecting to video chat...', { id: 'match-toast' });
-  
+    
+      // Set remote user data (if needed)
+      setRemoteUser(remoteUserData);
+    
+      // Log partner location on the server side and show a toast if available.
       if (partnerCity && partnerCountry) {
+        // Call the server action (this happens on the server and won’t show up as a visible API request)
+        logPartnerLocation('video', partnerCity, partnerCountry);
         toast.success(`Your partner is from ${partnerCity}, ${partnerCountry}`, { id: 'location-toast' });
       }
-  
-      // Verify that a local video stream is available before proceeding
+    
       if (!localStreamRef.current) {
         toast.error('Failed to access your video stream.', { id: 'media-error-toast' });
         setChatState('idle');
         return;
       }
-
-      // Clear previous processed signals and signal queue
+    
+      // Clear previous signals
       processedSignals.current.clear();
       signalQueueRef.current = [];
-
+    
       if (peerRef.current) {
         peerRef.current.destroy();
         peerRef.current = null;
         socketRef.current?.off('signal', handleSignal);
         socketRef.current?.off('leave', handleLeave);
-        //console.log('Destroyed existing Peer instance before creating a new one and removed event listeners.');
       }
-
+    
       const newPeer = new Peer({
         initiator,
         trickle: true,
@@ -347,61 +350,33 @@ export default function ChatPage() {
           ],
         },
       });
-
+    
       peerRef.current = newPeer;
-      //console.log('Created new Peer instance.');
-
+    
       newPeer.on('signal', (data) => {
-        if (!roomRef.current) {
-          console.warn('Cannot emit "signal" event without a room.');
-          return;
-        }
-        //console.log('Peer signaling data:', data);
+        if (!roomRef.current) return;
         socketRef.current?.emit('signal', { room: roomRef.current, data });
-        //console.log('Emitted "signal" event to server with data:', data);
       });
-
+    
       newPeer.on('stream', (stream) => {
-        //console.log('Received remote stream.');
         setRemoteStream(stream);
       });
-
+    
       newPeer.on('connect', () => {
-        //console.log('Peer connection established.');
         setConnected(true);
         setIsDisconnected(false);
         setChatState('connected');
-        toast.success('Connected to your chat partner!', {
-          id: 'connected-toast',
-        });
+        toast.success('Connected to your chat partner!', { id: 'connected-toast' });
         processSignalQueue();
       });
-
+    
       newPeer.on('error', (err) => {
         console.error('Peer error:', err);
-        toast.error('User disconnected. Attempting to find a new match...', {
-          id: 'peer-error-toast',
-        });
+        toast.error('User disconnected. Attempting to find a new match...', { id: 'peer-error-toast' });
         handleNext();
       });
-
-      newPeer.on('data', (data) => {
-        try {
-          const parsedData = JSON.parse(data as string);
-          if (parsedData.type === 'chat') {
-            setMessages((prev) => [
-              ...prev,
-              { text: parsedData.message, isSelf: false },
-            ]);
-            //console.log('Received message:', parsedData.message);
-          }
-        } catch (err) {
-          console.error('Error parsing data from peer:', err);
-        }
-      });
-
+    
       newPeer.on('close', () => {
-        //console.log('Peer connection closed.');
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
           setChatState('disconnected');
@@ -413,12 +388,10 @@ export default function ChatPage() {
           peerRef.current = null;
           socketRef.current?.off('signal', handleSignal);
           socketRef.current?.off('leave', handleLeave);
-          //console.log('Destroyed Peer instance on connection close and removed event listeners.');
         }
       });
-
+    
       newPeer.on('destroy', () => {
-        //console.log('Peer connection destroyed.');
         if (!isSelfInitiatedDisconnectRef.current) {
           setIsDisconnected(true);
           setChatState('disconnected');
@@ -430,16 +403,13 @@ export default function ChatPage() {
           peerRef.current = null;
           socketRef.current?.off('signal', handleSignal);
           socketRef.current?.off('leave', handleLeave);
-          //console.log('Destroyed Peer instance on connection destroy and removed event listeners.');
         }
       });
-
-      // Ensure no duplicate listeners
+    
       socketRef.current?.off('signal', handleSignal);
       socketRef.current?.off('leave', handleLeave);
       socketRef.current?.on('signal', handleSignal);
       socketRef.current?.on('leave', handleLeave);
-      //console.log('Registered "signal" and "leave" event listeners on socket.');
     },
     [handleLeave, handleSignal, handleNext, processSignalQueue]
   );

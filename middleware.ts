@@ -10,6 +10,7 @@ export function middleware(request: NextRequest) {
   if (city) {
     response.headers.set('x-partner-city', city);
   }
+  console.log(`Geo info for request: ${city ?? 'unknown'}, ${country ?? 'unknown'}`);
   return response;
 }
 
