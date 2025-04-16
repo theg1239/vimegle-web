@@ -914,15 +914,16 @@ export default function TextChatPage() {
         toast.loading('Connection lost. Reconnecting...', { id: 'reconnect-toast' });
       }
     };
-  
-    const handleReconnect = () => {
+
+    // Listen for 'connect' (fires on initial connect and after reconnect)
+    const handleConnect = () => {
       toast.success('Reconnected!', { id: 'reconnect-toast' });
       if (currentRoom) {
         textSocket.emit('rejoin_room', { room: currentRoom });
         textSocket.emit('sync_messages', { room: currentRoom });
       }
     };
-  
+
     const handleSyncRequest = ({ requesterId }: { requesterId: string }) => {
       textSocket.emit('sync_response', {
         room: currentRoom,
@@ -930,13 +931,13 @@ export default function TextChatPage() {
         requesterId
       });
     };
-  
-    textSocket.on('reconnect', handleReconnect);
+
+    textSocket.on('connect', handleConnect);
     textSocket.on('disconnect', handleDisconnect);
     textSocket.on('sync_request', handleSyncRequest);
-  
+
     return () => {
-      textSocket.off('reconnect', handleReconnect);
+      textSocket.off('connect', handleConnect);
       textSocket.off('disconnect', handleDisconnect);
       textSocket.off('sync_request', handleSyncRequest);
     };
