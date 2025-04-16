@@ -10,7 +10,7 @@ import React, {
   MouseEvent,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Virtuoso, VirtuosoHandle } from 'react-virtuoso'; // Import Virtuoso and VirtuosoHandle
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Toaster, toast } from 'react-hot-toast';
@@ -76,7 +76,6 @@ const hideScrollbarCSS = `
 }
 `;
 
-// Modal Components
 
 const PeerSearchingModal: FC<{
   onReturnToSearch: () => void;
@@ -153,7 +152,6 @@ const PeerDisconnectedModal: FC<{
   </motion.div>
 );
 
-// Reply Preview Component
 interface ReplyPreviewProps {
   originalMessage: Message;
   onCancelReply: () => void;
@@ -186,7 +184,6 @@ const ReplyPreview: FC<ReplyPreviewProps> = ({
   );
 };
 
-// Typing Indicator Component
 interface TypingIndicatorProps {
   darkMode: boolean;
 }
@@ -210,7 +207,6 @@ const MemoizedTypingIndicator = React.memo(
 );
 MemoizedTypingIndicator.displayName = 'MemoizedTypingIndicator';
 
-// Emoji Picker Component
 interface EmojiPickerComponentProps {
   onEmojiClick: (emojiData: EmojiClickData, event: MouseEvent<Element, MouseEvent>) => void;
   darkMode: boolean;
@@ -231,7 +227,6 @@ const MemoizedEmojiPicker = React.memo(
 
 MemoizedEmojiPicker.displayName = 'MemoizedEmojiPicker';
 
-// Message List Item Component
 interface MessageListItemProps {
   message: Message;
   onDoubleTap: (messageId: string, isSelf: boolean) => void;
@@ -258,9 +253,7 @@ const MessageListItem: React.FC<MessageListItemProps> = React.memo(
 );
 MessageListItem.displayName = 'MessageListItem';
 
-// Main TextChatPage Component
 export default function TextChatPage() {
-  // State Variables
   const [connected, setConnected] = useState<boolean>(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState<string>('');
@@ -297,7 +290,6 @@ export default function TextChatPage() {
     useState<boolean>(false);
   const [seenMessages, setSeenMessages] = useState<Set<string>>(new Set());
 
-  // Refs for Mutable Variables
   const soundEnabledRef = useRef<boolean>(soundEnabled);
   const hasInteractedRef = useRef<boolean>(hasInteracted);
   const connectedRef = useRef<boolean>(connected);
@@ -306,7 +298,6 @@ export default function TextChatPage() {
   const searchToastId = useRef<string | null>(null);
   const matchToastId = useRef<string | null>(null);
 
-  // Ref for Virtuoso
   const virtuosoRef = useRef<VirtuosoHandle | null>(null);
 
   const notificationSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -333,7 +324,6 @@ export default function TextChatPage() {
     };
   }, []);
 
-  // Update Refs When State Changes
   useEffect(() => {
     soundEnabledRef.current = soundEnabled;
   }, [soundEnabled]);
@@ -350,7 +340,6 @@ export default function TextChatPage() {
     currentRoomRef.current = currentRoom;
   }, [currentRoom]);
 
-  // Handle Typing Indicators from Peer
   const handleTypingFromPeer = useCallback((data?: { sender?: string }) => {
     if (!data?.sender || data.sender === textSocket.id) return;
     setIsTyping(true);
@@ -369,7 +358,6 @@ export default function TextChatPage() {
     setIsTyping(false);
   }, []);
 
-  // Handle Self Typing
   const handleTyping = useCallback(() => {
     if (connected && currentRoom) {
       setIsSelfTyping(true);
@@ -419,7 +407,7 @@ export default function TextChatPage() {
     if (!soundEnabledRef.current || !hasInteractedRef.current) return;
     try {
       if (messageSoundRef.current) {
-        messageSoundRef.current.currentTime = 0; // Reset to start
+        messageSoundRef.current.currentTime = 0;
         messageSoundRef.current.play().catch((err) => {
           console.error('Failed to play message sound:', err);
         });
@@ -443,14 +431,12 @@ export default function TextChatPage() {
     }
   }, []);
 
-  // User Interaction Detection
   const handleUserInteraction = useCallback(() => {
     if (!hasInteracted) {
       setHasInteracted(true);
     }
   }, [hasInteracted]);
 
-  // Start Search for Chat Match
   const startSearch = useCallback(() => {
     setIsSearching(true);
     setSearchCancelled(false);
@@ -470,7 +456,6 @@ export default function TextChatPage() {
     }
   }, [tags]);
 
-  // Handle Reply to a Message
   const handleReply = useCallback((message: Message) => {
     setReplyTo(message);
     document.getElementById('message-input')?.focus();
@@ -485,7 +470,7 @@ export default function TextChatPage() {
       room,
       initiator,
       matchedTags,
-      partnerCity, // these may be provided from the match event but will be overridden
+      partnerCity,
       partnerCountry,
     }: {
       room: string;
@@ -511,10 +496,8 @@ export default function TextChatPage() {
         tagsArray.length > 0 ? `Connected based on tags: ${tagsArray.join(', ')}` : 'Connected to a stranger!';
       matchToastId.current = toast.success(toastMessage, { id: 'text-match-success' });
   
-      // Fetch partner location from the server action.
       try {
         const location = await getLocation();
-        // Display the partner location with a toast.
         toast.success(`Your partner is from ${location.city}, ${location.country}`, {
           duration: 8000,
         });
@@ -539,7 +522,6 @@ export default function TextChatPage() {
   
   
 
-  // Handle No Text Match Found
   const handleNoTextMatch = useCallback(({ message }: { message: string }) => {
     setIsSearching(false);
     setNoUsersOnline(true);
@@ -567,7 +549,6 @@ export default function TextChatPage() {
     });
   }, []);
 
-  // Handle Search Cancellation
   const handleSearchCancelled = useCallback(({ message }: { message: string }) => {
     setIsSearching(false);
     setSearchCancelled(true);
@@ -600,13 +581,10 @@ export default function TextChatPage() {
       });
 
       textSocket.emit('messageSeen', { messageId, room: currentRoom });
-
-      // Removed scrollToIndex to prevent interfering with Virtuoso's scroll
     },
     [currentRoom, seenMessages]
   );
 
-  // Handle Incoming Text Messages
   const handleTextMessage = useCallback(
     ({
       message,
@@ -652,13 +630,10 @@ export default function TextChatPage() {
       if (!isSelf && soundEnabledRef.current && hasInteractedRef.current) {
         playMessageSound();
       }
-
-      // Removed scrollToIndex to allow Virtuoso to handle scrolling
     },
     [messages, playMessageSound]
   );
 
-  // Handle Reaction Updates
   const handleReactionUpdate = useCallback(
     ({ messageId, liked }: { messageId: string; liked: boolean }) => {
       setMessages(prevMessages =>
@@ -668,7 +643,6 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle Toast Notifications
   const handleToastNotification = useCallback(
     ({ message }: { message: string }) => {
       const toastId = `toast-${message}`;
@@ -678,14 +652,12 @@ export default function TextChatPage() {
     []
   );
 
-  // Handle Peer Message Seen
   const handlePeerMessageSeen = useCallback(({ messageId }: { messageId: string }) => {
     setMessages(prevMessages =>
       prevMessages.map(msg => (msg.id === messageId ? { ...msg, seen: true } : msg))
     );
   }, []);
 
-  // Handle Peer Searching for New Match
   const handlePeerSearching = useCallback(({ message }: { message: string }) => {
     setConnected(false);
     setMessages([]);
@@ -707,7 +679,6 @@ export default function TextChatPage() {
     }
   }, [playDisconnectSound]);
 
-  // Handle Peer Disconnection
   const handlePeerDisconnected = useCallback(
     ({ message }: { message: string }) => {
       if (isUserInitiatedDisconnect) {
@@ -734,14 +705,12 @@ export default function TextChatPage() {
     [isUserInitiatedDisconnect, playDisconnectSound]
   );
 
-  // Handle Message Seen by Peer
   const handleMessageSeen = useCallback(({ messageId }: { messageId: string }) => {
     setMessages(prevMessages =>
       prevMessages.map(msg => (msg.id === messageId ? { ...msg, seen: true } : msg))
     );
   }, []);
 
-  // Setup Socket Event Listeners
   useEffect(() => {
     if (!textSocket) return;
 
@@ -788,7 +757,6 @@ export default function TextChatPage() {
     textSocket,
   ]);
 
-  // Handle Window Unload to Disconnect Properly
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (connected && currentRoom) {
@@ -805,7 +773,6 @@ export default function TextChatPage() {
     };
   }, [connected, currentRoom, textSocket]);
 
-  // Default and Available Tags
   const defaultTags = useMemo(
     () => [
       'music',
@@ -832,7 +799,6 @@ export default function TextChatPage() {
 
   const isTrending = (tag: string) => trendingTags.includes(tag);
 
-  // Toggle Tag Selection
   const toggleTag = (tag: string) => {
     setTags(prevTags => {
       let newTags = prevTags.includes(tag)
@@ -851,7 +817,6 @@ export default function TextChatPage() {
     });
   };
 
-  // Handle Adding Custom Tag
   const handleAddCustomTag = useCallback(() => {
     if (customTagInput.trim().length > 0) {
       if (customTag) {
@@ -884,7 +849,6 @@ export default function TextChatPage() {
     }
   }, [customTag, customTagInput]);
 
-  // Clear Messages When Not Connected or Searching
   useEffect(() => {
     if (!connected && !isSearching) {
       setMessages([]);
@@ -892,7 +856,6 @@ export default function TextChatPage() {
     }
   }, [connected, isSearching]);
 
-  // Tooltip for Searching
   useEffect(() => {
     if (isSearching && !tooltipShownRef.current) {
       tooltipShownRef.current = true;
@@ -911,7 +874,6 @@ export default function TextChatPage() {
     }
   }, [isSearching]);
 
-  // Show Like Message Once
   useEffect(() => {
     const hasSeenMessage = localStorage.getItem('seenLikeMessage');
     if (!hasSeenMessage) {
@@ -931,7 +893,6 @@ export default function TextChatPage() {
       const syncedMessages = event.detail.messages;
       if (Array.isArray(syncedMessages)) {
         setMessages(prevMessages => {
-          // Merge messages, avoiding duplicates using message IDs
           const messageIds = new Set(prevMessages.map(m => m.id));
           const newMessages = syncedMessages.filter(m => !messageIds.has(m.id));
           return [...prevMessages, ...newMessages].sort((a, b) => 
@@ -947,7 +908,6 @@ export default function TextChatPage() {
     };
   }, []);
   
-  // Add reconnection status handling
   useEffect(() => {
     const handleDisconnect = (reason: string) => {
       if (reason === 'io server disconnect' || reason === 'transport close') {
@@ -958,9 +918,7 @@ export default function TextChatPage() {
     const handleReconnect = () => {
       toast.success('Reconnected!', { id: 'reconnect-toast' });
       if (currentRoom) {
-        // First rejoin the room
         textSocket.emit('rejoin_room', { room: currentRoom });
-        // Then request message sync
         textSocket.emit('sync_messages', { room: currentRoom });
       }
     };
@@ -1002,7 +960,6 @@ export default function TextChatPage() {
     };
   }, []);
 
-  // Handle Moving to Next Chat
   const handleNext = useCallback(() => {
     if (connected && currentRoom) {
       setIsUserInitiatedDisconnect(true);
@@ -1023,7 +980,6 @@ export default function TextChatPage() {
 
   const [chatState, setChatState] = useState<string>('idle');
 
-  // Handle Returning to Search from Peer Searching Modal
   const handleReturnToSearch = useCallback(() => {
     setIsPeerSearching(false);
     setConnected(false);
