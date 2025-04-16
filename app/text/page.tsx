@@ -935,16 +935,13 @@ export default function TextChatPage() {
           const messageIds = new Set(prevMessages.map(m => m.id));
           const newMessages = syncedMessages.filter(m => !messageIds.has(m.id));
           return [...prevMessages, ...newMessages].sort((a, b) => 
-            a.timestamp.getTime() - b.timestamp.getTime()
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
         });
       }
     };
   
-    // Add event listener
     window.addEventListener('message_sync', handleMessageSync as EventListener);
-  
-    // Cleanup
     return () => {
       window.removeEventListener('message_sync', handleMessageSync as EventListener);
     };
@@ -952,26 +949,40 @@ export default function TextChatPage() {
   
   // Add reconnection status handling
   useEffect(() => {
-    const handleReconnecting = () => {
-      setIsReconnecting(true);
+    const handleDisconnect = (reason: string) => {
+      if (reason === 'io server disconnect' || reason === 'transport close') {
+        toast.loading('Connection lost. Reconnecting...', { id: 'reconnect-toast' });
+      }
     };
   
     const handleReconnect = () => {
-      setIsReconnecting(false);
-      // If we're in a room when reconnecting, emit sync request
+      toast.success('Reconnected!', { id: 'reconnect-toast' });
       if (currentRoom) {
+        // First rejoin the room
+        textSocket.emit('rejoin_room', { room: currentRoom });
+        // Then request message sync
         textSocket.emit('sync_messages', { room: currentRoom });
       }
     };
   
-    textSocket.on('reconnecting', handleReconnecting);
+    const handleSyncRequest = ({ requesterId }: { requesterId: string }) => {
+      textSocket.emit('sync_response', {
+        room: currentRoom,
+        messages: messages,
+        requesterId
+      });
+    };
+  
     textSocket.on('reconnect', handleReconnect);
+    textSocket.on('disconnect', handleDisconnect);
+    textSocket.on('sync_request', handleSyncRequest);
   
     return () => {
-      textSocket.off('reconnecting', handleReconnecting);
       textSocket.off('reconnect', handleReconnect);
+      textSocket.off('disconnect', handleDisconnect);
+      textSocket.off('sync_request', handleSyncRequest);
     };
-  }, [currentRoom]);
+  }, [currentRoom, messages]);
 
   useEffect(() => {
     const handleReconnecting = () => {
