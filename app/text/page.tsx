@@ -892,9 +892,13 @@ export default function TextChatPage() {
     const handleMessageSync = (event: CustomEvent) => {
       const syncedMessages = event.detail.messages;
       if (Array.isArray(syncedMessages)) {
+        const normalizedMessages = syncedMessages.map((m: any) => ({
+          ...m,
+          timestamp: m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp),
+        }));
         setMessages(prevMessages => {
           const messageIds = new Set(prevMessages.map(m => m.id));
-          const newMessages = syncedMessages.filter(m => !messageIds.has(m.id));
+          const newMessages = normalizedMessages.filter(m => !messageIds.has(m.id));
           return [...prevMessages, ...newMessages].sort((a, b) => 
             new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
           );
