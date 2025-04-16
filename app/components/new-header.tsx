@@ -9,7 +9,7 @@ const Header: React.FC = () => {
           href="/"
           className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600"
         >
-          Vimegle
+          vimegle
         </Link>
       </div>
 
@@ -18,7 +18,7 @@ const Header: React.FC = () => {
       <nav className="flex-1 flex justify-end">
         <Link href="/guidelines">
           <button className="px-3 py-1.5 text-sm font-medium text-white hover:text-purple-300 bg-transparent hover:bg-purple-500/20 rounded-full transition-colors">
-            Guidelines
+            guidelines
           </button>
         </Link>
       </nav>

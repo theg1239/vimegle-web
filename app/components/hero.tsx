@@ -109,18 +109,18 @@ export function IntegratedHero() {
           <div className="text-center mb-16">
             <span className="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-blue-500/10 text-blue-300 ring-1 ring-blue-500/20 mb-4">
               <Users className="w-4 h-4 mr-2" />
-              Connect with People
+              connect with people
             </span>
             <h2
               className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-blue-400 to-blue-600 leading-relaxed mb-6"
               style={{ lineHeight: "1.21" }}
             >
-              Meet Someone
+              meet someone
               <br />
-              New Today
+              new today
             </h2>
             <p className="mt-6 text-xl text-blue-200 leading-relaxed max-w-2xl mx-auto">
-              Experience real-time video, voice, and text. Make friends in seconds.
+              experience real-time video, voice, and text. make friends in seconds.
             </p>
           </div>
 
@@ -129,29 +129,26 @@ export function IntegratedHero() {
               onClick={toggleChatModes}
               className="bg-blue-600 hover:bg-blue-700 text-white transition duration-200 px-10 py-6 text-xl"
             >
-              Start Chatting
+              start chatting
               <ArrowRight className="ml-2 w-6 h-6" />
             </Button>
           </div>
 
           <div className="text-center mt-12">
             <p className="text-sm text-blue-200 max-w-sm mx-auto">
-              By using our services, you agree to our Guidelines.
+              by using our services, you agree to our guidelines.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Chat modes overlay */}
       <div
         onClick={toggleChatModes}
         className={`fixed inset-0 z-20 bg-gradient-to-b from-slate-900 to-indigo-900 transition-all duration-500 ease-in-out ${
           showChatModes ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       >
-        {/* Centering wrapper that doesn't take full width, leaving tap areas */}
         <div className="h-full flex items-center justify-center">
-          {/* Inner container stops propagation so clicks on the cards don't close overlay */}
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-5xl px-4"
